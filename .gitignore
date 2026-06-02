@@ -1,0 +1,65 @@
+# 敏感配置文件
+SecretKey.csv
+*.env
+.env.local
+.env.*.local
+
+# 数据库和缓存
+*.db
+*.db-shm
+*.db-wal
+examples.db-journal
+stardict.db-journal
+cache/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 音频和媒体
+tts_output/
+# 注意：发音文件通过 data_downloader.py 下载
+pronunciations/
+*.wav
+*.ogg
+
+# 大数据文件（通过 GitHub Releases 下载）
+ecdict.csv
+sentences.csv
+links.csv
+stardict.csv
+
+# 本地数据文件
+wordbooks.json
+resemble.txt
+*.docx
+
+# 打包文件
+data.zip
+pronunciations.zip
+
+# 备份目录
+csv_backup/
+
+# 本地工具脚本
+filter_csv.py
+package_data.py
