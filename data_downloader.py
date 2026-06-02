@@ -17,7 +17,7 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 默认配置 - 部署时修改这里！
 DEFAULT_CONFIG = {
     # 你的Gitee仓库地址，格式: "https://gitee.com/你的用户名/你的仓库名"
-    "repo_url": "https://gitee.com/你的用户名/你的仓库名",
+    "repo_url": "https://gitee.com/yangs-project/pick-up-words",
     # Release版本: "latest" 或具体版本号如 "v1.0"
     "release_version": "latest"
 }
