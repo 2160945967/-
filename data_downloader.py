@@ -16,8 +16,8 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 默认配置 - 部署时修改这里！
 DEFAULT_CONFIG = {
-    # 你的GitHub仓库地址，格式: "https://github.com/你的用户名/你的仓库名"
-    "repo_url": "https://github.com/你的用户名/你的仓库名",
+    # 你的Gitee仓库地址，格式: "https://gitee.com/你的用户名/你的仓库名"
+    "repo_url": "https://gitee.com/你的用户名/你的仓库名",
     # Release版本: "latest" 或具体版本号如 "v1.0"
     "release_version": "latest"
 }
@@ -82,12 +82,12 @@ def check_and_download():
     print()
     
     # 检查配置
-    if DEFAULT_CONFIG["repo_url"] == "https://github.com/你的用户名/你的仓库名":
-        print("⚠️ 请先配置你的GitHub仓库地址！")
+    if DEFAULT_CONFIG["repo_url"] == "https://gitee.com/你的用户名/你的仓库名":
+        print("⚠️ 请先配置你的Gitee仓库地址！")
         print("编辑 data_downloader.py，修改 DEFAULT_CONFIG['repo_url'] 为你的仓库地址")
         print()
         print("临时解决方案：")
-        print("1. 先在 GitHub 上创建仓库")
+        print("1. 先在 Gitee 上创建仓库")
         print("2. 上传数据文件到 Releases")
         print("3. 配置这里的 repo_url")
         print()
