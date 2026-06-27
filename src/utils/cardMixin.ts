@@ -13,7 +13,7 @@ export const cardMixin = {
             loadingDefinitions: {} as Record<string, boolean>,
             loadingExamples: {} as Record<string, boolean>,
             cachedHeights: {} as Record<string, number>,
-            collapsedHeight: 140,
+            collapsedHeight: 116,
             loadingHtml: '<p style="color: var(--primary-blue); margin: 0;">正在加载释义...</p>',
         };
     },
@@ -163,7 +163,7 @@ export const cardMixin = {
                 setTimeout(() => {
                     const el2 = document.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
                     if (el2) {
-                        (this as any).cachedHeights[word] = el2.offsetHeight + 50;
+                        (this as any).cachedHeights[word] = el2.offsetHeight + 12;
                     }
                 }, 100);
                 return;
@@ -184,11 +184,11 @@ export const cardMixin = {
                 if (back) back.style.alignItems = '';
             }
 
-            (this as any).cachedHeights[word] = el.offsetHeight + 50;
+            (this as any).cachedHeights[word] = el.offsetHeight + 12;
             setTimeout(() => {
                 const el2 = document.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
                 if (el2) {
-                    (this as any).cachedHeights[word] = el2.offsetHeight + 50;
+                    (this as any).cachedHeights[word] = el2.offsetHeight + 12;
                 }
             }, 100);
         },
