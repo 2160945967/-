@@ -1,0 +1,623 @@
+/* 单词本管理 */
+.wordbook-management {
+    margin-top: 30px;
+}
+
+.wordbook-actions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    align-items: center;
+}
+
+.wordbook-actions input {
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    flex: 1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.wordbook-actions input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+}
+
+.wordbook-actions button {
+    background-color: #f39c12;
+    color: white;
+}
+
+.wordbook-actions button:hover {
+    background-color: #e67e22;
+}
+
+#wordbook-select {
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    width: 100%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+#wordbook-select:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+}
+
+
+
+/* 导出选项区域 */
+#export-options {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-color);
+    transition: all 0.6s ease;
+}
+
+#export-options h4 {
+    color: var(--text-dark);
+}
+
+#export-options label {
+    color: var(--text-dark);
+}
+
+/* 深色模式导出格式下拉箭头 */
+html.dark-mode #export-format,
+body.dark-mode #export-format {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235dade2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+}
+
+/* 导入/导出结果区域 */
+#import-result {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-color);
+    transition: all 0.6s ease;
+}
+
+/* 进度条容器 */
+#import-result > div:first-child {
+    background-color: var(--border-color);
+}
+
+/* 单词列表 */
+.wordlist-content {
+    margin-top: 30px;
+}
+
+#selected-wordbook-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.wordlist-item {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 24px 14px;
+    background: var(--bg-white);
+    border-radius: var(--radius-md);
+    transition: var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid transparent;
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.wordlist-item:hover {
+    background: var(--bg-white);
+    transform: translateY(-3px);
+    /* 保留 base.css 的悬浮阴影，再用内阴影做左侧高亮，避免加 border 导致尺寸变化 */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1), 0 3px 8px rgba(52,152,219,0.1), inset 4px 0 0 0 var(--primary-blue);
+}
+
+.wordlist-word {
+    font-weight: 600;
+    font-size: 17px;
+    color: var(--text-dark);
+    flex: 1;
+    margin-bottom: 12px;
+}
+
+.wordlist-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.wordlist-btn {
+    padding: 10px 18px;
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+}
+
+.wordlist-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.wordlist-btn:active {
+    transform: scale(0.96);
+    filter: brightness(0.9);
+    transition-duration: 0.08s;
+}
+
+.wordlist-btn.remove-btn {
+    background: linear-gradient(135deg, var(--accent-red) 0%, #c0392b 100%);
+}
+
+/* 收藏页面 */
+#favorites-content {
+    display: none;
+    margin-top: 30px;
+}
+#favorites-content.favorites-content-visible {
+    display: block;
+}
+
+#favorites-empty {
+    display: none;
+}
+#favorites-empty.empty-visible {
+    display: block;
+}
+
+#errorbook-content {
+    display: none;
+}
+#errorbook-content.errorbook-content-visible {
+    display: block;
+}
+
+/* 错题本排序按钮样式 */
+.errorbook-sort-controls {
+    background-color: var(--bg-white);
+    padding: 16px 24px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.errorbook-sort-controls span {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid var(--border-color);
+    background: var(--bg-white);
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.filter-btn:hover {
+    border-color: var(--accent-green);
+    background-color: rgba(39, 174, 96, 0.08);
+    transform: translateY(-1px);
+}
+
+.filter-btn.active {
+    border: 2px solid var(--accent-green);
+    background: linear-gradient(135deg, var(--accent-green) 0%, #1e8449 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+}
+
+.sort-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid var(--border-color);
+    background: var(--bg-white);
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.sort-btn:hover {
+    border-color: var(--primary-blue);
+    background-color: rgba(52, 152, 219, 0.08);
+    transform: translateY(-1px);
+}
+
+.sort-btn.active {
+    border: 2px solid var(--primary-blue);
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+/* 释义权重区域样式 */
+.meaning-weights {
+    margin-top: 16px;
+    padding: 16px;
+    background-color: #fff8f8;
+    border-radius: 8px;
+    border: 1px solid #fadbd8;
+}
+
+.meaning-weights .meaning-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #fdebd0;
+}
+
+.meaning-weights .meaning-item:last-child {
+    border-bottom: none;
+}
+
+.meaning-weights .meaning-text {
+    flex: 1;
+    color: #2c3e50;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.meaning-weights .weight-info {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.meaning-weights .weight-value {
+    color: #3498db;
+    font-weight: 600;
+    padding: 2px 8px;
+    background-color: #eaf4f9;
+    border-radius: 4px;
+}
+
+.meaning-weights .error-count {
+    color: #e74c3c;
+    font-weight: 600;
+    padding: 2px 8px;
+    background-color: #fdebd0;
+    border-radius: 4px;
+}
+
+.meaning-weights .correct-count {
+    color: #27ae60;
+    font-weight: 600;
+    padding: 2px 8px;
+    background-color: #d5f5e3;
+    border-radius: 4px;
+}
+
+/* 错题本空状态样式 */
+#errorbook-empty {
+    display: none;
+    text-align: center;
+    padding: 60px 20px;
+    color: #95a5a6;
+}
+#errorbook-empty.empty-visible {
+    display: block;
+}
+
+#errorbook-empty p:first-child {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #7f8c8d;
+}
+
+#errorbook-empty p:last-child {
+    font-size: 14px;
+    color: #95a5a6;
+}
+
+html.dark-mode #errorbook-empty,
+body.dark-mode #errorbook-empty {
+    color: #a0a0a0;
+}
+html.dark-mode #errorbook-empty p,
+body.dark-mode #errorbook-empty p {
+    color: #a0a0a0;
+}
+
+.flip-card-container {
+    perspective: 1200px;
+    width: 100%;
+}
+
+.flip-card {
+    position: relative;
+    width: 100%;
+    transform-style: preserve-3d;
+    /* 翻转动画由 GSAP 控制，避免 CSS transition 冲突 */
+    height: auto;
+    will-change: transform, height;
+}
+
+.flip-card.flipped {
+    transform: rotateY(180deg);
+}
+
+/* 正面保持在正常流中，决定卡片高度 */
+.flip-card-front {
+    width: 100%;
+    backface-visibility: hidden;
+    position: relative;
+    z-index: 2;
+    height: auto;
+    pointer-events: auto;
+}
+
+/* 背面绝对定位铺满父容器，flex布局显示释义+例句 */
+.flip-card-back {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    min-height: 100%;
+    backface-visibility: hidden;
+    transform: rotateY(180deg);
+    z-index: 1;
+    pointer-events: auto;
+    padding: 12px 15px 12px 12px;
+    overflow-y: visible;
+    display: flex;
+    gap: 15px;
+    box-sizing: border-box;
+    align-items: stretch;
+    border-radius: var(--radius-md);
+}
+
+/* 卡片提示文字 */
+.card-hint {
+    font-size: 11px;
+    color: var(--text-gray);
+    font-style: italic;
+    margin-top: 4px;
+    opacity: 0.8;
+}
+
+.wordlist-definition {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    padding: 0 15px;
+    transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.4s ease;
+}
+
+.wordlist-definition.expanded {
+    max-height: 3000px;
+    opacity: 1;
+    padding: 15px;
+}
+
+/* 卡片内释义标签紧凑显示，避免错位 */
+.wordlist-definition .meaning-tag-row {
+    margin: 4px 0;
+}
+
+.wordlist-definition .part-of-speech {
+    margin-bottom: 4px;
+    font-size: 14px;
+    padding: 2px 8px;
+}
+
+.wordlist-definition .definition {
+    margin-bottom: 6px;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+/* 翻转卡片中的抽屉样式也一致 */
+.flip-card-back .wordlist-definition {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    padding: 0 15px;
+    transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.4s ease;
+}
+
+.flip-card-back .wordlist-definition.expanded {
+    max-height: 3000px;
+    opacity: 1;
+    padding: 15px;
+}
+
+/* 卡片背面释义区域 - 左侧 */
+.flip-card.flipped .flip-card-back .wordlist-definition {
+    flex: 0 0 auto;
+    max-width: 45%;
+    min-width: 35%;
+    margin: 0;
+    padding: 10px 12px;
+    border-left: 4px solid var(--primary-blue);
+    background: var(--bg-white);
+    border-radius: var(--radius-sm);
+    max-height: none;
+    opacity: 1;
+    overflow-y: visible;
+    display: block;
+    height: auto;
+}
+
+/* 没有例句时释义铺满背面 */
+.flip-card.flipped .flip-card-back .wordlist-definition:only-child {
+    flex: 1 1 auto;
+    max-width: 100%;
+    min-width: 100%;
+}
+
+.flip-card-back .wordlist-definition::before {
+    content: "释义：";
+    font-weight: 600;
+    color: var(--primary-blue);
+    display: inline;
+}
+
+/* 卡片背面释义的内容样式 */
+.flip-card.flipped .flip-card-back .wordlist-definition .gdc,
+.flip-card.flipped .flip-card-back .wordlist-definition .dcb {
+    padding: 0;
+    margin: 0;
+    display: block;
+}
+
+.flip-card.flipped .flip-card-back .wordlist-definition .dcb {
+    margin-bottom: 3px;
+}
+
+.flip-card-back .wordlist-definition .pos {
+    font-weight: bold;
+    color: var(--primary-blue);
+    margin-right: 5px;
+}
+
+.flip-card-back .wordlist-definition .dcn {
+    color: var(--text-dark);
+}
+
+.flip-card.flipped .flip-card-back .def-phonetic {
+    display: none;
+}
+
+/* 卡片背面隐藏音标和词头 */
+.flip-card.flipped .flip-card-back .wordlist-definition .ipa,
+.flip-card.flipped .flip-card-back .wordlist-definition .phonetic,
+.flip-card.flipped .flip-card-back .wordlist-definition .phonetic-inline,
+.flip-card.flipped .flip-card-back .wordlist-definition .git,
+.flip-card.flipped .flip-card-back .wordlist-definition .hwd,
+.flip-card.flipped .flip-card-back .wordlist-definition .hrz,
+.flip-card.flipped .flip-card-back .wordlist-definition .ctn,
+.flip-card.flipped .flip-card-back .wordlist-definition .bdy {
+    display: none;
+}
+
+/* 卡片背面例句区域 - 右侧 */
+.flip-card.flipped .flip-card-back .example-sentence {
+    flex: 1;
+    margin: 0;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: var(--radius-sm);
+    border-left: 4px solid var(--accent-green);
+    overflow-y: visible;
+    display: block;
+    background: var(--bg-white);
+    height: auto;
+}
+
+.flip-card-back .example-sentence::before {
+    content: "例句：";
+    font-weight: 600;
+    color: var(--primary-blue);
+    display: inline;
+}
+
+/* 翻转卡片背面的释义容器样式 */
+.flip-card-definition {
+    padding: 15px;
+    background-color: var(--bg-white);
+    border-radius: 6px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+/* 按钮禁用状态 */
+.wordbook-actions button:disabled,
+#rename-wordbook:disabled,
+#delete-wordbook:disabled,
+#import-wordbook-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 拖拽中的元素 */
+.wordlist-item.dragging {
+    opacity: 0.4;
+}
+
+/* 导入结果容器可见 */
+#import-result {
+    display: none;
+}
+#import-result.import-result-visible {
+    display: block;
+}
+
+/* 导入结果文本 */
+.import-result-text {
+    color: #3498db;
+    font-size: 16px;
+}
+
+/* 单词本内容容器 */
+#selected-wordbook-content.wordbook-content-visible {
+    display: block;
+}
+
+/* 空/有内容状态切换 */
+#selected-wordbook-empty {
+    display: none;
+}
+#selected-wordbook-empty.empty-visible {
+    display: block;
+}
+#selected-wordbook-empty.empty-hidden {
+    display: none;
+}
+
+/* 空状态时隐藏 600px 的虚拟列表占位，避免留白过大 */
+.wordlist-content:has(#favorites-empty.empty-visible) #favorites-vue-app,
+.wordlist-content:has(#errorbook-empty.empty-visible) #errorbook-vue-app,
+.wordlist-content:has(#selected-wordbook-empty.empty-visible) #wordbook-vue-app {
+    display: none;
+}
+
+/* 空状态提示与上方控件保持合适间距 */
+#favorites-empty.empty-visible,
+#errorbook-empty.empty-visible,
+#selected-wordbook-empty.empty-visible {
+    margin-top: 60px;
+}
+
+/* 系统单词本加载容器 */
+#sys-wordbook-loading {
+    display: none;
+}
+#sys-wordbook-loading.loading-visible {
+    display: block;
+}
+#sys-wordbook-loading.loading-hidden {
+    display: none;
+}
+
