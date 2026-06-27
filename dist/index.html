@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拾词</title>
+    <link rel="icon" href="./logo.svg" type="image/svg+xml">
+    <link rel="shortcut icon" href="./logo.svg" type="image/svg+xml">
+
+    <!-- CSS -->
+
+    <!-- Vue 3 CDN (for global window.Vue compatibility) -->
+    <script src="https://unpkg.com/vue@3.4.0/dist/vue.global.prod.js"></script>
+
+    <!-- Theme initialization (inline, before DOM parse to prevent flash) -->
+    <script>
+        (function() {
+            var isDark = localStorage.getItem('darkMode') === 'true';
+            if (isDark) {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
+    </script>
+  <script type="module" crossorigin src="./assets/index-BT9acDHU.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-ybc7oigl.css">
+</head>
+<body>
+    <div id="bg-under"></div>
+    <div id="bg-over"></div>
+    <div id="ripple-layer-1" class="theme-ripple"></div>
+    <div id="ripple-layer-2" class="theme-ripple"></div>
+    <div id="ripple-layer-3" class="theme-ripple"></div>
+    <div id="theme-mask"></div>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>学习统计</h2>
+            <button class="sidebar-toggle" id="sidebar-toggle" title="折叠侧边栏" aria-label="折叠侧边栏">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+        </div>
+        <div class="network-status">
+            <div class="status-indicator" id="network-indicator"></div>
+            <span class="status-text" id="network-status-text">检查网络...</span>
+        </div>
+        <div class="stats-container">
+            <h3>学习数据</h3>
+            <div class="stat-item">
+                <span class="stat-label">总学习单词数</span>
+                <span class="stat-value" id="total-words">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">查词总个数</span>
+                <span class="stat-value" id="search-count">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">学习天数</span>
+                <span class="stat-value" id="study-days">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">今日学习单词数</span>
+                <span class="stat-value" id="today-words">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">错题数</span>
+                <span class="stat-value" id="error-words">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">明日学习单词数</span>
+                <span class="stat-value" id="tomorrow-words">0</span>
+            </div>
+            <button id="clear-stats" class="clear-stats-btn">清空学习数据</button>
+        </div>
+        <div class="exam-category-card">
+            <label>学习类别</label>
+            <select id="exam-category">
+                <option value="cet4" selected>四级</option>
+                <option value="cet6">六级</option>
+                <option value="ky">考研</option>
+                <option value="zk">中考</option>
+                <option value="gk">高考</option>
+                <option value="toefl">TOEFL</option>
+                <option value="ielts">IELTS</option>
+                <option value="gre">GRE</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 折叠态下的浮动展开按钮 -->
+    <button class="sidebar-expand-btn" id="sidebar-expand-btn" title="展开侧边栏" aria-label="展开侧边栏">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    </button>
+
+    <div class="main-content">
+        <nav class="navbar glass" id="navbar">
+            <div class="navbar-container">
+                <div class="navbar-logo-wrapper">
+                    <a href="#" class="navbar-brand">
+                        <img src="./logo.svg" alt="拾词" style="height: 80px; width: 80px; vertical-align: middle; border-radius: 8px;">
+                    </a>
+                </div>
+                <div class="navbar-left">
+                    <button id="theme-toggle" class="theme-toggle" title="切换主题">🌙</button>
+                </div>
+                <div class="navbar-toggle" id="navbar-toggle">☰</div>
+                <ul class="navbar-nav" id="navbar-nav">
+                    <li class="nav-item">
+                        <a href="#" class="nav-link active" data-section="dictionary">词典</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="quiz">单词测验</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="wordbook">单词本</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="favorites">我的收藏</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="errorbook">错题本</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="review">复习模式</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="settings">设置</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div id="dictionary-page" class="content-page active">
+                <h1>词典</h1>
+
+                <div class="search-container glass">
+                    <input type="text" id="search-input" placeholder="输入单词或句子..." autocomplete="off" autocapitalize="off" spellcheck="true">
+                    <button id="voice-button" class="voice-btn" type="button" title="语音输入">🎤</button>
+                    <button id="search-button">查询</button>
+                </div>
+
+                <div id="suggestions-dropdown"></div>
+
+                <div class="translation-container" style="margin-top: 20px; padding: 20px; border-radius: 8px; display: none;" id="translation-container">
+                    <div id="translation-result"></div>
+                </div>
+
+                <div id="result">
+                    <div id="word"></div>
+                    <div id="phonetic"></div>
+                    <div id="tags"></div>
+                    <div id="meanings"></div>
+                </div>
+
+                <div id="search-history" style="margin-top: 40px;">
+                    <h2>查词历史</h2>
+                    <div id="search-history-items" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; background: var(--bg-light);"></div>
+                    <div id="search-history-empty" style="display: none; text-align: center; color: var(--text-gray); margin-top: 10px; font-size: 15px;">
+                        暂无查词历史
+                    </div>
+                </div>
+            </div>
+
+            <div id="quiz-page" class="content-page">
+                <h1>单词测验</h1>
+
+                <div class="quiz-settings sortable-container" data-container="quiz-settings" style="margin-bottom: 30px;">
+                    <div class="setting-item" draggable="true" data-setting-key="quiz-mode">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="quiz-mode">测验模式：</label>
+                        <select id="quiz-mode">
+                            <option value="zh-to-en">中文 → 英文</option>
+                            <option value="en-to-zh">英文 → 中文</option>
+                            <option value="dictation">听写模式</option>
+                        </select>
+                    </div>
+                    <div class="setting-item" draggable="true" data-setting-key="word-source">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="word-source">单词来源：</label>
+                        <select id="word-source">
+                            <option value="favorites">我的收藏</option>
+                            <option value="errorbook">错题本</option>
+                        </select>
+                    </div>
+                    <div class="setting-item" draggable="true" data-setting-key="quiz-count">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="quiz-count">测验个数：</label>
+                        <input type="number" id="quiz-count" min="1" max="100" value="10" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                    <div class="setting-item" draggable="true" data-setting-key="quiz-order">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="quiz-order">答题顺序：</label>
+                        <select id="quiz-order">
+                            <option value="random">随机</option>
+                            <option value="order">顺序</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="grid-column: span 2; margin-top: 20px; display: flex; justify-content: center;">
+                    <button id="start-quiz" class="btn-gradient btn-green btn-lg">
+                        开始测验
+                    </button>
+                </div>
+
+                <div id="quiz-container">
+                    <div id="quiz-progress" class="quiz-progress-bar" style="display:none;">
+                        <div class="quiz-progress-track">
+                            <div class="quiz-progress-fill" id="quiz-progress-fill"></div>
+                        </div>
+                        <span class="quiz-progress-text" id="quiz-progress-text">0/0</span>
+                    </div>
+                    <div id="quiz-question"></div>
+                    <input type="text" id="quiz-answer" placeholder="输入多个中文时用逗号分号或空格隔开，按Enter提交" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <div id="quiz-feedback"></div>
+                    <div class="quiz-buttons">
+                        <button id="show-answer">显示答案</button>
+                        <button id="quiz-fav-btn" style="display:none;">加入收藏</button>
+                        <button id="next-question">下一题</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="wordbook-page" class="content-page">
+                <h1>单词本管理</h1>
+
+                <div class="wordbook-actions">
+                    <input type="text" id="new-wordbook-name" placeholder="输入单词本名称">
+                    <button id="create-wordbook">创建</button>
+                </div>
+
+                <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: nowrap;">
+                    <label for="wordbook-select" style="white-space: nowrap; flex-shrink: 0;">选择单词本：</label>
+                    <select id="wordbook-select" style="flex: 1; max-width: 300px; min-width: 150px;"></select>
+                    <button id="rename-wordbook" class="btn-gradient btn-orange btn-sm">重命名</button>
+                    <button id="delete-wordbook" class="btn-gradient btn-red btn-sm">删除</button>
+                </div>
+
+                <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <input type="file" id="import-wordbook" accept=".txt,.docx" style="display: none;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="import-wordbook-btn" class="btn-gradient btn-blue btn-md">📥 导入单词本</button>
+                        <button id="export-wordbook-btn" class="btn-gradient btn-green btn-md">📤 导出单词本</button>
+                        <button id="show-import-format-btn" class="btn-gradient btn-orange btn-md">📋 导入格式说明</button>
+                    </div>
+                </div>
+
+                <div id="export-options" style="margin-bottom: 20px; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin-top: 0; margin-bottom: 15px;">导出选项</h4>
+                    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="font-weight: 500;">导出格式：</label>
+                            <select id="export-format" style="padding: 8px 32px 8px 12px; border: 2px solid var(--primary-blue); border-radius: 4px; font-size: 14px; background-color: var(--bg-white); color: var(--text-dark); -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%233498db%27 stroke-width=%272.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpolyline points=%276 9 12 15 18 9%27%3E%3C/polyline%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 10px center; background-size: 12px; cursor: pointer;">
+                                <option value="txt">txt</option>
+                                <option value="docx">docx</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="export-meaning" checked style="width: 18px; height: 18px; cursor: pointer;">
+                            <span>导出单词释义</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="export-phonetic" checked style="width: 18px; height: 18px; cursor: pointer;">
+                            <span>导出单词音标</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="import-result" style="margin-bottom: 20px; padding: 15px; border-radius: 4px;"></div>
+
+                <div id="selected-wordbook-content" class="wordlist-content">
+                    <h3 id="selected-wordbook-title"></h3>
+                    <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        <div class="wordbook-filter-controls" style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-size: 14px; color: var(--text-gray);">类型：</span>
+                            <button class="filter-btn active" id="wordbook-filter-all">全部</button>
+                            <button class="filter-btn" id="wordbook-filter-word">单词</button>
+                            <button class="filter-btn" id="wordbook-filter-phrase">词组</button>
+                            <button class="filter-btn" id="wordbook-filter-sentence">句子</button>
+                        </div>
+                        <div class="wordbook-sort-controls" style="display: flex; gap: 8px; align-items: center; margin-left: 20px;">
+                            <span style="font-size: 14px; color: var(--text-gray);">排序：</span>
+                            <button class="sort-btn active" id="wordbook-sort-alpha">首字母</button>
+                            <button class="sort-btn" id="wordbook-sort-time">时间</button>
+                        </div>
+                    </div>
+                    <div class="search-container glass" style="margin-bottom: 10px;">
+                        <input type="text" id="wordbook-search" placeholder="搜索单词..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                        <button id="wordbook-search-btn">搜索</button>
+                    </div>
+                    <!-- 系统单词本加载进度条（搜索框下方） -->
+                    <div id="sys-wordbook-loading" style="text-align: center; margin-bottom: 15px;">
+                        <p style="color: var(--primary-blue); font-size: 14px; margin-bottom: 8px;" id="sys-wb-loading-text">正在加载单词列表...</p>
+                        <div style="background-color: var(--border-color); border-radius: 10px; height: 16px; width: 100%; max-width: 400px; margin: 0 auto; overflow: hidden;">
+                            <div id="sys-wb-progress-bar" style="background: linear-gradient(90deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%); height: 100%; width: 0%; transition: width 0.2s linear; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold;">
+                                0%
+                            </div>
+                        </div>
+                    </div>
+                    <div id="wordbook-vue-app" style="height: 600px; position: relative;"></div>
+                    <div id="selected-wordbook-empty" style="text-align: center; color: var(--text-gray); margin-top: 20px;">
+                        暂无单词
+                    </div>
+                </div>
+            </div>
+
+            <div id="favorites-page" class="content-page">
+                <h1>我的收藏</h1>
+
+                <div class="search-container glass" style="margin-bottom: 15px;">
+                    <input type="text" id="favorites-search" placeholder="搜索收藏..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <button id="favorites-search-btn">搜索</button>
+                </div>
+                <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 14px; color: var(--text-gray);">类型：</span>
+                        <button class="filter-btn active" id="fav-filter-all">全部</button>
+                        <button class="filter-btn" id="fav-filter-word">单词</button>
+                        <button class="filter-btn" id="fav-filter-phrase">词组</button>
+                        <button class="filter-btn" id="fav-filter-sentence">句子</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 14px; color: var(--text-gray);">排序：</span>
+                        <button class="sort-btn active" id="fav-sort-alpha">首字母</button>
+                        <button class="sort-btn" id="fav-sort-time">时间</button>
+                    </div>
+                </div>
+
+                <div id="favorites-content" class="wordlist-content">
+                    <div id="favorites-vue-app" style="height: 600px; position: relative;"></div>
+                    <div id="favorites-empty" style="text-align: center; color: var(--text-gray); margin-top: 20px; padding: 40px;">
+                        <div style="font-size: 18px; margin-bottom: 10px;">暂无收藏内容</div>
+                        <div style="font-size: 14px;">收藏单词和句子方便复习</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="errorbook-page" class="content-page">
+                <h1>错题本</h1>
+
+                <div class="search-container glass" style="margin-bottom: 15px;">
+                    <input type="text" id="errorbook-search" placeholder="搜索错题..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <button id="errorbook-search-btn">搜索</button>
+                </div>
+                <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 14px; color: var(--text-gray);">类型：</span>
+                        <button class="filter-btn active" id="err-filter-all">全部</button>
+                        <button class="filter-btn" id="err-filter-word">单词</button>
+                        <button class="filter-btn" id="err-filter-phrase">词组</button>
+                        <button class="filter-btn" id="err-filter-sentence">句子</button>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 14px; color: var(--text-gray);">排序：</span>
+                        <button class="sort-btn active" id="err-sort-frequency">出错频率</button>
+                        <button class="sort-btn" id="err-sort-alpha">首字母</button>
+                        <button class="sort-btn" id="err-sort-time">时间</button>
+                    </div>
+                </div>
+
+                <div id="errorbook-content" class="wordlist-content">
+                    <div id="errorbook-vue-app" style="height: 600px; position: relative;"></div>
+                    <div id="errorbook-empty" style="text-align: center; color: var(--text-gray); margin-top: 20px; padding: 40px;">
+                        <div style="font-size: 18px; margin-bottom: 10px;">暂无错题</div>
+                        <div style="font-size: 14px;">继续学习吧，错题会自动记录在这里</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="review-page" class="content-page">
+                <h1>单词复习</h1>
+
+                <div class="quiz-settings sortable-container" data-container="review-settings" style="margin-bottom: 30px;">
+                    <div class="setting-item" draggable="true" data-setting-key="review-mode">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="review-mode">复习模式：</label>
+                        <select id="review-mode">
+                            <option value="zh-to-en">中文 → 英文</option>
+                            <option value="en-to-zh">英文 → 中文</option>
+                            <option value="dictation">听写模式</option>
+                        </select>
+                    </div>
+                    <div class="setting-item" draggable="true" data-setting-key="review-source">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="review-source">复习来源：</label>
+                        <select id="review-source">
+                            <option value="comprehensive">综合复习</option>
+                            <option value="ebbinghaus">艾宾浩斯到期词</option>
+                            <option value="errorbook">错题本</option>
+                            <option value="recent">近期练习词</option>
+                        </select>
+                    </div>
+                    <div class="setting-item" draggable="true" data-setting-key="review-count">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="review-count">复习数量：</label>
+                        <input type="number" id="review-count" min="1" max="200" value="20" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                </div>
+                <div style="grid-column: span 2; margin-top: 20px; display: flex; justify-content: center;">
+                    <button id="start-review" class="btn-gradient btn-green btn-lg">
+                        开始复习
+                    </button>
+                </div>
+
+                <!-- 艾宾浩斯到期词折叠面板 -->
+                <div class="history-collapse" style="grid-column: span 2; margin-top: 30px;">
+                    <div class="history-collapse-header" onclick="g('toggleDueWords', this)">
+                        <span class="history-collapse-arrow history-day-arrow">▶</span>
+                        <span>艾宾浩斯到期词</span>
+                        <a href="javascript:void(0);" onclick="event.stopPropagation(); g('showDueWordsCondition')" title="查看加入条件" class="text-link" style="margin-left: 6px; font-size: 14px;">查看加入条件</a>
+                        <span class="history-collapse-count" id="due-words-count"></span>
+                    </div>
+                    <div style="display:none; padding: 20px 15px; background: var(--bg-white); border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; border: 1px solid var(--border-color); border-top: none;">
+                        <div id="due-words" class="wordlist-content"></div>
+                        <div id="due-words-empty" style="display: none; text-align: center; color: #7f8c8d; margin-top: 20px;">
+                            暂无到期词
+                        </div>
+                    </div>
+                </div>
+
+                <div id="review-quiz-container">
+                    <div id="review-progress" class="quiz-progress-bar" style="display:none;">
+                        <div class="quiz-progress-track">
+                            <div class="quiz-progress-fill" id="review-progress-fill"></div>
+                        </div>
+                        <span class="quiz-progress-text" id="review-progress-text">0/0</span>
+                    </div>
+                    <div id="review-question"></div>
+                    <input type="text" id="review-answer" placeholder="输入多个中文时用逗号分号或空格隔开，按Enter提交" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <div id="review-feedback"></div>
+                    <div class="quiz-buttons">
+                        <button id="review-show-answer">显示答案</button>
+                        <button id="review-next-question">下一题</button>
+                    </div>
+                </div>
+
+                <!-- 复习完成统计 -->
+                <div id="review-complete" class="review-complete" style="display:none;"></div>
+
+                <!-- 历史记录折叠面板 -->
+                <div class="history-collapse" id="history-collapse">
+                    <div class="history-collapse-header" id="history-collapse-header" onclick="g('toggleHistoryPanel', this)">
+                        <span class="history-collapse-arrow" id="history-collapse-arrow">▶</span>
+                        <span>历史练习记录</span>
+                        <span class="history-collapse-count" id="history-collapse-count"></span>
+                    </div>
+                    <div class="history-collapse-body" id="history-collapse-body" style="display:none;">
+                        <div class="search-container glass" style="margin-bottom: 20px;">
+                            <input type="text" id="history-search" placeholder="搜索历史单词..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                            <button id="history-search-btn">搜索</button>
+                        </div>
+                        <div id="history-items" class="wordlist-content"></div>
+                        <div id="history-empty" style="display: none; text-align: center; color: #7f8c8d; margin-top: 20px;">
+                            暂无历史练习记录
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-page" class="content-page">
+                <h1>设置</h1>
+
+                <div class="settings-container sortable-container" data-container="page-settings">
+                    <div class="setting-item" draggable="true" data-setting-key="pronunciation-type">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="pronunciation-type">测验时按下快捷键/自动播放发音类型：</label>
+                        <select id="pronunciation-type">
+                            <option value="us">美式发音</option>
+                            <option value="uk">英式发音</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="chinese-count">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="chinese-count">中文→英文测验模式时显示中文数量：</label>
+                        <input type="number" id="chinese-count" min="1" max="10" value="1">
+                        <label for="show-all-meanings">
+                            <input type="checkbox" id="show-all-meanings"> 显示全部释义
+                        </label>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="answer-key">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="answer-key">测验时显示答案快捷键：</label>
+                        <input type="text" id="answer-key" value="1" maxlength="1">
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="play-pronunciation-key">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="play-pronunciation-key">测验时播放发音快捷键：</label>
+                        <input type="text" id="play-pronunciation-key" value="2" maxlength="1">
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="add-to-wordlist-key">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="add-to-wordlist-key">加入单词本快捷键（词典页面）：</label>
+                        <input type="text" id="add-to-wordlist-key" value="1" maxlength="1">
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="add-to-favorites-key">
+                        <span class="drag-handle" title="拖动排序">⋮</span>
+                        <label for="add-to-favorites-key">收藏快捷键（词典页面）：</label>
+                        <input type="text" id="add-to-favorites-key" value="2" maxlength="1">
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="add-to-favorites-key-in-quiz">
+                        <span class="drag-handle" title="拖动排序">⋮</span>
+                        <label for="add-to-favorites-key-in-quiz">测验时加入收藏快捷键：</label>
+                        <input type="text" id="add-to-favorites-key-in-quiz" value="3" maxlength="1">
+                        <span class="setting-desc">显示答案后按此键收藏当前单词</span>
+                    </div>
+
+                    <div class="setting-item setting-item-toggle" draggable="true" data-setting-key="auto-add-errorbook">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="auto-add-errorbook">
+                            <input type="checkbox" id="auto-add-errorbook"> 显示答案后自动加入错题本
+                        </label>
+                        <span class="setting-desc">手动显示答案时自动将该词加入错题本</span>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="auto-play-pronunciation-after-errors">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="auto-play-pronunciation-after-errors">测验时错题自动播放次数阈值：</label>
+                        <input type="number" id="auto-play-pronunciation-after-errors" min="0" max="10" value="2">
+                        <span class="setting-desc">答错该次数后自动播放单词发音，填 0 表示不自动播放</span>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="error-correct-count">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="error-correct-count">错题答对次数：</label>
+                        <input type="number" id="error-correct-count" min="1" max="10" value="3">
+                        <span class="setting-desc">答对该次数后自动移出错题本</span>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="quiz-multi-part-probability">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label>测验时多词性出现概率：</label>
+                        <input type="range" id="quiz-multi-part-probability" min="0" max="100" value="50" style="width: 200px;">
+                        <span id="quiz-multi-part-value" style="margin-left: 10px;">50%</span>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="quiz-single-part-probability">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label>测验时同一词性出现概率：</label>
+                        <input type="range" id="quiz-single-part-probability" min="0" max="100" value="50" style="width: 200px;">
+                        <span id="quiz-single-part-value" style="margin-left: 10px;">50%</span>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="search-history-count">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="search-history-count">查词历史记录数量：</label>
+                        <input type="number" id="search-history-count" min="5" max="50" value="20">
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="enable-ebbinghaus">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="enable-ebbinghaus">
+                            <input type="checkbox" id="enable-ebbinghaus" checked> 启用艾宾浩斯遗忘曲线
+                        </label>
+                        <a href="#" id="ebbinghaus-info" class="text-link" style="margin-left: 10px; font-size: 14px;">什么是遗忘曲线？</a>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="api-settings">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label>API设置：</label>
+                        <a href="#" id="api-settings-link" class="text-link" style="margin-left: 10px; font-size: 14px;">配置腾讯云翻译API密钥</a>
+                        <p style="font-size: 13px; color: #7f8c8d; margin-top: 6px;">不配置则使用默认密钥，普通用户无需修改</p>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="daily-word-count">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="daily-word-count">每日学习单词数：</label>
+                        <input type="number" id="daily-word-count" min="1" max="200" value="20">
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="clear-cache">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label>清除数据：</label>
+                        <p style="font-size: 14px; color: #7f8c8d; margin-top: 8px;">将清除本地存储数据、翻译缓存和音频缓存</p>
+                    </div>
+                </div>
+                <div class="settings-actions" style="grid-column: span 2; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+                    <button id="save-settings">保存设置</button>
+                    <button id="clear-cache">清除数据</button>
+                </div>
+
+                <!-- 开源词典声明 -->
+                <div style="grid-column: span 2; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef; font-size: 12px; color: #6c757d; text-align: center;">
+                    本项目使用开源词典：
+                    <a href="https://github.com/skywind3000/ECDICT" target="_blank" class="text-link">ECDICT</a> (MIT License) &amp;
+                    <a href="https://github.com/skywind3000/ECDICT" target="_blank" class="text-link">StarDict</a>
+                    <br>
+                    <br>
+                    本项目例句来自：
+                    <a href="https://tatoeba.org/" target="_blank" class="text-link">Tatoeba</a> (CC BY 2.0 FR License)
+                    <br>
+                    Copyright (c) 2017-2026 skywind3000
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/x-template" id="wordbook-vue-template">
+<div class="wordbook-vue-scroll" @scroll="onScroll" :style="{ height: containerHeight + 'px', overflowY: 'auto', position: 'relative' }">
+  <div :style="{ height: totalHeight + 'px', position: 'relative' }">
+    <div v-for="item in visibleItems" :key="item.word" :data-word="item.word"
+         :style="getItemStyle(item._idx)"
+         class="wordlist-item"
+         :draggable="!isSystemWordbook"
+         @dragstart="onDragStart($event, item._idx)"
+         @dragover.prevent="onDragOver($event, item._idx)"
+         @dragend="onDragEnd">
+      <div class="flip-card-container">
+        <div class="flip-card" :class="{ 'flipped': flippedMap[item.word] }">
+
+          <!-- 卡片正面 -->
+          <div class="flip-card-front" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+              <div style="font-size: 18px; font-weight: 500; color: var(--text-dark);">
+                {{ item.word }}
+                <span v-if="errorInfo(item.word)" style="font-size: 14px; color: var(--text-gray);">({{ errorInfo(item.word) }})</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="card-hint">左键展开/右键翻转</span>
+                <a href="javascript:void(0);" @click.stop="jumpToWord(item.word)" class="text-link" style="font-size: 14px; white-space: nowrap;">点击此处查看完整释义</a>
+              </div>
+            </div>
+            <div class="wordlist-actions" style="margin-top: 10px;">
+              <button class="wordlist-btn" @click.stop="playPron('us', item.word)">美式发音</button>
+              <button class="wordlist-btn" @click.stop="playPron('uk', item.word)">英式发音</button>
+              <button v-if="!isSystemWordbook" class="wordlist-btn remove-btn" @click.stop="removeWord(item.word)">移除</button>
+            </div>
+            <div v-if="expandedMap[item.word]" class="wordlist-definition expanded"
+                 style="background-color: var(--bg-light); border-radius: 6px; margin-top: 10px; border-left: 4px solid var(--primary-blue); width: 100%;"
+                 v-html="definitions[item.word] || loadingHtml">
+            </div>
+            <div v-if="expandedMap[item.word] && examples[item.word]" class="example-sentence" v-html="examples[item.word]">
+            </div>
+          </div>
+
+          <!-- 卡片背面 -->
+          <div class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+            <div class="wordlist-definition expanded" v-html="definitions[item.word] || loadingHtml"></div>
+            <div v-if="examples[item.word]" class="example-sentence" v-html="examples[item.word]"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<script type="text/x-template" id="favorites-vue-template">
+<div class="wordbook-vue-scroll" @scroll="onScroll" :style="{ height: containerHeight + 'px', overflowY: 'auto', position: 'relative' }">
+  <div :style="{ height: totalHeight + 'px', position: 'relative' }">
+    <div v-for="item in visibleItems" :key="item.word + '_' + (item.timestamp || '')" :data-word="item.word"
+         :style="getItemStyle(item._idx)"
+         class="wordlist-item">
+      <div class="flip-card-container">
+        <div class="flip-card" :class="{ 'flipped': flippedMap[item.word] }">
+
+          <!-- 卡片正面 -->
+          <div class="flip-card-front" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="flex-grow: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                  <span v-if="item.type === 'sentence'" class="type-badge sentence">句子</span>
+                  <span v-if="item.type === 'phrase'" class="type-badge phrase">词组</span>
+                  <span v-if="!item.type || item.type === 'word'" class="type-badge word">单词</span>
+                  <span style="font-size: 18px; font-weight: 600; color: var(--text-dark); cursor: pointer;" @click.stop="jumpToWord(item.word)">{{ item.word }}</span>
+                </div>
+                <div class="card-hint">左键展开/右键翻转</div>
+                <div v-if="item.translation" style="color: var(--text-gray); font-size: 14px; margin-top: 4px;">{{ item.translation }}</div>
+                <div v-else-if="item.meanings && item.meanings.length > 0" style="color: var(--text-gray); font-size: 14px; margin-top: 4px;">
+                  {{ getMeaningsText(item.meanings) }}
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-left: 12px; flex-shrink: 0;">
+                <button class="wordlist-btn" @click.stop="playPron('us', item.word)">美式发音</button>
+                <button class="wordlist-btn" @click.stop="playPron('uk', item.word)">英式发音</button>
+                <button class="wordlist-btn remove-btn" @click.stop="removeWord(item.word)">移除</button>
+              </div>
+            </div>
+            <div v-if="expandedMap[item.word]" class="wordlist-definition expanded"
+                 style="background-color: var(--bg-light); border-radius: 6px; margin-top: 10px; border-left: 4px solid var(--primary-blue); width: 100%;"
+                 v-html="definitions[item.word] || loadingHtml">
+            </div>
+            <div v-if="expandedMap[item.word] && examples[item.word]" class="example-sentence" v-html="examples[item.word]">
+            </div>
+          </div>
+
+          <!-- 卡片背面 -->
+          <div class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+            <div class="wordlist-definition expanded" v-html="definitions[item.word] || loadingHtml"></div>
+            <div v-if="examples[item.word]" class="example-sentence" v-html="examples[item.word]"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+<script type="text/x-template" id="errorbook-vue-template">
+<div class="wordbook-vue-scroll" @scroll="onScroll" :style="{ height: containerHeight + 'px', overflowY: 'auto', position: 'relative' }">
+  <div :style="{ height: totalHeight + 'px', position: 'relative' }">
+    <div v-for="item in visibleItems" :key="item.word" :data-word="item.word"
+         :style="getItemStyle(item._idx)"
+         class="wordlist-item">
+      <div class="flip-card-container">
+        <div class="flip-card" :class="{ 'flipped': flippedMap[item.word] }">
+
+          <!-- 卡片正面 -->
+          <div class="flip-card-front" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="flex-grow: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                  <span v-if="item.type === 'sentence'" class="type-badge sentence">句子</span>
+                  <span v-if="item.type === 'phrase'" class="type-badge phrase">词组</span>
+                  <span v-if="!item.type || item.type === 'word'" class="type-badge word">单词</span>
+                  <span style="font-size: 18px; font-weight: 600; color: var(--text-dark); cursor: pointer;" @click.stop="jumpToWord(item.word)">{{ item.word }}</span>
+                  <span v-if="errorInfo(item.word)" style="font-size: 14px; color: var(--text-gray);">({{ errorInfo(item.word) }})</span>
+                </div>
+                <div class="card-hint">左键展开/右键翻转</div>
+                <div v-if="item.translation" style="color: var(--text-gray); font-size: 14px; margin-top: 4px;">{{ item.translation }}</div>
+                <div v-else-if="item.meanings && item.meanings.length > 0" style="color: var(--text-gray); font-size: 14px; margin-top: 4px;">
+                  {{ getMeaningsText(item.meanings) }}
+                </div>
+                <div v-else style="color: var(--text-gray); font-size: 14px; margin-top: 4px; opacity: 0.5;">右键翻转查看释义</div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-left: 12px; flex-shrink: 0;">
+                <button class="wordlist-btn" @click.stop="playPron('us', item.word)">美式发音</button>
+                <button class="wordlist-btn" @click.stop="playPron('uk', item.word)">英式发音</button>
+                <button class="wordlist-btn remove-btn" @click.stop="removeWord(item.word)">移除</button>
+              </div>
+            </div>
+            <div v-if="expandedMap[item.word]" class="wordlist-definition expanded"
+                 style="background-color: var(--bg-light); border-radius: 6px; margin-top: 10px; border-left: 4px solid var(--accent-red); width: 100%;"
+                 v-html="definitions[item.word] || loadingHtml">
+            </div>
+            <div v-if="expandedMap[item.word] && examples[item.word]" class="example-sentence" v-html="examples[item.word]">
+            </div>
+          </div>
+
+          <!-- 卡片背面 -->
+          <div class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+            <div class="wordlist-definition expanded" v-html="definitions[item.word] || loadingHtml"></div>
+            <div v-if="examples[item.word]" class="example-sentence" v-html="examples[item.word]"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</script>
+
+    <div id="ebbinghaus-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="modal-content glass" style="padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="modal-title">艾宾浩斯遗忘曲线</h2>
+                <button id="ebbinghaus-close" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body-text">
+                <p style="margin-bottom: 15px;"><strong>什么是遗忘曲线？</strong></p>
+                <p style="margin-bottom: 15px;">艾宾浩斯遗忘曲线是由德国心理学家赫尔曼·艾宾浩斯发现的，描述了人类大脑对新事物的遗忘规律。遗忘在学习之后立即开始，而且遗忘的进程并不是均匀的。最初遗忘速度很快，以后逐渐缓慢。</p>
+                <p style="margin-bottom: 15px;"><strong>复习时间点：</strong></p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li>5分钟后</li>
+                    <li>30分钟后</li>
+                    <li>12小时后</li>
+                    <li>1天后</li>
+                    <li>2天后</li>
+                    <li>4天后</li>
+                    <li>7天后</li>
+                    <li>15天后</li>
+                </ul>
+                <p style="margin-bottom: 15px;">在这些时间点进行复习，可以有效减少遗忘，提高记忆效率！</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="import-format-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="modal-content glass" style="padding: 30px; max-width: 650px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="modal-title">📋 导入格式说明</h2>
+                <button id="import-format-close" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body-text">
+                <p style="margin-bottom: 15px;"><strong>支持的文件格式：</strong></p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><strong>.txt</strong> - 纯文本文件</li>
+                    <li><strong>.docx</strong> - Word文档</li>
+                </ul>
+                <p style="margin-bottom: 15px;"><strong>文件内容格式：</strong></p>
+                <p style="margin-bottom: 10px;">每行一个单词（或短语），可以包含可选的释义和音标，格式如下：</p>
+                <div class="modal-code-block">
+                    <p style="margin: 5px 0; font-family: monospace;">单词</p>
+                    <p style="margin: 5px 0; font-family: monospace;">单词 | 释义</p>
+                    <p style="margin: 5px 0; font-family: monospace;">单词 | 释义 | [音标]</p>
+                </div>
+                <p style="margin-bottom: 15px;"><strong>示例：</strong></p>
+                <div class="modal-code-block">
+                    <p style="margin: 5px 0; font-family: monospace;">apple</p>
+                    <p style="margin: 5px 0; font-family: monospace;">banana | 香蕉</p>
+                    <p style="margin: 5px 0; font-family: monospace;">orange | 橙子 | [ˈɒrɪndʒ]</p>
+                    <p style="margin: 5px 0; font-family: monospace;">look forward to | 期待</p>
+                </div>
+                <p style="margin-bottom: 10px;"><strong>注意事项：</strong></p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li>每个单词占一行</li>
+                    <li>使用竖线 <code class="modal-inline-code">|</code> 分隔单词、释义和音标</li>
+                    <li>释义和音标是可选的，只导入单词也可以</li>
+                    <li>短语（包含空格的）也支持导入</li>
+                    <li>导入时会自动去重，已有的单词不会重复添加</li>
+                </ul>
+                <p style="margin-bottom: 15px;">💡 <strong>提示：</strong>可以先导出一个单词本，看看实际的格式示例！</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 艾宾浩斯到期词加入条件说明弹窗 -->
+    <div id="due-words-condition-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="modal-content glass" style="padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="modal-title">艾宾浩斯到期词</h2>
+                <button id="due-words-condition-close" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body-text">
+                <p style="margin-bottom: 15px;"><strong>加入条件</strong></p>
+                <p style="margin-bottom: 15px;">单词必须在学习历史中出现过，且其下次复习时间 <code class="modal-inline-code">nextReviewTime</code> 小于或等于当前时间。</p>
+                <p style="margin-bottom: 15px;"><strong>复习间隔规则</strong></p>
+                <p style="margin-bottom: 10px;">首次答对后，复习间隔按以下天数递进：</p>
+                <div class="modal-code-block">
+                    <p style="margin: 5px 0; font-family: monospace;">1 天 → 2 天 → 4 天 → 7 天 → 15 天 → 30 天 → 60 天 → 90 天</p>
+                </div>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li>到达某个复习时间点即视为“到期”，可加入复习。</li>
+                    <li>答错后复习间隔会重置为 <strong>1 天</strong>，重新进入循环。</li>
+                    <li>连续答对可逐步拉长复习间隔，减少重复劳动。</li>
+                </ul>
+                <p style="margin-bottom: 15px;">💡 <strong>提示：</strong>开启“启用艾宾浩斯遗忘曲线”后，测验和复习会自动按权重优先抽取到期词。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- API密钥设置弹窗 -->
+    <div id="api-settings-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="modal-content glass" style="padding: 30px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="modal-title">腾讯云翻译API设置</h2>
+                <button id="api-settings-close" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body-text">
+                <p style="margin-bottom: 15px; font-size: 14px; color: #666;">配置你自己的腾讯云翻译API密钥，留空则使用默认密钥。密钥仅保存在本地，不会上传到任何服务器。</p>
+                <div style="margin-bottom: 15px;">
+                    <label for="tencent-secret-id" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500;">Secret ID：</label>
+                    <input type="text" id="tencent-secret-id" placeholder="请输入Secret ID（留空使用默认值）" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; outline: none;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label for="tencent-secret-key" style="display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500;">Secret Key：</label>
+                    <input type="password" id="tencent-secret-key" placeholder="请输入Secret Key（留空使用默认值）" style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; outline: none;">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button id="api-settings-cancel" style="padding: 8px 20px; border: 1px solid #ddd; background: #fff; border-radius: 6px; cursor: pointer; font-size: 14px;">取消</button>
+                    <button id="api-settings-save" style="padding: 8px 20px; border: none; background: var(--primary-blue, #3498db); color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px;">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
