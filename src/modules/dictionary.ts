@@ -1264,11 +1264,18 @@ export function bindSentenceButtonEvents(): void {
                 localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
                 addToCustomWordbook(selectedWordbook, sentence);
                 showToast(`已添加到 "${selectedWordbook}"`, 'success');
+                sentenceWbBtn.classList.add('active');
+                sentenceWbBtn.textContent = '已在单词本';
             } else {
-                showToast(`该句子已在 "${selectedWordbook}" 中`, 'info');
+                appState.wordbooks[selectedWordbook] = appState.wordbooks[selectedWordbook].filter(item =>
+                    (typeof item === 'string' ? item : item.word) !== sentence
+                );
+                localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
+                showToast(`已从 "${selectedWordbook}" 移除`, 'info');
+                sentenceWbBtn.classList.remove('active');
+                sentenceWbBtn.textContent = '加入单词本';
             }
 
-            updateSentenceButtons();
             updateAllWordbookSelectors();
         };
     }
@@ -1279,6 +1286,7 @@ export function updateSentenceButtons(): void {
 
     const sentence = appState.currentSentence.text;
     const sentenceWbBtn = document.getElementById('add-sentence-to-wordbook');
+    const sentenceFavBtn = document.getElementById('add-sentence-to-favorites');
     const wordbookSelect = document.getElementById('sentence-wordbook-select-inline') as HTMLSelectElement;
 
     if (sentenceWbBtn && wordbookSelect) {
@@ -1293,6 +1301,15 @@ export function updateSentenceButtons(): void {
 
         sentenceWbBtn.classList.toggle('active', isInWordbook);
         sentenceWbBtn.textContent = isInWordbook ? '已在单词本' : '加入单词本';
+    }
+
+    if (sentenceFavBtn) {
+        const isInFavorites = appState.favorites.some(item => {
+            const itemText = typeof item === 'string' ? item : ((item as any).word || (item as any).text);
+            return itemText === sentence;
+        });
+        sentenceFavBtn.classList.toggle('active', isInFavorites);
+        sentenceFavBtn.textContent = isInFavorites ? '已收藏' : '加入收藏';
     }
 }
 
@@ -1501,28 +1518,30 @@ export async function translateText(text: string): Promise<void> {
             // 将原文中的英文单词转为可点击的链接
             const clickableOriginalText = makeWordsClickable(text);
 
+            const isSentenceInFavorites = appState.favorites.some(item => {
+                const itemText = typeof item === 'string' ? item : ((item as any).word || (item as any).text);
+                return itemText === text;
+            });
+
             let resultHtml = `<div class="translation-original">
                 <strong>原文：</strong>${clickableOriginalText}
-                <div class="translation-buttons-row">
-                    <span style="font-size: 14px; color: var(--text-gray); font-weight: 500;">播放发音：</span>
+                <div class="result-actions">
+                    <select id="sentence-wordbook-select-inline" class="result-wb-select">
+                        <option value="" disabled selected>选择单词本</option>
+                    </select>
                     <button data-action="play-sentence" data-type="us" data-text="${escapeHtml(text)}"
-                            class="favorites-btn translation-speak-btn us-btn">
-                        🇺🇸 美式
+                            class="favorites-btn">
+                        美式发音
                     </button>
                     <button data-action="play-sentence" data-type="uk" data-text="${escapeHtml(text)}"
-                            class="favorites-btn translation-speak-btn uk-btn">
-                        🇬🇧 英式
+                            class="favorites-btn">
+                        英式发音
                     </button>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <button id="add-sentence-to-wordbook" class="favorites-btn translation-action-btn">
-                            加入单词本
-                        </button>
-                        <select id="sentence-wordbook-select-inline" class="translation-wb-select">
-                            <option value="">-- 选择单词本 --</option>
-                        </select>
-                    </div>
-                    <button id="add-sentence-to-favorites" class="favorites-btn translation-action-btn">
-                        收藏句子
+                    <button id="add-sentence-to-wordbook" class="favorites-btn">
+                        加入单词本
+                    </button>
+                    <button id="add-sentence-to-favorites" class="favorites-btn ${isSentenceInFavorites ? 'active' : ''}">
+                        ${isSentenceInFavorites ? '已收藏' : '加入收藏'}
                     </button>
                 </div>
             </div>`;
@@ -1559,7 +1578,7 @@ export async function translateText(text: string): Promise<void> {
                     }
                 }
 
-                wordbookSelect.innerHTML = `<option value="">-- 选择单词本 --</option>`;
+                wordbookSelect.innerHTML = `<option value="" disabled>选择单词本</option>`;
                 customWordbooks.forEach(wb => {
                     const wordCount = Array.isArray(wb.words) ? wb.words.length : 0;
                     wordbookSelect.innerHTML += `<option value="${escapeHtml(wb.name)}">${escapeHtml(wb.name)} (${wordCount}词)</option>`;
