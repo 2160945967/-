@@ -1501,11 +1501,15 @@ export async function translateText(text: string): Promise<void> {
         return;
     }
 
-    // 清空单词结果内容，但保留HTML结构
-    if (wordElement) wordElement.textContent = '';
-    if (phoneticElement) phoneticElement.textContent = '';
-    if (meaningsElement) meaningsElement.innerHTML = '';
+    // 隐藏单词结果容器，显示翻译容器
+    const resultDiv = document.getElementById('result');
+    if (resultDiv) {
+        resultDiv.classList.remove('result-visible');
+        resultDiv.style.opacity = '';
+        resultDiv.style.transform = '';
+    }
     translationContainer.classList.remove('translation-hidden');
+    translationContainer.style.display = 'block';
 
     translationResult.innerHTML = '<p class="translation-loading">正在翻译...</p>';
 
@@ -1558,11 +1562,6 @@ export async function translateText(text: string): Promise<void> {
                     if (sentence) getRegistry().playSentencePronunciation(type, sentence);
                 });
             });
-
-            const translationContainer = document.getElementById('translation-container');
-            if (translationContainer) {
-                translationContainer.style.display = 'block';
-            }
 
             // 存储当前句子
             appState.currentSentence = { text: text, translation: data.translation };
