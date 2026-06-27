@@ -930,11 +930,14 @@ export function displayResult(data: WordData): void {
         onWordJumpDone();
     }
 
-    // 结果渲染后滚动到结果区域
+    // 结果渲染后滚动到结果区域，避开顶部navbar
     setTimeout(() => {
         const el = document.getElementById('result');
         if (el && el.classList.contains('result-visible')) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const navbar = document.getElementById('navbar');
+            const offset = navbar ? navbar.getBoundingClientRect().height + 12 : 80;
+            const top = el.getBoundingClientRect().top + window.scrollY - offset;
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
         }
     }, 100);
 }
@@ -1609,11 +1612,14 @@ export async function translateText(text: string): Promise<void> {
 
             bindWordClickEvents(translationResult);
 
-            // 结果渲染后滚动到翻译区域
+            // 结果渲染后滚动到翻译区域，避开顶部navbar
             setTimeout(() => {
                 const el = document.getElementById('translation-container');
                 if (el && el.style.display !== 'none') {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    const navbar = document.getElementById('navbar');
+                    const offset = navbar ? navbar.getBoundingClientRect().height + 12 : 80;
+                    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+                    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
                 }
             }, 150);
         } else {
