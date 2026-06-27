@@ -929,6 +929,14 @@ export function displayResult(data: WordData): void {
         });
         onWordJumpDone();
     }
+
+    // 结果渲染后滚动到结果区域
+    setTimeout(() => {
+        const el = document.getElementById('result');
+        if (el && el.classList.contains('result-visible')) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
 }
 
 export function initKeyboardShortcuts(): void {
@@ -1600,6 +1608,14 @@ export async function translateText(text: string): Promise<void> {
             updateSentenceButtons();
 
             bindWordClickEvents(translationResult);
+
+            // 结果渲染后滚动到翻译区域
+            setTimeout(() => {
+                const el = document.getElementById('translation-container');
+                if (el && el.style.display !== 'none') {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 150);
         } else {
             translationResult.innerHTML = `<p class="translation-error">翻译失败：${(data.error && data.error.message) || '未知错误'}</p>`;
         }
