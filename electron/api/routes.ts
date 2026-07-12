@@ -20,6 +20,7 @@ import { downloadAsset,
   getAllDownloadProgress,
   getDownloadProgress,
   isAssetDownloaded,
+  pauseAssetDownload,
 } from '../services/asset-manager';
 import {
   startBulkDownload,
@@ -1803,11 +1804,30 @@ export function setupRoutes(app: any) {
       }
       // 启动后台下载并立即返回，前端通过 /api/assets/progress 轮询进度
       downloadAsset(assetId).catch(e => {
+        // 用户主动暂停不算错误
+        if (e?.message?.includes('aborted') || e?.name === 'AbortError') {
+          console.log(`[assets] 资源 ${assetId} 下载被用户暂停`);
+          return;
+        }
         console.error(`[assets] 后台下载 ${assetId} 失败:`, e.message || e);
       });
       res.json(successResponse({ message: '已启动下载', assetId, downloaded: false }));
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '下载失败', 500));
+    }
+  });
+
+  app.post('/api/assets/download/pause', (req: Request, res: Response) => {
+    try {
+      const assetId = (getRequestParam(req, 'assetId', '') as string).trim();
+      if (!assetId) {
+        res.status(400).json(errorResponse('请提供 assetId'));
+        return;
+      }
+      const paused = pauseAssetDownload(assetId);
+      res.json(successResponse({ assetId, paused }));
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '暂停失败', 500));
     }
   });
 }

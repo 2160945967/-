@@ -652,6 +652,8 @@ interface AssetProgressItem {
 
 let assetDownloadPollTimer: ReturnType<typeof setInterval> | null = null;
 let assetStatusCache: AssetStatusItem[] = [];
+const assetDownloadingState = new Map<string, boolean>();
+const assetCompletedToasts = new Set<string>();
 
 function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
@@ -659,6 +661,11 @@ function formatBytes(bytes: number): string {
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function getAssetNameById(assetId: string): string {
+    const asset = assetStatusCache.find(a => a.id === assetId);
+    return asset?.name || assetId;
 }
 
 function getOrCreateAssetItemEl(container: HTMLElement, asset: AssetStatusItem): HTMLElement {
@@ -676,16 +683,32 @@ function getOrCreateAssetItemEl(container: HTMLElement, asset: AssetStatusItem):
             <span class="asset-size"></span>
             <span class="asset-status"></span>
         </div>
-        <button class="asset-download-btn">下载</button>
+        <div class="asset-action-btns">
+            <button class="asset-download-btn secondary asset-pause-btn" style="display:none;">暂停</button>
+            <button class="asset-download-btn asset-action-btn">下载</button>
+        </div>
         <div class="asset-progress-area" style="display:none;">
             <div class="asset-progress-bar"><div class="asset-progress-fill"></div></div>
             <span class="asset-progress-text">0%</span>
         </div>
     `;
-    const btn = item.querySelector('.asset-download-btn') as HTMLButtonElement;
-    btn.addEventListener('click', () => startAssetDownload(asset.id));
+    const actionBtn = item.querySelector('.asset-action-btn') as HTMLButtonElement;
+    const pauseBtn = item.querySelector('.asset-pause-btn') as HTMLButtonElement;
+    actionBtn.addEventListener('click', () => handleAssetActionClick(asset.id));
+    pauseBtn.addEventListener('click', () => pauseAssetDownloadUI(asset.id));
     container.appendChild(item);
     return item;
+}
+
+function handleAssetActionClick(assetId: string): void {
+    const isPaused = assetDownloadingState.get(assetId) === false;
+    if (isPaused) {
+        // 继续下载
+        assetDownloadingState.set(assetId, true);
+        void startAssetDownload(assetId, true);
+    } else {
+        void startAssetDownload(assetId, false);
+    }
 }
 
 function updateAssetDownloadUI(assets: AssetStatusItem[]): void {
@@ -701,7 +724,8 @@ function updateAssetDownloadUI(assets: AssetStatusItem[]): void {
         const optionalTag = item.querySelector('.asset-tag.optional') as HTMLElement;
         const sizeEl = item.querySelector('.asset-size') as HTMLElement;
         const statusEl = item.querySelector('.asset-status') as HTMLElement;
-        const btn = item.querySelector('.asset-download-btn') as HTMLButtonElement;
+        const actionBtn = item.querySelector('.asset-action-btn') as HTMLButtonElement;
+        const pauseBtn = item.querySelector('.asset-pause-btn') as HTMLButtonElement;
         const area = item.querySelector('.asset-progress-area') as HTMLElement;
 
         nameEl.textContent = asset.name;
@@ -709,17 +733,30 @@ function updateAssetDownloadUI(assets: AssetStatusItem[]): void {
         requiredTag.style.display = asset.required ? 'inline-block' : 'none';
         optionalTag.style.display = asset.required ? 'none' : 'inline-block';
 
+        // 如果正在下载中，保持下载中状态，避免被状态接口覆盖
+        if (assetDownloadingState.get(asset.id) === true) {
+            statusEl.textContent = '下载中';
+            statusEl.className = 'asset-status not-downloaded';
+            actionBtn.textContent = '下载中';
+            actionBtn.disabled = true;
+            pauseBtn.style.display = 'inline-block';
+            return;
+        }
+
         if (asset.downloaded) {
             statusEl.textContent = '已下载';
             statusEl.className = 'asset-status downloaded';
-            btn.textContent = asset.required ? '已下载' : '重新下载';
-            btn.disabled = asset.required;
+            actionBtn.textContent = asset.required ? '已下载' : '重新下载';
+            actionBtn.disabled = asset.required;
+            pauseBtn.style.display = 'none';
             area.style.display = 'none';
         } else {
-            statusEl.textContent = '未下载';
+            const isPaused = assetDownloadingState.get(asset.id) === false;
+            statusEl.textContent = isPaused ? '已暂停' : '未下载';
             statusEl.className = 'asset-status not-downloaded';
-            btn.textContent = '下载';
-            btn.disabled = false;
+            actionBtn.textContent = isPaused ? '继续' : '下载';
+            actionBtn.disabled = false;
+            pauseBtn.style.display = 'none';
         }
     });
 }
@@ -734,23 +771,32 @@ function updateAssetProgress(progressMap: Record<string, AssetProgressItem>): vo
         const area = item.querySelector('.asset-progress-area') as HTMLElement;
         const fill = item.querySelector('.asset-progress-fill') as HTMLElement;
         const text = item.querySelector('.asset-progress-text') as HTMLElement;
-        const btn = item.querySelector('.asset-download-btn') as HTMLButtonElement;
+        const actionBtn = item.querySelector('.asset-action-btn') as HTMLButtonElement;
+        const pauseBtn = item.querySelector('.asset-pause-btn') as HTMLButtonElement;
         const statusEl = item.querySelector('.asset-status') as HTMLElement;
 
         if (progress.percent > 0 && progress.percent < 100) {
             area.style.display = 'flex';
             fill.style.width = `${progress.percent}%`;
             text.textContent = `${progress.percent}%`;
-            btn.disabled = true;
-            btn.textContent = '下载中';
+            assetDownloadingState.set(assetId, true);
+            actionBtn.textContent = '下载中';
+            actionBtn.disabled = true;
+            pauseBtn.style.display = 'inline-block';
             statusEl.textContent = '下载中';
             statusEl.className = 'asset-status not-downloaded';
         } else if (progress.percent >= 100) {
             area.style.display = 'none';
-            btn.disabled = false;
-            btn.textContent = '重新下载';
+            assetDownloadingState.delete(assetId);
+            actionBtn.textContent = '重新下载';
+            actionBtn.disabled = false;
+            pauseBtn.style.display = 'none';
             statusEl.textContent = '已下载';
             statusEl.className = 'asset-status downloaded';
+            if (!assetCompletedToasts.has(assetId)) {
+                assetCompletedToasts.add(assetId);
+                showToast(`${getAssetNameById(assetId)} 下载完成`, 'success');
+            }
             // 进度完成后立即刷新一次状态，避免状态和进度不一致
             void fetchAssetStatus();
         }
@@ -781,8 +827,9 @@ async function fetchAssetProgress(): Promise<void> {
     }
 }
 
-async function startAssetDownload(assetId: string): Promise<void> {
+async function startAssetDownload(assetId: string, isResume = false): Promise<void> {
     try {
+        assetDownloadingState.set(assetId, true);
         const response = await fetch('/api/assets/download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -790,14 +837,39 @@ async function startAssetDownload(assetId: string): Promise<void> {
         });
         const result = await response.json();
         if (result.success) {
-            showToast('已开始下载资源');
+            showToast(`${isResume ? '继续' : '开始'}下载 ${getAssetNameById(assetId)}`);
+            assetCompletedToasts.delete(assetId);
             void fetchAssetStatus();
         } else {
+            assetDownloadingState.set(assetId, false);
             showToast(result.error?.message || '下载失败', 'error');
+            void fetchAssetStatus();
         }
     } catch (e) {
+        assetDownloadingState.set(assetId, false);
         console.error('[settings] 启动资源下载失败:', e);
         showToast('启动下载失败', 'error');
+    }
+}
+
+async function pauseAssetDownloadUI(assetId: string): Promise<void> {
+    try {
+        const response = await fetch('/api/assets/download/pause', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            assetDownloadingState.set(assetId, false);
+            showToast(`已暂停下载 ${getAssetNameById(assetId)}`);
+            void fetchAssetStatus();
+        } else {
+            showToast(result.error?.message || '暂停失败', 'error');
+        }
+    } catch (e) {
+        console.error('[settings] 暂停资源下载失败:', e);
+        showToast('暂停失败', 'error');
     }
 }
 
@@ -810,6 +882,31 @@ function startPollingAssetStatus(): void {
 }
 
 function initAssetDownloads(): void {
+    const openBtn = document.getElementById('open-asset-downloads-modal');
+    const modal = document.getElementById('asset-downloads-modal');
+    const closeBtn = document.getElementById('asset-downloads-modal-close');
+
+    if (openBtn && modal) {
+        openBtn.addEventListener('click', () => {
+            modal.style.display = 'flex';
+            void fetchAssetStatus();
+        });
+    }
+
+    if (closeBtn && modal) {
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+    }
+
+    if (modal) {
+        modal.addEventListener('click', (e: MouseEvent) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    }
+
     void fetchAssetStatus();
     startPollingAssetStatus();
 }

@@ -777,6 +777,16 @@ export function setWordbookSort(sortBy: string): void {
     updateSelectedWordbookDisplay();
 }
 
+export function getFilterLabel(filterType: FilterType): string {
+    const map: Record<string, string> = {
+        [FilterType.All]: '全部',
+        [FilterType.Word]: '单词',
+        [FilterType.Phrase]: '词组',
+        [FilterType.Sentence]: '句子'
+    };
+    return map[filterType] || '全部';
+}
+
 export function getWordbookItemType(item: any): string {
     const word = typeof item === 'string' ? item : (item.word || '');
     const words = word.trim().split(/\s+/);
@@ -938,12 +948,13 @@ export async function updateSelectedWordbookDisplay(): Promise<void> {
         }
     }
 
+    // 标题先写基础版本，等筛选完成后再追加“筛选后数量”
     selectedWordbookTitle.textContent = title;
 
     const wordbookSearch = document.getElementById('wordbook-search') as HTMLInputElement;
     let searchKeyword = wordbookSearch ? wordbookSearch.value.trim() : '';
 
-    // 计算当前数据源条数，用于判断是否需要重新渲染
+    // 计算当前数据源总条数，用于标题和判断是否需要重新渲染
     let sourceCount = 0;
     if (selectedWordbook === WordSource.Favorites) {
         sourceCount = appState.favorites.length;
@@ -1170,9 +1181,19 @@ export async function updateSelectedWordbookDisplay(): Promise<void> {
         }
     }
 
+    // 标题追加当前筛选结果数量，例如：四级（词组 2/14）
+    const filterLabel = getFilterLabel(appState.wordbookFilter);
+    const totalCount = sourceCount >= 0 ? sourceCount : words.length;
+    if (appState.wordbookFilter !== FilterType.All) {
+        selectedWordbookTitle.textContent = `${title.replace(/\s*\(\d+词\)$/, '')}（${filterLabel} ${words.length}/${totalCount}）`;
+    }
+
     if (words.length === 0) {
         selectedWordbookEmpty.classList.add('empty-visible');
         selectedWordbookEmpty.classList.remove('empty-hidden');
+        selectedWordbookEmpty.textContent = appState.wordbookFilter !== FilterType.All
+            ? `当前筛选下没有「${filterLabel}」内容，可切换“全部”查看`
+            : '暂无单词';
         appState.wordbookVueInstance.setWordList([], selectedWordbook, appState.errorbook);
     } else {
         selectedWordbookEmpty.classList.add('empty-hidden');

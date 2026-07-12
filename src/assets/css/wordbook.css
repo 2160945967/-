@@ -602,6 +602,19 @@ body.dark-mode #errorbook-empty p {
     display: none;
 }
 
+/* 单词本列表高度随内容自适应，内容少时收缩，避免大片空白 */
+#wordbook-vue-app .wordbook-vue-scroll {
+    height: auto !important;
+    max-height: 600px !important;
+}
+
+/* 收藏/错题本也做同样的自适应处理 */
+#favorites-vue-app .wordbook-vue-scroll,
+#errorbook-vue-app .wordbook-vue-scroll {
+    height: auto !important;
+    max-height: 600px !important;
+}
+
 /* 空状态提示与上方控件保持合适间距 */
 #favorites-empty.empty-visible,
 #errorbook-empty.empty-visible,

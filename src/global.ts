@@ -2,7 +2,7 @@ import { appState } from './store';
 export { appState };
 
 import { searchWord } from './modules/dictionary';
-import { PageSection, WordSource } from './types/enums';
+import { PageSection, WordSource, FilterType } from './types/enums';
 import { animatePageEnter } from './utils/gsap';
 import { SYSTEM_WORDBOOKS, MAX_RENDERED_PAGES } from './constants';
 
@@ -921,11 +921,14 @@ export function initWordbookAndErrorbookSearch(): void {
     // 初始化单词本选择变化处理
     const wordbookSelect = document.getElementById('wordbook-select') as HTMLSelectElement;
     if (wordbookSelect) {
-        wordbookSelect.addEventListener('change', function() {
+        wordbookSelect.addEventListener('change', async function() {
             const val = this.value;
             appState.lastSelectedWordbook = val;
             localStorage.setItem('lastSelectedWordbook', appState.lastSelectedWordbook);
-            pageHandlers.updateSelectedWordbookDisplay?.();
+            // 切换单词本时重置筛选类型为"全部"
+            appState.wordbookFilter = FilterType.All;
+            const { setWordbookFilter } = await import('./modules/wordbook');
+            setWordbookFilter(FilterType.All);
         });
     }
 

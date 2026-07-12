@@ -381,3 +381,27 @@ body.dark-mode .asset-download-info .asset-tag.optional {
     min-width: 44px;
     text-align: right;
 }
+
+/* 数据资源下载弹窗内样式 */
+#asset-downloads-modal .asset-download-item {
+    padding: 14px 0;
+}
+
+#asset-downloads-modal .asset-download-info {
+    gap: 8px;
+}
+
+#asset-downloads-modal .asset-action-btns {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+#asset-downloads-modal .asset-action-btns .asset-download-btn {
+    min-width: 72px;
+}
+
+#asset-downloads-modal .asset-download-btn.secondary {
+    background: var(--text-gray, #95a5a6);
+}

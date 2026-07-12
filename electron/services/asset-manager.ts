@@ -290,9 +290,16 @@ function downloadUrl(
   tmpFile: string,
   finalFile: string,
   startByte: number = 0,
+  signal?: AbortSignal,
   onProgressCb?: (downloaded: number, total: number) => void
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    // 如果已触发暂停/取消，直接拒绝
+    if (signal?.aborted) {
+      reject(new Error('aborted'));
+      return;
+    }
+
     const headers: Record<string, string> = {
       'User-Agent': 'shici-asset-downloader/2.0',
     };
@@ -301,12 +308,12 @@ function downloadUrl(
     }
 
     const client = url.startsWith('https:') ? https : http;
-    const req = client.get(url, { headers }, (res) => {
+    const req = client.get(url, { headers, signal: signal as any }, (res) => {
       if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
         const loc = res.headers.location;
         if (loc) {
           const nextUrl = new URL(loc, url).toString();
-          downloadUrl(nextUrl, assetId, assetSize, tmpFile, finalFile, startByte, onProgressCb).then(resolve).catch(reject);
+          downloadUrl(nextUrl, assetId, assetSize, tmpFile, finalFile, startByte, signal, onProgressCb).then(resolve).catch(reject);
           return;
         }
       }
@@ -343,6 +350,11 @@ function downloadUrl(
           resolve();
         })
         .catch((err) => {
+          // 主动暂停时不视为失败
+          if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+            reject(err);
+            return;
+          }
           emitDone(assetId, false, err.message);
           reject(err);
         });
@@ -353,9 +365,20 @@ function downloadUrl(
     });
 
     req.on('error', (err) => {
+      // 主动暂停时不视为失败
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        reject(err);
+        return;
+      }
       emitDone(assetId, false, err.message);
       reject(err);
     });
+
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        req.destroy(new Error('aborted'));
+      }, { once: true });
+    }
   });
 }
 
