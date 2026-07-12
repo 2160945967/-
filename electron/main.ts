@@ -1,0 +1,201 @@
+import { app, BrowserWindow, session, ipcMain } from 'electron';
+import * as path from 'path';
+import { fork, ChildProcess } from 'child_process';
+import * as os from 'os';
+import { ROOT_DIR, APP_ROOT_DIR, USER_DATA_DIR, CACHE_DIR } from './utils/helpers';
+
+// Electron 在某些 Windows 环境下会默认降级 GPU，导致页面切换动画掉帧，强制开启 GPU 光栅化
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+
+// Windows 控制台默认 GBK，后端输出中文容易乱码，启动时切到 UTF-8
+if (os.platform() === 'win32') {
+  try {
+    require('child_process').execSync('chcp 65001', { stdio: 'ignore' });
+  } catch { /* ignore */ }
+  if ((process.stdout as any).setDefaultEncoding) {
+    (process.stdout as any).setDefaultEncoding('utf8');
+  }
+  if ((process.stderr as any).setDefaultEncoding) {
+    (process.stderr as any).setDefaultEncoding('utf8');
+  }
+}
+
+let serverProcess: ChildProcess | null = null;
+let serverPort: number | null = null;
+
+app.whenReady().then(async () => {
+  // 创建窗口
+  const win = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    autoHideMenuBar: true,
+    backgroundColor: '#f0f4f8',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  // 修复 Windows 下 alert/confirm 弹窗关闭后输入框无法聚焦的问题
+  // 参考 https://github.com/electron/electron/issues/20400
+  const isWindows = process.platform === 'win32';
+  let needsFocusFix = false;
+  let triggeringProgrammaticBlur = false;
+  let lastFocusFixTime = 0;
+  let isRestoringFromMinimize = false;
+
+  win.on('minimize', () => {
+    isRestoringFromMinimize = true;
+    needsFocusFix = false;
+  });
+
+  win.on('restore', () => {
+    isRestoringFromMinimize = true;
+    // 最小化还原后强制置顶，Windows 下有时还原后 Z-order 不对
+    // 多轮重试 + 临时 alwaysOnTop 兜底，确保窗口在最前面
+    const bringToFront = (delay: number) => {
+      setTimeout(() => {
+        if (win.isDestroyed()) return;
+        if (win.isMinimized()) return;
+        win.show();
+        win.moveTop();
+        // 临时置顶再取消，强制刷新 Z-order
+        win.setAlwaysOnTop(true);
+        setTimeout(() => {
+          if (!win.isDestroyed()) {
+            win.setAlwaysOnTop(false);
+            win.focus();
+          }
+        }, 30);
+      }, delay);
+    };
+    bringToFront(30);
+    bringToFront(150);
+    bringToFront(350);
+    // 最后解禁焦点修复
+    setTimeout(() => {
+      isRestoringFromMinimize = false;
+    }, 500);
+  });
+
+  win.on('blur', () => {
+    if (!triggeringProgrammaticBlur && !win.isMinimized()) {
+      needsFocusFix = true;
+    }
+  });
+
+  win.on('focus', () => {
+    if (isWindows && needsFocusFix && !isRestoringFromMinimize) {
+      const now = Date.now();
+      // 冷却 1 秒，避免频繁触发导致窗口闪烁
+      if (now - lastFocusFixTime < 1000) {
+        needsFocusFix = false;
+        return;
+      }
+      needsFocusFix = false;
+      triggeringProgrammaticBlur = true;
+      lastFocusFixTime = now;
+      setTimeout(() => {
+        win.blur();
+        win.focus();
+        setTimeout(() => {
+          triggeringProgrammaticBlur = false;
+        }, 50);
+      }, 100);
+    }
+  });
+
+  // Fork 子进程运行 Express 后端
+  // 全部忽略 stdio，避免 GUI 模式下父进程没有 stdout 导致子进程 console.log 触发 EPIPE 弹窗
+  // 子进程内部会把日志写入 server.log（见 server.ts）
+  serverProcess = fork(
+    path.join(__dirname, 'server.js'),
+    [],
+    {
+      env: {
+        ...process.env,
+        ROOT_DIR,
+        APP_ROOT_DIR,
+        USER_DATA_DIR,
+        CACHE_DIR,
+      },
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+    }
+  );
+
+  serverProcess.on('message', (msg: any) => {
+    if (msg.type === 'ready') {
+      serverPort = msg.port;
+      console.log(`Server ready on port ${serverPort}`);
+      win.loadURL(`http://127.0.0.1:${serverPort}`);
+    }
+  });
+
+  serverProcess.on('exit', (code) => {
+    console.log(`Server process exited with code ${code}`);
+    if (code !== 0 && !win.isDestroyed()) {
+      win.loadURL(`data:text/html,<h1 style="color:red;text-align:center;margin-top:40vh">后端服务异常退出，请重启应用</h1>`);
+    }
+  });
+
+  // 把端口暴露给渲染进程
+  ipcMain.handle('get-server-port', () => serverPort);
+
+  // 内存监控
+  const MEMORY_THRESHOLD_MB = 1024;
+  setInterval(() => {
+    try {
+      const metrics = app.getAppMetrics();
+      const rendererPid = win.webContents.getOSProcessId();
+      const metric = metrics.find((m: any) => m.pid === rendererPid);
+      const workingSetMB = Math.round((metric?.memory?.workingSetSize ?? 0) / 1024);
+      if (workingSetMB > MEMORY_THRESHOLD_MB) {
+        console.log(`渲染进程内存 ${workingSetMB}MB，触发后台页面释放`);
+        win.webContents.send('release-pages', { half: true });
+      }
+    } catch (err) {
+      console.error('内存监控失败:', err);
+    }
+  }, 10000);
+
+  ipcMain.on('memory-released', (_event, count: number) => {
+    console.log(`已释放 ${count} 个后台页面`);
+  });
+
+  // 处理媒体权限请求
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'media');
+  });
+});
+
+function shutdownServer() {
+  if (serverProcess) {
+    try {
+      if (serverProcess.connected) {
+        serverProcess.send('shutdown');
+        // 给子进程 3 秒时间优雅退出，超时强杀
+        setTimeout(() => {
+          if (serverProcess && !serverProcess.killed) {
+            serverProcess.kill();
+          }
+        }, 3000);
+      } else {
+        serverProcess.kill();
+      }
+    } catch { /* ignore */ }
+  }
+}
+
+app.on('window-all-closed', () => {
+  shutdownServer();
+  app.quit();
+});
+
+app.on('before-quit', () => {
+  shutdownServer();
+});

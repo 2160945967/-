@@ -4,10 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>拾词</title>
-    <link rel="icon" href="./logo.svg" type="image/svg+xml">
-    <link rel="shortcut icon" href="./logo.svg" type="image/svg+xml">
+    <link rel="icon" href="/logo.svg" type="image/svg+xml">
+    <link rel="shortcut icon" href="/logo.svg" type="image/svg+xml">
 
     <!-- CSS -->
+    <link rel="stylesheet" href="/src/assets/css/theme.css">
+    <link rel="stylesheet" href="/src/assets/css/base.css">
+    <link rel="stylesheet" href="/src/assets/animations/animations.css">
+    <link rel="stylesheet" href="/src/assets/css/dictionary.css">
+    <link rel="stylesheet" href="/src/assets/css/quiz.css">
+    <link rel="stylesheet" href="/src/assets/css/wordbook.css">
+    <link rel="stylesheet" href="/src/assets/css/settings.css">
+    <link rel="stylesheet" href="/src/assets/css/responsive.css">
+    <link rel="stylesheet" href="/src/assets/css/glass.css">
 
     <!-- Vue 3 CDN (for global window.Vue compatibility) -->
     <script src="https://unpkg.com/vue@3.4.0/dist/vue.global.prod.js"></script>
@@ -21,8 +30,6 @@
             }
         })();
     </script>
-  <script type="module" crossorigin src="./assets/index-CFc9kDxS.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-tEs_boHY.css">
 </head>
 <body>
     <div id="bg-under"></div>
@@ -97,7 +104,7 @@
             <div class="navbar-container">
                 <div class="navbar-logo-wrapper">
                     <a href="#" class="navbar-brand">
-                        <img src="./logo.svg" alt="拾词" style="height: 80px; width: 80px; vertical-align: middle; border-radius: 8px;">
+                        <img src="/logo.svg" alt="拾词" style="height: 80px; width: 80px; vertical-align: middle; border-radius: 8px;">
                     </a>
                 </div>
                 <div class="navbar-left">
@@ -919,5 +926,6 @@
         </div>
     </div>
 
+    <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

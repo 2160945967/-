@@ -359,7 +359,6 @@ body.dark-mode #errorbook-empty p {
     transform-style: preserve-3d;
     /* 翻转动画由 GSAP 控制，避免 CSS transition 冲突 */
     height: auto;
-    will-change: transform, height;
 }
 
 .flip-card.flipped {

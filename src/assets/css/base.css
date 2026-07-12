@@ -494,7 +494,6 @@ body.sidebar-collapsed .main-content {
     display: none;
     opacity: 0;
     transform: translateY(14px) scale(0.985);
-    will-change: opacity, transform;
     box-sizing: border-box;
     background: var(--bg-white);
     box-shadow: var(--shadow-md);
@@ -508,8 +507,8 @@ body.sidebar-collapsed .main-content {
     display: block;
     position: relative;
     z-index: 1;
-    animation: pageEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    animation-delay: 0.02s;
+    opacity: 1;
+    transform: none;
     padding-top: 46px;
     padding-bottom: 46px;
 }
@@ -580,6 +579,15 @@ h1::after {
     box-shadow: var(--shadow-sm);
     position: relative;
     overflow: hidden;
+}
+
+#clear-cache {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #ffffff;
+}
+
+#clear-cache:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
 }
 
 .wordbook-actions button::before,
@@ -836,6 +844,11 @@ input[type="text"], input[type="number"], select,
 html {
     scrollbar-width: thin;
     scrollbar-color: rgba(52, 152, 219, 0.45) transparent;
+    background: #f0f4f8;
+}
+
+html.dark-mode {
+    background: #0f0f12;
 }
 
 html.dark-mode ::-webkit-scrollbar-track,
@@ -956,6 +969,7 @@ body.dark-mode * {
 .btn-blue   { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
 .btn-orange { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
 .btn-red    { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+.btn-gray   { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
 .btn-lg { padding: 12px 36px; font-size: 15px; border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); }
 .btn-md { padding: 12px 24px; font-size: 14px; border-radius: var(--radius-lg); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); }
 .btn-sm { padding: 8px 16px; font-size: 13px; font-weight: 500; border-radius: 12px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); flex-shrink: 0; }
@@ -1397,6 +1411,8 @@ body.dark-mode .link-word:active {
 
 /* 其他可点击词统一反馈 */
 .exchange-link, .clickable-word, .quiz-clickable-word, .history-link, .quiz-word-link {
+    color: #3498db;
+    text-decoration: none;
     transition: color 0.2s ease, background-color 0.15s ease, opacity 0.15s ease,
                 transform 0.12s ease, border-color 0.2s ease, text-shadow 0.2s ease;
     border-radius: 3px;
@@ -1411,8 +1427,42 @@ body.dark-mode .link-word:active {
     background-color: rgba(52, 152, 219, 0.2);
 }
 
+.quiz-word-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.quiz-word-hint {
+    font-size: 12px;
+    color: #7f8c8d;
+    opacity: 0.8;
+    font-weight: normal;
+}
+
+.quiz-word-time {
+    font-size: 12px;
+    color: #999;
+    margin-left: auto;
+    font-weight: normal;
+}
+
 .suggestion-item:active {
     transform: scale(0.98);
+}
+
+html.dark-mode .exchange-link,
+html.dark-mode .clickable-word,
+html.dark-mode .quiz-clickable-word,
+html.dark-mode .history-link,
+html.dark-mode .quiz-word-link,
+body.dark-mode .exchange-link,
+body.dark-mode .clickable-word,
+body.dark-mode .quiz-clickable-word,
+body.dark-mode .history-link,
+body.dark-mode .quiz-word-link {
+    color: #5dade2;
 }
 
 html.dark-mode .exchange-link:hover,
@@ -1440,6 +1490,16 @@ body.dark-mode .quiz-clickable-word:active,
 body.dark-mode .history-link:active,
 body.dark-mode .quiz-word-link:active {
     background-color: rgba(93, 173, 226, 0.25);
+}
+
+html.dark-mode .quiz-word-hint,
+body.dark-mode .quiz-word-hint {
+    color: #7f8c8d;
+}
+
+html.dark-mode .quiz-word-time,
+body.dark-mode .quiz-word-time {
+    color: #6c7a7d;
 }
 
 /* 词跳转过渡：旧结果快速淡出缩小 */

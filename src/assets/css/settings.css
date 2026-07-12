@@ -1,0 +1,383 @@
+/* 设置页面 */
+.settings-container,
+.quiz-settings {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+}
+
+.setting-item {
+    margin-bottom: 0;
+    padding: 24px;
+    background: var(--bg-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s ease,
+                border-color 0.2s ease;
+    border: 1px solid transparent;
+    position: relative;
+}
+.setting-item.shift-up,
+.setting-item.is-dragging {
+    will-change: transform;
+}
+
+.setting-item:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-color);
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 12px;
+    font-weight: 700;
+    color: var(--text-dark);
+    font-size: 15px;
+}
+
+.setting-item input[type="number"],
+.setting-item input[type="text"],
+.setting-item select {
+    width: 100%;
+    max-width: 280px;
+}
+
+/* 深色模式下适配 number 输入框的上下箭头（spinner）：
+   让浏览器按深色主题渲染原生控件，箭头与背景都更协调 */
+html.dark-mode .setting-item input[type="number"],
+body.dark-mode .setting-item input[type="number"] {
+    color-scheme: dark;
+}
+
+/* 如果仍然出现浅色反差，再给 spinner 区域一个深色背景（仅 Webkit） */
+html.dark-mode .setting-item input[type="number"]::-webkit-inner-spin-button,
+html.dark-mode .setting-item input[type="number"]::-webkit-outer-spin-button,
+body.dark-mode .setting-item input[type="number"]::-webkit-inner-spin-button,
+body.dark-mode .setting-item input[type="number"]::-webkit-outer-spin-button {
+    background-color: #2a2a2a;
+    border-left: 1px solid #4a4a4a;
+}
+
+.setting-item input[type="checkbox"] {
+    margin-right: 10px;
+    vertical-align: middle;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.setting-item-toggle label {
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.setting-item-toggle input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.setting-desc {
+    display: block;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #7f8c8d;
+    line-height: 1.5;
+}
+
+.sortable-container {
+    position: relative;
+}
+
+.drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    margin-right: 8px;
+    cursor: grab;
+    color: #95a5a6;
+    font-size: 16px;
+    font-weight: bold;
+    user-select: none;
+    -webkit-user-select: none;
+    letter-spacing: -2px;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+}
+
+html.dark-mode .drag-handle,
+body.dark-mode .drag-handle {
+    color: #7f8c8d;
+}
+
+.setting-item:hover .drag-handle {
+    color: #3498db;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* 非拖拽态正常，被其它项挤压时通过 transform 位移 */
+.setting-item.shift-up { /* 占位，后续由 JS 精确设置 transform: translate */
+}
+
+/* 被拖拽项的“源位置”占位：半透明，但不占 DOM 位置 */
+.setting-item.is-dragging {
+    opacity: 0.25;
+    pointer-events: none;
+    transform: scale(0.98);
+    box-shadow: none;
+}
+
+/* 真正跟随鼠标的浮层（JS 创建，克隆出来的拖拽副本） */
+.drag-ghost {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 12px 40px rgba(52, 152, 219, 0.35), 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform-origin: center center;
+    opacity: 0.95;
+    border: 2px solid var(--primary-blue);
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    user-select: none;
+    -webkit-user-select: none;
+    will-change: transform;
+    transition: none !important; /* 拖拽浮层必须无过渡以瞬时跟随鼠标，无法通过提高优先级替代 */
+}
+
+.drag-ghost .drag-handle {
+    color: var(--primary-blue);
+}
+
+/* 禁用原生 HTML5 drag，避免与 pointer 事件冲突 */
+.setting-item,
+.setting-item * {
+    -webkit-user-drag: none;
+}
+
+#save-settings {
+    padding: 14px 32px;
+    background: linear-gradient(135deg, var(--accent-green) 0%, #229954 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    transition: var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+#save-settings::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: var(--transition-normal);
+}
+
+#save-settings:hover::before {
+    left: 100%;
+}
+
+#save-settings:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+#save-settings:active {
+    transform: translateY(0);
+}
+
+/* 单词来源 select：下拉列表显示统计，收起时只显示纯名称 */
+.word-source-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 280px;
+}
+
+.word-source-wrapper select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    z-index: 2;
+    cursor: pointer;
+}
+
+.word-source-display {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 36px 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-white);
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    position: relative;
+}
+
+.word-source-display::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--text-gray);
+}
+
+html.dark-mode .word-source-display,
+body.dark-mode .word-source-display {
+    background: var(--input-bg);
+    border-color: var(--border-color);
+    color: var(--text-light);
+}
+
+/* 数据资源下载项 */
+.asset-download-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color, #e9ecef);
+}
+
+.asset-download-item:last-child {
+    border-bottom: none;
+}
+
+.asset-download-info {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.asset-download-info .asset-name {
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 14px;
+}
+
+.asset-download-info .asset-tag {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.asset-download-info .asset-tag.required {
+    background: #ffe5e5;
+    color: #c0392b;
+}
+
+.asset-download-info .asset-tag.optional {
+    background: #e8f4fd;
+    color: #2980b9;
+}
+
+html.dark-mode .asset-download-info .asset-tag.required,
+body.dark-mode .asset-download-info .asset-tag.required {
+    background: rgba(192, 57, 43, 0.2);
+    color: #ff8a80;
+}
+
+html.dark-mode .asset-download-info .asset-tag.optional,
+body.dark-mode .asset-download-info .asset-tag.optional {
+    background: rgba(41, 128, 185, 0.2);
+    color: #85c1e9;
+}
+
+.asset-download-info .asset-size {
+    font-size: 12px;
+    color: var(--text-gray);
+}
+
+.asset-download-info .asset-status {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.asset-download-info .asset-status.downloaded {
+    color: var(--accent-green, #27ae60);
+}
+
+.asset-download-info .asset-status.not-downloaded {
+    color: #e67e22;
+}
+
+.asset-download-btn {
+    padding: 6px 16px;
+    border: none;
+    border-radius: var(--radius-sm, 4px);
+    background: var(--primary-blue, #3498db);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.asset-download-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.asset-download-btn:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+.asset-progress-area {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.asset-progress-bar {
+    flex: 1;
+    height: 14px;
+    background: #e9ecef;
+    border-radius: 7px;
+    overflow: hidden;
+}
+
+.asset-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--primary-blue, #3498db);
+    transition: width 0.3s ease;
+}
+
+.asset-progress-text {
+    font-size: 13px;
+    color: var(--text-gray);
+    min-width: 44px;
+    text-align: right;
+}

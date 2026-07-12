@@ -2,12 +2,15 @@
 // 使用方式：在 Vue 组件定义中加入 mixins: [virtualScrollMixin]
 // 组件需额外提供：wordList, collapsedHeight, expandedMap, flippedMap, cachedHeights
 
+import { VIRTUAL_SCROLL_BUFFER, COLLAPSED_HEIGHT } from '../constants';
+
 export const virtualScrollMixin = {
     data() {
         return {
             scrollTop: 0,
             containerHeight: 600,
-            BUFFER: 20,
+            BUFFER: VIRTUAL_SCROLL_BUFFER,
+            collapsedHeight: COLLAPSED_HEIGHT,
             _offsetCache: {} as Record<number, number>,
             _rafId: 0,
             _pendingScrollTop: 0 as number,

@@ -1,17 +1,47 @@
 // 词典页面：搜索、查词、翻译、发音、语音输入、搜索建议、查词历史
 
-import { appState, switchPage, navigateToWord, jumpToWord, isWordJumping, isCrossPageJumping, onWordJumpDone, getWordJumpElapsed, pageHandlers, escapeHtml } from '../global';
+import { appState, switchPage, navigateToWord, jumpToWord, isWordJumping, isCrossPageJumping, onWordJumpDone, getWordJumpElapsed, pageHandlers, escapeHtml, escapeForJsString } from '../global';
 import { updateStudyStats } from './stats';
 import { loadSettings } from './settings';
-import { updateAllWordbookSelectors } from './wordbook';
+import { updateAllWordbookSelectors, normalizeCaseByType } from './wordbook';
 
 import { updateFavoritesDisplay } from './favorites';
 import { getRegistry } from '../global-registry';
 import { apiGet, apiPost, apiTranslate } from '../utils/api';
-import { parseMeanings } from '../utils/translation';
+import { parseMeanings, normalizeNewlines } from '../utils/translation';
 import { showToast, animateResultShow } from '../utils/gsap';
 
 let _dictDocClickHandler: ((e: Event) => void) | null = null;
+
+/** 资源下载状态缓存 */
+let assetStatusCache: Record<string, boolean> = {};
+
+async function refreshAssetStatusCache(): Promise<void> {
+    try {
+        const response = await fetch('/api/assets/status');
+        const result = await response.json();
+        if (result.success && result.data) {
+            const cache: Record<string, boolean> = {};
+            (result.data as Array<{ id: string; downloaded: boolean }>).forEach((a) => {
+                cache[a.id] = a.downloaded;
+            });
+            assetStatusCache = cache;
+        }
+    } catch (e) {
+        console.error('[dictionary] 获取资源状态失败:', e);
+    }
+}
+
+function isAssetDownloaded(assetId: string): boolean {
+    return !!assetStatusCache[assetId];
+}
+
+function createMissingAssetPrompt(assetName: string): string {
+    return `<div class="missing-asset-prompt">
+        <span style="font-weight: 600;">${assetName} 未下载</span>，暂时无法展示。<a href="#" class="jump-to-download" data-action="jump-to-settings">点击此处跳转下载</a>
+    </div>`;
+}
+
 let _dictScrollHandler: (() => void) | null = null;
 let _dictSuggestionsMousemoveHandler: ((e: MouseEvent) => void) | null = null;
 let lastSearchHistorySignature = '';
@@ -21,8 +51,24 @@ export function initSearch(): void {
     const voiceButton = document.getElementById('voice-button');
     const searchInput = document.getElementById('search-input') as HTMLInputElement;
     const suggestionsDropdown = document.getElementById('suggestions-dropdown') as HTMLElement;
+    const result = document.getElementById('result');
 
     if (!searchButton || !voiceButton || !suggestionsDropdown || !searchInput) return;
+
+    // 初始化资源状态缓存，并定时刷新
+    void refreshAssetStatusCache();
+    setInterval(() => void refreshAssetStatusCache(), 30000);
+
+    // 未下载资源提示的跳转链接
+    if (result) {
+        result.addEventListener('click', function(e) {
+            const target = e.target as HTMLElement;
+            if (target && target.classList.contains('jump-to-download')) {
+                e.preventDefault();
+                void switchPage('settings');
+            }
+        });
+    }
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let activeIndex: number = -1;
@@ -41,6 +87,16 @@ export function initSearch(): void {
     }
 
     if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const text = this.value.trim();
+            if (debounceTimer) clearTimeout(debounceTimer);
+            if (text.length < 3) {
+                hideSuggestions();
+                return;
+            }
+            debounceTimer = setTimeout(() => fetchSuggestions(text), 300);
+        });
+
         searchInput.addEventListener('keydown', function(this: HTMLInputElement, e: KeyboardEvent) {
             const items = suggestionsDropdown.querySelectorAll('.suggestion-item');
             const isOpen = suggestionsDropdown.classList.contains('suggestions-visible');
@@ -82,29 +138,19 @@ export function initSearch(): void {
             }
         });
 
-        searchInput.addEventListener('input', function() {
-            const text = this.value.trim();
-            if (debounceTimer) clearTimeout(debounceTimer);
-            if (text.length < 3) {
-                hideSuggestions();
-                return;
-            }
-            debounceTimer = setTimeout(() => fetchSuggestions(text), 300);
-        });
-
         searchInput.addEventListener('blur', () => setTimeout(hideSuggestions, 300));
+
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 3) {
+                fetchSuggestions(this.value.trim());
+            }
+        });
 
         suggestionsDropdown.addEventListener('click', (e) => {
             const item = (e.target as HTMLElement).closest('.suggestion-item') as HTMLElement;
             if (item) {
                 const word = item.dataset.word;
                 if (word) getRegistry().selectSuggestion(word);
-            }
-        });
-
-        searchInput.addEventListener('focus', function() {
-            if (this.value.trim().length >= 3) {
-                fetchSuggestions(this.value.trim());
             }
         });
     }
@@ -364,6 +410,12 @@ function initVoskVoice(voiceButton: HTMLElement, searchInput: HTMLInputElement):
     voiceButton.addEventListener('click', async function() {
         if (isStopping || isStarting) return;
 
+        if (!isAssetDownloaded('sherpa-onnx-sense-voice')) {
+            showToast('语音识别模型未下载，请先到设置中下载');
+            void switchPage('settings');
+            return;
+        }
+
         if (isListening) {
             isStopping = true;
             isListening = false;
@@ -452,10 +504,62 @@ function initVoskVoice(voiceButton: HTMLElement, searchInput: HTMLInputElement):
     });
 }
 
+function hasChinese(text: string): boolean {
+    return /[\u4e00-\u9fa5]/.test(text);
+}
+
+// 中文释义搜索：在词典中查找包含该中文的英文单词
+async function searchChineseWords(keyword: string): Promise<void> {
+    const resultDiv = document.getElementById('result');
+    const translationContainer = document.getElementById('translation-container');
+    const chineseResultDiv = document.getElementById('chinese-search-result') as HTMLElement;
+    const listEl = chineseResultDiv?.querySelector('.chinese-search-list') as HTMLElement;
+
+    if (resultDiv) resultDiv.classList.remove('result-visible');
+    if (translationContainer) translationContainer.style.display = 'none';
+    if (!chineseResultDiv || !listEl) return;
+
+    chineseResultDiv.style.display = 'block';
+    listEl.innerHTML = '<div class="chinese-search-loading">正在搜索...</div>';
+
+    try {
+        const data = await apiGet('/api/search-chinese?keyword=' + encodeURIComponent(keyword));
+        if (data.success && data.data && data.data.length > 0) {
+            listEl.innerHTML = data.data.map((item: any) => `
+                <a href="#" class="chinese-search-item" data-word="${escapeHtml(item.word)}">
+                    <span class="chinese-search-word">${escapeHtml(item.word)}</span>
+                    <span class="chinese-search-meaning">${escapeHtml((item.translation || '').split('\n')[0])}</span>
+                </a>
+            `).join('');
+
+            listEl.querySelectorAll('.chinese-search-item').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const word = (e.currentTarget as HTMLElement).dataset.word;
+                    if (word) {
+                        const searchInput = document.getElementById('search-input') as HTMLInputElement;
+                        if (searchInput) searchInput.value = word;
+                        searchWord(word);
+                    }
+                });
+            });
+        } else {
+            // 词典里搜不到，调翻译 API 兜底
+            if (chineseResultDiv) chineseResultDiv.style.display = 'none';
+            translateText(keyword);
+            return;
+        }
+    } catch (error: unknown) {
+        console.error('中文释义搜索失败:', error);
+        listEl.innerHTML = '<div class="chinese-search-empty">搜索失败，请稍后重试</div>';
+    }
+}
+
 // 先查词典，没有就翻译
 export async function searchOrTranslate(text: string): Promise<void> {
     const resultDiv = document.getElementById('result');
     const translationContainer = document.getElementById('translation-container');
+    const chineseResultDiv = document.getElementById('chinese-search-result');
     const wordElement = document.getElementById('word');
     const phoneticElement = document.getElementById('phonetic');
     const meaningsElement = document.getElementById('meanings');
@@ -465,8 +569,19 @@ export async function searchOrTranslate(text: string): Promise<void> {
     if (phoneticElement) phoneticElement.textContent = '';
     if (meaningsElement) meaningsElement.innerHTML = '';
     if (translationContainer) translationContainer.classList.add('translation-hidden');
+    if (chineseResultDiv) chineseResultDiv.style.display = 'none';
 
     const word = text.trim();
+
+    // 含中文时走中文释义搜索
+    if (hasChinese(word)) {
+        console.log('检测到中文，走中文释义搜索:', word);
+        recordSearchHistory(word);
+        appState.studyStats.searchCount++;
+        updateStudyStats();
+        await searchChineseWords(word);
+        return;
+    }
 
     // 判断是不是句子（包含空格且单词数超过1个）
     const words = word.trim().split(/\s+/).filter(w => w.length > 0);
@@ -547,7 +662,18 @@ export async function searchWord(word: string): Promise<void> {
         await pageHandlers.loadWordbooks?.();
 
         const translationContainer = document.getElementById('translation-container');
+        const chineseResultDiv = document.getElementById('chinese-search-result');
         if (translationContainer) translationContainer.classList.add('translation-hidden');
+        if (chineseResultDiv) chineseResultDiv.style.display = 'none';
+
+        // 含中文时走中文释义搜索
+        if (hasChinese(word)) {
+            recordSearchHistory(word);
+            appState.studyStats.searchCount++;
+            updateStudyStats();
+            await searchChineseWords(word);
+            return;
+        }
 
         recordSearchHistory(word);
 
@@ -620,7 +746,7 @@ export function buildEnhancedHtml(enhanced: {
                 html += '<strong>例词:</strong> ';
                 rootInfo.info.example.forEach((example: string, idx: number) => {
                     if (idx > 0) html += ', ';
-                    html += '<a href="#" onclick="g(\'jumpToWord\',\'' + example.toLowerCase() + '\'); return false;" class="link-word">' + example + '</a>';
+                    html += '<a href="#" onclick="g(\'jumpToWord\',\'' + escapeForJsString(example.toLowerCase()) + '\'); return false;" class="link-word">' + escapeHtml(example) + '</a>';
                 });
                 html += '</div>';
             }
@@ -635,7 +761,7 @@ export function buildEnhancedHtml(enhanced: {
         html += '<div>';
         enhanced.similar_words.forEach((w: string, idx: number) => {
             if (idx > 0) html += ', ';
-            html += '<a href="#" onclick="g(\'jumpToWord\',\'' + w + '\'); return false;" class="link-word">' + w + '</a>';
+            html += '<a href="#" onclick="g(\'jumpToWord\',\'' + escapeForJsString(w) + '\'); return false;" class="link-word">' + escapeHtml(w) + '</a>';
         });
         html += '</div>';
 
@@ -758,13 +884,13 @@ export function displayResult(data: WordData): void {
             if (baseForm) {
                 exchangeHtml += '<div class="exchange-item">';
                 exchangeHtml += '<span class="exchange-label">原型:</span>';
-                exchangeHtml += '<a href="#" onclick="g(\'jumpToWord\',\'' + baseForm + '\'); return false;" class="exchange-link">' + baseForm + '</a>';
+                exchangeHtml += '<a href="#" onclick="g(\'jumpToWord\',\'' + escapeForJsString(baseForm) + '\'); return false;" class="exchange-link">' + escapeHtml(baseForm) + '</a>';
                 exchangeHtml += '</div>';
             }
             validExchanges.forEach(ex => {
                 exchangeHtml += '<div class="exchange-item">';
                 exchangeHtml += '<span class="exchange-label">' + ex.name + ':</span>';
-                exchangeHtml += '<a href="#" onclick="g(\'jumpToWord\',\'' + ex.value + '\'); return false;" class="exchange-link">' + ex.value + '</a>';
+                exchangeHtml += '<a href="#" onclick="g(\'jumpToWord\',\'' + escapeForJsString(ex.value) + '\'); return false;" class="exchange-link">' + escapeHtml(ex.value) + '</a>';
                 exchangeHtml += '</div>';
             });
             exchangeHtml += '</div>';
@@ -797,14 +923,8 @@ export function displayResult(data: WordData): void {
         let partHtml = '';
         let defHtml = meaning.definition || '';
 
-        // 把 API 返回的字面量换行符（\\r\\n / \\n / \\r）和真实换行转成 <br>
-        defHtml = defHtml
-            .replace(/\\r\\n/g, '<br>')
-            .replace(/\\n/g, '<br>')
-            .replace(/\\r/g, '<br>')
-            .replace(/\r\n/g, '<br>')
-            .replace(/\n/g, '<br>')
-            .replace(/\r/g, '<br>');
+        // 把 API 返回的字面量换行符和真实换行转成 <br>
+        defHtml = normalizeNewlines(defHtml).replace(/\n/g, '<br>');
 
         // 提取定义中的领域标签
         const domainTagMatch = defHtml.match(/^\[([^\]]+)\]\s*/);
@@ -847,8 +967,8 @@ export function displayResult(data: WordData): void {
     buttonsHtml += '<select id="wordbook-selector" class="result-wb-select">';
     buttonsHtml += wordbookOptions;
     buttonsHtml += '</select>';
-    buttonsHtml += '<button class="favorites-btn" onclick="event.stopPropagation(); g(\'playPronunciation\',\'us\',\'' + data.word + '\')">美式发音</button>';
-    buttonsHtml += '<button class="favorites-btn" onclick="event.stopPropagation(); g(\'playPronunciation\',\'uk\',\'' + data.word + '\')">英式发音</button>';
+    buttonsHtml += '<button class="favorites-btn" onclick="event.stopPropagation(); g(\'playPronunciation\',\'us\',\'' + escapeForJsString(data.word) + '\')">美式发音</button>';
+    buttonsHtml += '<button class="favorites-btn" onclick="event.stopPropagation(); g(\'playPronunciation\',\'uk\',\'' + escapeForJsString(data.word) + '\')">英式发音</button>';
     buttonsHtml += '<button class="favorites-btn ' + (isInWordlist ? 'active' : '') + '" id="add-to-wordlist">';
     buttonsHtml += isInWordlist ? '已在单词本' : '加入单词本';
     buttonsHtml += '</button>';
@@ -875,8 +995,8 @@ export function displayResult(data: WordData): void {
 
             let processedText = example.text;
             if (example.lang === 'eng') {
-                processedText = example.text.replace(/([a-zA-Z]+)/g, function(match: string) {
-                    return '<a href="#" onclick="g(\'jumpToWord\',\'' + match.toLowerCase() + '\'); return false;" class="clickable-word">' + match + '</a>';
+                processedText = example.text.replace(/([a-zA-Z]+(?:'[a-zA-Z]+)?)/g, function(match: string) {
+                    return '<a href="#" onclick="g(\'jumpToWord\',\'' + escapeForJsString(match.toLowerCase()) + '\'); return false;" class="clickable-word">' + escapeHtml(match) + '</a>';
                 });
             }
 
@@ -890,6 +1010,8 @@ export function displayResult(data: WordData): void {
         });
 
         examplesHtml += '</div></div>';
+    } else if (!isAssetDownloaded('examples.db')) {
+        examplesHtml = createMissingAssetPrompt('例句库');
     }
 
     meaningsElement.innerHTML = meaningsHtml + buttonsHtml + enhancedHtml + examplesHtml;
@@ -1225,17 +1347,13 @@ export function showSentenceWordbookModal(): void {
         );
 
         if (!exists) {
-            appState.wordbooks[selectedWordbook].push(sentence);
-            localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
-            addToCustomWordbook(selectedWordbook, sentence);
-            showToast(`已添加到 "${selectedWordbook}"`, 'success');
+            void addToCustomWordbook(selectedWordbook, sentence);
         } else {
             showToast(`该句子已在 "${selectedWordbook}" 中`, 'info');
         }
 
         closeSentenceModal();
         updateSentenceButtons();
-        updateAllWordbookSelectors();
     };
 }
 
@@ -1271,10 +1389,7 @@ export function bindSentenceButtonEvents(): void {
             );
 
             if (!exists) {
-                appState.wordbooks[selectedWordbook].push(sentence);
-                localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
-                addToCustomWordbook(selectedWordbook, sentence);
-                showToast(`已添加到 "${selectedWordbook}"`, 'success');
+                void addToCustomWordbook(selectedWordbook, sentence);
                 sentenceWbBtn.classList.add('active');
                 sentenceWbBtn.textContent = '已在单词本';
             } else {
@@ -1525,17 +1640,23 @@ export async function translateText(text: string): Promise<void> {
     translationResult.innerHTML = '<p class="translation-loading">正在翻译...</p>';
 
     try {
-        console.log('调用翻译API:', text);
-        const data = await apiTranslate(text);
+        // 句子类词条请求翻译时首字母小写，提高准确性并复用缓存
+        const apiText = text.charAt(0).toLowerCase() + text.slice(1);
+        console.log('调用翻译API:', apiText);
+        const data = await apiTranslate(apiText);
         console.log('翻译API返回:', data);
 
         if (data.success) {
+            const displayText = normalizeCaseByType(text);
+            // 中译英时，发音用英文译文；英译中时，发音用原文英文
+            const pronounceText = hasChinese(text) ? (data.translation || displayText) : displayText;
+
             // 将原文中的英文单词转为可点击的链接
-            const clickableOriginalText = makeWordsClickable(text);
+            const clickableOriginalText = makeWordsClickable(displayText);
 
             const isSentenceInFavorites = appState.favorites.some(item => {
                 const itemText = typeof item === 'string' ? item : ((item as any).word || (item as any).text);
-                return itemText === text;
+                return itemText === text || itemText === displayText;
             });
 
             let resultHtml = `<div class="translation-original">
@@ -1544,11 +1665,11 @@ export async function translateText(text: string): Promise<void> {
                     <select id="sentence-wordbook-select-inline" class="result-wb-select">
                         <option value="" disabled selected>选择单词本</option>
                     </select>
-                    <button data-action="play-sentence" data-type="us" data-text="${escapeHtml(text)}"
+                    <button data-action="play-sentence" data-type="us" data-text="${escapeHtml(pronounceText)}"
                             class="favorites-btn">
                         美式发音
                     </button>
-                    <button data-action="play-sentence" data-type="uk" data-text="${escapeHtml(text)}"
+                    <button data-action="play-sentence" data-type="uk" data-text="${escapeHtml(pronounceText)}"
                             class="favorites-btn">
                         英式发音
                     </button>
@@ -1575,7 +1696,7 @@ export async function translateText(text: string): Promise<void> {
             });
 
             // 存储当前句子
-            appState.currentSentence = { text: text, translation: data.translation };
+            appState.currentSentence = { text: displayText, translation: data.translation };
 
             // 填充单词本下拉框
             const wordbookSelect = document.getElementById('sentence-wordbook-select-inline') as HTMLSelectElement;

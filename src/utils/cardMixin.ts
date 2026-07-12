@@ -13,13 +13,20 @@ export const cardMixin = {
             loadingDefinitions: {} as Record<string, boolean>,
             loadingExamples: {} as Record<string, boolean>,
             cachedHeights: {} as Record<string, number>,
-            collapsedHeight: 116,
+            collapsedHeight: 140,
             loadingHtml: '<p style="color: var(--primary-blue); margin: 0;">正在加载释义...</p>',
         };
     },
     methods: {
+        // 限定在当前 Vue 组件内查询，避免多页面同时挂载时命中隐藏页面元素
+        _wordEl(word: string): HTMLElement | null {
+            const root = (this as any).$el as HTMLElement | null;
+            if (!root) return null;
+            return root.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
+        },
         handleLeftClick(word: string) {
-            const cardEl = document.querySelector(`[data-word="${CSS.escape(word)}"] .flip-card`) as HTMLElement | null;
+            const el = (this as any)._wordEl(word);
+            const cardEl = el?.querySelector('.flip-card') as HTMLElement | null;
             if ((this as any).flippedMap[word]) {
                 (this as any).flippedMap[word] = false;
                 animateCardFlip(cardEl, false);
@@ -43,7 +50,8 @@ export const cardMixin = {
             }
         },
         handleRightClick(word: string) {
-            const cardEl = document.querySelector(`[data-word="${CSS.escape(word)}"] .flip-card`) as HTMLElement | null;
+            const el = (this as any)._wordEl(word);
+            const cardEl = el?.querySelector('.flip-card') as HTMLElement | null;
             if ((this as any).flippedMap[word]) {
                 (this as any).flippedMap[word] = false;
                 animateCardFlip(cardEl, false);
@@ -158,12 +166,12 @@ export const cardMixin = {
             });
         },
         measureWordHeight(word: string) {
-            const el = document.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
+            const el = (this as any)._wordEl(word);
             if (!el) {
                 setTimeout(() => {
-                    const el2 = document.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
+                    const el2 = (this as any)._wordEl(word);
                     if (el2) {
-                        (this as any).cachedHeights[word] = el2.offsetHeight + 12;
+                        (this as any).cachedHeights[word] = el2.offsetHeight + 50;
                     }
                 }, 100);
                 return;
@@ -184,11 +192,11 @@ export const cardMixin = {
                 if (back) back.style.alignItems = '';
             }
 
-            (this as any).cachedHeights[word] = el.offsetHeight + 12;
+            (this as any).cachedHeights[word] = el.offsetHeight + 50;
             setTimeout(() => {
-                const el2 = document.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
+                const el2 = (this as any)._wordEl(word);
                 if (el2) {
-                    (this as any).cachedHeights[word] = el2.offsetHeight + 12;
+                    (this as any).cachedHeights[word] = el2.offsetHeight + 50;
                 }
             }, 100);
         },
@@ -199,7 +207,7 @@ export const cardMixin = {
             });
         },
         _animateWordRemoval(word: string, doRemove: () => void) {
-            const cardEl = document.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
+            const cardEl = (this as any)._wordEl(word);
             if (cardEl) {
                 animateCardExit(cardEl, doRemove);
             } else {

@@ -12,7 +12,7 @@ interface WordbookWordItem {
 
 // Wordbook management: create/rename/delete wordbooks, word list, Vue virtual list, import/export, wordbook selector
 
-import { appState, systemWordbooks, jumpToWord, currentSection } from '../global';
+import { appState, systemWordbooks, jumpToWord, currentSection, showAlert, showConfirm, showPrompt } from '../global';
 import { updateStudyStats } from './stats';
 import { getErrorbookItemType } from './errorbook';
 import { getItemText } from './favorites';
@@ -22,6 +22,7 @@ import { removeFromFavorites } from './favorites';
 import { removeFromErrorbook } from './errorbook';
 import { virtualScrollMixin } from '../utils/virtualScroll';
 import { cardMixin } from '../utils/cardMixin';
+import { showToast } from '../utils/gsap';
 
 let lastRenderSignature = '';
 
@@ -54,23 +55,21 @@ export function abortWordbookRendering(): void {
     systemWordbookListAbortController = null;
 }
 
-function validateImportTarget(selectedWordbook: string): boolean {
+async function validateImportTarget(selectedWordbook: string): Promise<boolean> {
     if (!selectedWordbook) {
-        alert('请先选择或创建一个单词本！');
+        await showAlert('请先选择或创建一个单词本！');
         return false;
     }
     if (selectedWordbook.startsWith('sys_')) {
-        alert('系统单词本不可导入！');
+        await showAlert('系统单词本不可导入！');
         return false;
     }
     if (selectedWordbook === WordSource.Favorites || selectedWordbook === WordSource.Errorbook) {
-        alert('该单词本不可导入，请选择其他单词本！');
+        await showAlert('该单词本不可导入，请选择其他单词本！');
         return false;
     }
-    if (!confirm(`确定要导入到单词本「${selectedWordbook}」吗？`)) {
-        return false;
-    }
-    return true;
+    const ok = await showConfirm(`确定要导入到单词本「${selectedWordbook}」吗？`, '导入确认');
+    return ok;
 }
 
 export function initWordbookManagement(): void {
@@ -90,30 +89,31 @@ export function initWordbookManagement(): void {
         if (name) {
             createWordbook(name);
         } else {
-            alert('请输入单词本名称');
+            void showAlert('请输入单词本名称');
         }
     });
 
-    deleteWordbookBtn.addEventListener('click', function() {
+    deleteWordbookBtn.addEventListener('click', async function() {
         const selectedWordbook = wordbookSelect.value;
         if (selectedWordbook && selectedWordbook.startsWith('sys_')) {
-            alert('系统单词本不能删除');
+            await showAlert('系统单词本不能删除');
             return;
         }
         if (selectedWordbook === WordSource.Favorites || selectedWordbook === WordSource.Errorbook) {
-            alert('不能删除收藏或错题本！');
+            await showAlert('不能删除收藏或错题本！');
             return;
         }
         if (appState.wordbooks[selectedWordbook]) {
-            if (confirm(`确定要删除单词本"${selectedWordbook}"吗？该操作不可恢复！`)) {
+            const ok = await showConfirm(`确定要删除单词本"${selectedWordbook}"吗？该操作不可恢复！`, '删除确认');
+            if (ok) {
                 deleteWordbook(selectedWordbook);
             }
         }
     });
 
-    importWordbookBtn.addEventListener('click', function() {
+    importWordbookBtn.addEventListener('click', async function() {
         const selectedWordbook = wordbookSelect.value;
-        if (validateImportTarget(selectedWordbook)) {
+        if (await validateImportTarget(selectedWordbook)) {
             importWordbookInput.click();
         }
     });
@@ -131,17 +131,17 @@ export function initWordbookManagement(): void {
     exportWordbookBtn.addEventListener('click', function() {
         const selectedWordbook = wordbookSelect.value;
         if (!selectedWordbook) {
-            alert('请先选择一个单词本！');
+            void showAlert('请先选择一个单词本！');
             return;
         }
         exportWordbook(selectedWordbook);
     });
 }
 
-export function handleImportWordbook(): void {
+export async function handleImportWordbook(): Promise<void> {
     const wordbookSelect = document.getElementById('wordbook-select') as HTMLSelectElement;
     const selectedWordbook = wordbookSelect.value;
-    if (validateImportTarget(selectedWordbook)) {
+    if (await validateImportTarget(selectedWordbook)) {
         (document.getElementById('import-wordbook') as HTMLInputElement).click();
     }
 }
@@ -157,47 +157,18 @@ export function handleFileImport(event: Event): void {
     target.value = '';
 }
 
-export function handleExportWordbook(): void {
+export async function handleExportWordbook(): Promise<void> {
     const wordbookSelect = document.getElementById('wordbook-select') as HTMLSelectElement;
     const selectedWordbook = wordbookSelect.value;
     if (!selectedWordbook) {
-        alert('请先选择一个单词本！');
+        await showAlert('请先选择一个单词本！');
         return;
     }
     exportWordbook(selectedWordbook);
 }
 
 export async function importWordbook(file: File, wordbookName: string): Promise<void> {
-    const importResultDiv = document.getElementById('import-result') as HTMLElement;
-    importResultDiv.classList.add('import-result-visible');
-    importResultDiv.innerHTML = '<p class="import-result-text">正在读取文件...</p>';
-
-    let statusEl: HTMLParagraphElement | null = null;
-    let logEl: HTMLDivElement | null = null;
-
-    const initProgressUI = (message: string) => {
-        importResultDiv.innerHTML = '';
-        statusEl = document.createElement('p');
-        statusEl.style.cssText = 'color: var(--primary-blue); font-size: 16px; margin-bottom: 10px;';
-        statusEl.textContent = message;
-        importResultDiv.appendChild(statusEl);
-
-        logEl = document.createElement('div');
-        logEl.style.cssText = 'font-size: 13px; line-height: 1.8; color: var(--text-dark); max-height: 220px; overflow-y: auto;';
-        importResultDiv.appendChild(logEl);
-    };
-
-    const updateStatus = (message: string) => {
-        if (statusEl) statusEl.textContent = message;
-    };
-
-    const appendLog = (message: string) => {
-        if (!logEl) return;
-        const line = document.createElement('div');
-        line.textContent = message;
-        logEl.appendChild(line);
-        logEl.scrollTo({ top: logEl.scrollHeight, behavior: 'smooth' });
-    };
+    const loadingToast = showToast('正在后台导入...', 'info');
 
     try {
         const formData = new FormData();
@@ -219,7 +190,7 @@ export async function importWordbook(file: File, wordbookName: string): Promise<
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let uiReady = false;
+        let completeEvent: any = null;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -234,108 +205,65 @@ export async function importWordbook(file: File, wordbookName: string): Promise<
                 const jsonStr = line.slice(6).trim();
                 if (!jsonStr) continue;
 
-                let event: any;
                 try {
-                    event = JSON.parse(jsonStr);
+                    const event = JSON.parse(jsonStr);
+                    if (event.type === 'complete') {
+                        completeEvent = event;
+                    } else if (event.type === 'error') {
+                        throw new Error(event.message || '导入失败');
+                    }
                 } catch {
                     continue;
                 }
-
-                if (event.type === 'start') {
-                    initProgressUI(`开始导入，共 ${event.total || 0} 个条目...`);
-                    uiReady = true;
-                } else if (event.type === 'stage') {
-                    if (!uiReady) initProgressUI('正在导入...');
-                    appendLog(event.message || '');
-                    updateStatus(`正在处理 (${event.index || 0}/${event.total || 0})`);
-                } else if (event.type === 'progress') {
-                    const percent = event.total ? Math.round((event.done / event.total) * 100) : 0;
-                    updateStatus(`导入进度 ${percent}%`);
-                } else if (event.type === 'complete') {
-                    const d = event.data || {};
-                    let resultHtml = '<p style="color: #27ae60; font-size: 20px; font-weight: bold;">✅ 导入完成！</p>';
-                    resultHtml += `<p style="font-size: 16px;">共识别到 ${d.total || 0} 个单词</p>`;
-                    resultHtml += `<p style="font-size: 16px;">其中单词 ${d.word_count || 0} 个，词组 ${d.phrase_count || 0} 个</p>`;
-                    resultHtml += `<p style="font-size: 16px;">成功导入 ${d.success_count || 0} 个</p>`;
-
-                    if ((d.duplicated_count || 0) > 0) {
-                        resultHtml += `<p style="font-size: 16px; color: #f39c12;">词形重复（已过滤）${d.duplicated_count} 个</p>`;
-                    }
-                    if ((d.failed_count || 0) > 0) {
-                        resultHtml += `<p style="font-size: 16px; color: #e74c3c;">失败 ${d.failed_count} 个</p>`;
-                    }
-
-                    importResultDiv.innerHTML = resultHtml;
-
-                    await loadWordbooks();
-                    await updateWordbookSelect();
-
-                    const wordbookSelect = document.getElementById('wordbook-select') as HTMLSelectElement;
-                    if (wordbookSelect) {
-                        wordbookSelect.value = wordbookName;
-                        appState.lastSelectedWordbook = wordbookName;
-                        localStorage.setItem('lastSelectedWordbook', wordbookName);
-                    }
-
-                    await updateSelectedWordbookDisplay();
-                } else if (event.type === 'error') {
-                    throw new Error(event.message || '导入失败');
-                }
             }
         }
 
-        if (buffer.trim()) {
-            const line = buffer.trim();
-            if (line.startsWith('data: ')) {
-                try {
-                    const event = JSON.parse(line.slice(6));
-                    if (event.type === 'error') throw new Error(event.message || '导入失败');
-                } catch { /* ignore */ }
-            }
+        if (!completeEvent) throw new Error('导入未完成');
+
+        loadingToast.remove();
+
+        const d = completeEvent.data || {};
+        const parts: string[] = [`成功 ${d.success_count || 0} 个`];
+        if ((d.duplicated_count || 0) > 0) parts.push(`重复 ${d.duplicated_count} 个`);
+        if ((d.failed_count || 0) > 0) parts.push(`失败 ${d.failed_count} 个`);
+        showToast(`导入完成：${parts.join('，')}`, 'success');
+
+        await loadWordbooks();
+        await updateWordbookSelect();
+
+        const wordbookSelect = document.getElementById('wordbook-select') as HTMLSelectElement;
+        if (wordbookSelect) {
+            wordbookSelect.value = wordbookName;
+            appState.lastSelectedWordbook = wordbookName;
+            localStorage.setItem('lastSelectedWordbook', wordbookName);
         }
+
+        await updateSelectedWordbookDisplay();
     } catch (error: unknown) {
         console.error('导入出错:', error);
+        loadingToast.remove();
         const message = error instanceof Error ? error.message : '未知错误';
-        importResultDiv.innerHTML = `<p style="color: #e74c3c; font-size: 16px;">导入出错：${message}</p>`;
+        showToast(`导入出错：${message}`, 'error');
     }
 }
 
 export async function exportWordbook(wordbookName: string): Promise<void> {
-    const resultDiv = document.getElementById('import-result') as HTMLElement;
-    if (!resultDiv) return;
-    resultDiv.classList.add('import-result-visible');
-
-    const updateProgress = (percent: number, message: string, stageInfo: string = '') => {
-        resultDiv.innerHTML = `
-            <p style="color: var(--primary-blue); font-size: 16px; margin-bottom: 10px;">${message}</p>
-            <div style="background-color: var(--border-color); border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 10px;">
-                <div id="export-progress-bar" style="background: linear-gradient(90deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%); height: 100%; width: ${percent}%; transition: width 0.1s linear; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold;">
-                    ${percent}%
-                </div>
-            </div>
-            ${stageInfo ? `<div style="font-size: 13px; line-height: 1.8; color: var(--text-dark);">${stageInfo}</div>` : ''}
-        `;
-    };
+    const loadingToast = showToast('正在后台导出...', 'info');
 
     try {
         const exportFormatEl = document.getElementById('export-format') as HTMLSelectElement;
         const exportMeaningEl = document.getElementById('export-meaning') as HTMLInputElement;
         const exportPhoneticEl = document.getElementById('export-phonetic') as HTMLInputElement;
         if (!exportFormatEl || !exportMeaningEl || !exportPhoneticEl) return;
-        const exportFormat = exportFormatEl.value;
-        const exportMeaning = exportMeaningEl.checked;
-        const exportPhonetic = exportPhoneticEl.checked;
-
-        updateProgress(0, '正在连接服务器...', '');
 
         const response = await fetch('/api/wordbook/export-stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: wordbookName,
-                format: exportFormat,
-                export_meaning: exportMeaning,
-                export_phonetic: exportPhonetic,
+                format: exportFormatEl.value,
+                export_meaning: exportMeaningEl.checked,
+                export_phonetic: exportPhoneticEl.checked,
             }),
         });
 
@@ -348,6 +276,7 @@ export async function exportWordbook(wordbookName: string): Promise<void> {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let doneEvent: any = null;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -363,46 +292,40 @@ export async function exportWordbook(wordbookName: string): Promise<void> {
 
                 try {
                     const event = JSON.parse(trimmed.slice(6));
-
-                    if (event.type === 'start') {
-                        updateProgress(0, `开始导出，共 ${event.total} 个单词...`, '');
-                    } else if (event.type === 'progress') {
-                        const pct = Math.floor((event.done / event.total) * 90);
-                        updateProgress(pct, `正在处理单词... (${event.done}/${event.total})`, '');
-                    } else if (event.type === 'done') {
-                        updateProgress(95, '正在生成文件...', '');
-                        const binary = atob(event.file);
-                        const bytes = new Uint8Array(binary.length);
-                        for (let i = 0; i < binary.length; i++) {
-                            bytes[i] = binary.charCodeAt(i);
-                        }
-                        const blob = new Blob([bytes], { type: event.mimeType });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = event.filename;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        updateProgress(100, `✅ 导出成功！共 ${event.total || '?'} 个单词`, '');
-                        setTimeout(() => {
-                            resultDiv.classList.remove('import-result-visible');
-                        }, 3000);
-                        return;
+                    if (event.type === 'done') {
+                        doneEvent = event;
                     } else if (event.type === 'error') {
                         throw new Error(event.message);
                     }
-                } catch (parseErr) {
-                    // 忽略解析错误
+                } catch {
+                    continue;
                 }
             }
         }
+
+        if (!doneEvent) throw new Error('导出未完成');
+
+        loadingToast.remove();
+
+        const binary = atob(doneEvent.file);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: doneEvent.mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doneEvent.filename;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showToast(`导出成功！共 ${doneEvent.total || '?'} 个单词`, 'success');
     } catch (error: unknown) {
         console.error('导出出错:', error);
+        loadingToast.remove();
         const message = error instanceof Error ? error.message : '未知错误';
-        resultDiv.innerHTML = `<p style="color: var(--accent-red); font-size: 16px;">导出出错：${message}</p>`;
-        setTimeout(() => {
-            resultDiv.classList.remove('import-result-visible');
-        }, 5000);
+        showToast(`导出出错：${message}`, 'error');
     }
 }
 
@@ -512,9 +435,9 @@ export async function updateWordbookSelect(): Promise<void> {
 }
 
 // 更新所有单词本选择器（查询页面、句子添加页面、测验页面）
-export function updateAllWordbookSelectors(): void {
-    updateWordbookSelect();
-    updateWordSourceSelect();
+export async function updateAllWordbookSelectors(): Promise<void> {
+    await updateWordbookSelect();
+    await updateWordSourceSelect();
     refreshDictionaryInlineSelectors();
 }
 
@@ -571,42 +494,156 @@ function refreshDictionaryInlineSelectors(): void {
     }
 }
 
-export function updateWordSourceSelect(): void {
+function getPracticedWords(): Set<string> {
+    const practiced = new Set<string>();
+    try {
+        const answered = JSON.parse(localStorage.getItem('quizAnsweredWords') || '[]') as string[];
+        answered.forEach(w => practiced.add(w));
+    } catch {}
+    try {
+        const history = JSON.parse(localStorage.getItem('learningHistory') || '{}') as Record<string, any>;
+        Object.keys(history).forEach(w => practiced.add(w));
+    } catch {}
+    return practiced;
+}
+
+export function getSourceProgress(value: string): { total: number; practiced: number; remaining: number } {
+    const words = getSourceWordList(value);
+    const practicedSet = getPracticedWords();
+    const practiced = words.filter(w => practicedSet.has(w)).length;
+    return {
+        total: words.length,
+        practiced,
+        remaining: Math.max(0, words.length - practiced)
+    };
+}
+
+export function getSourceWordList(value: string): string[] {
+    if (value === WordSource.Favorites) {
+        return appState.favorites.map((w: any) => typeof w === 'string' ? w : w.word);
+    }
+    if (value === WordSource.Errorbook) {
+        return Object.keys(appState.errorbook);
+    }
+    if (value.startsWith('wordbook:')) {
+        const name = value.replace('wordbook:', '');
+        const words = appState.wordbooks[name] || [];
+        return words.map((w: any) => typeof w === 'string' ? w : w.word);
+    }
+    if (value.startsWith('system:')) {
+        const tag = value.replace('system:', '');
+        try {
+            const cache = JSON.parse(localStorage.getItem('systemWordbookWordsCache') || '{}') as Record<string, string[]>;
+            return cache[tag] || [];
+        } catch {
+            return [];
+        }
+    }
+    return [];
+}
+
+function formatSourceStats(total: number, practiced: number): string {
+    const unpracticed = Math.max(0, total - practiced);
+    return `（共${total}词 已练习：${practiced}词 未练习：${unpracticed}词）`;
+}
+
+export async function updateWordSourceSelect(): Promise<void> {
     const wordSourceSelect = document.getElementById('word-source') as HTMLSelectElement;
     if (!wordSourceSelect) return;
+
+    // 确保系统单词本数量已加载
+    const hasSystemCache = Object.keys(systemWordbookCounts).length > 0;
+    if (!hasSystemCache) {
+        systemWordbookListAbortController?.abort();
+        systemWordbookListAbortController = new AbortController();
+        const listSignal = systemWordbookListAbortController.signal;
+        try {
+            const response = await fetch('/api/system-wordbooks', { signal: listSignal });
+            const data = await response.json();
+            if (data.success && data.data) {
+                data.data.forEach((wb: { id: string; name: string; count: number }) => {
+                    systemWordbookCounts[wb.id] = wb.count;
+                });
+            }
+        } catch (e) {
+            if ((e as Error).name === 'AbortError') return;
+            console.error('加载系统单词本失败:', e);
+        } finally {
+            systemWordbookListAbortController = null;
+        }
+    }
 
     const currentValue = wordSourceSelect.value;
     wordSourceSelect.innerHTML = '';
 
+    const practiced = getPracticedWords();
+
+    function createOption(value: string, name: string, total: number, practicedCount: number): HTMLOptionElement {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = name + ' ' + formatSourceStats(total, practicedCount);
+        option.dataset.name = name;
+        return option;
+    }
+
     Object.keys(appState.wordbooks).forEach(name => {
         if (name.startsWith('sys_')) return;
-        let option = document.createElement('option');
-        option.value = `wordbook:${name}`;
-        const wordCount = Array.isArray(appState.wordbooks[name]) ? appState.wordbooks[name].length : 0;
-        option.textContent = name + ' (' + wordCount + '词)';
-        wordSourceSelect.appendChild(option);
+        const value = `wordbook:${name}`;
+        const words = getSourceWordList(value);
+        const practicedCount = words.filter(w => practiced.has(w)).length;
+        wordSourceSelect.appendChild(createOption(value, name, words.length, practicedCount));
     });
 
-    let option = document.createElement('option');
-    option.value = WordSource.Favorites;
-    option.textContent = '我的收藏';
-    wordSourceSelect.appendChild(option);
+    let favWords = getSourceWordList(WordSource.Favorites);
+    wordSourceSelect.appendChild(createOption(WordSource.Favorites, '我的收藏', favWords.length, favWords.filter(w => practiced.has(w)).length));
 
-    option = document.createElement('option');
-    option.value = WordSource.Errorbook;
-    option.textContent = '错题本';
-    wordSourceSelect.appendChild(option);
+    let errWords = getSourceWordList(WordSource.Errorbook);
+    wordSourceSelect.appendChild(createOption(WordSource.Errorbook, '错题本', errWords.length, errWords.filter(w => practiced.has(w)).length));
 
     systemWordbooks.forEach(wb => {
-        option = document.createElement('option');
-        option.value = 'system:' + wb.tag;
-        option.textContent = '系统-' + wb.name;
-        wordSourceSelect.appendChild(option);
+        const value = 'system:' + wb.tag;
+        const total = systemWordbookCounts[wb.id] ?? 0;
+        const sysWords = getSourceWordList(value);
+        const practicedCount = sysWords.filter(w => practiced.has(w)).length;
+        wordSourceSelect.appendChild(createOption(value, '系统-' + wb.name, total, practicedCount));
     });
 
     if (wordSourceSelect.querySelector(`option[value="${currentValue}"]`)) {
         wordSourceSelect.value = currentValue;
     }
+
+    setupWordSourceDisplay(wordSourceSelect);
+}
+
+function setupWordSourceDisplay(select: HTMLSelectElement): void {
+    // 把 select 包在相对定位容器里，上面盖一层只显示纯名称的 div
+    let wrapper = select.parentElement as HTMLElement | null;
+    let display = wrapper?.querySelector('.word-source-display') as HTMLElement | null;
+
+    if (!wrapper || !wrapper.classList.contains('word-source-wrapper')) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'word-source-wrapper';
+        select.parentNode?.insertBefore(wrapper, select);
+        wrapper.appendChild(select);
+    }
+
+    if (!display) {
+        display = document.createElement('div');
+        display.className = 'word-source-display';
+        wrapper.appendChild(display);
+    }
+
+    function updateDisplay(): void {
+        const selected = select.options[select.selectedIndex];
+        display!.textContent = selected?.dataset.name || selected?.textContent || '';
+    }
+
+    if (!select.dataset.displayBound) {
+        select.addEventListener('change', updateDisplay);
+        select.dataset.displayBound = '1';
+    }
+
+    updateDisplay();
 }
 
 export async function createWordbook(name: string): Promise<void> {
@@ -624,16 +661,16 @@ export async function createWordbook(name: string): Promise<void> {
         if (data.success) {
             appState.wordbooks = { ...(data.data && data.data.wordbooks) || {} };
             localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
-            updateAllWordbookSelectors();
-            alert('单词本创建成功');
+            await updateAllWordbookSelectors();
+            showToast('单词本创建成功', 'success');
             const nameInput = document.getElementById('new-wordbook-name') as HTMLInputElement;
             if (nameInput) nameInput.value = '';
         } else {
-            alert((data.error && data.error.message) || '创建单词本失败');
+            showToast((data.error && data.error.message) || '创建单词本失败', 'error');
         }
     } catch (e: unknown) {
         console.error('创建单词本失败:', e);
-        alert('创建单词本失败');
+        showToast('创建单词本失败', 'error');
     }
 }
 
@@ -657,20 +694,21 @@ export async function deleteWordbook(name: string): Promise<void> {
                 appState.lastSelectedWordbook = '';
                 localStorage.setItem('lastSelectedWordbook', appState.lastSelectedWordbook);
             }
-            updateAllWordbookSelectors();
-            updateSelectedWordbookDisplay();
-            alert('单词本删除成功');
+            // 先完成 UI 刷新再 toast，避免提示覆盖后续交互
+            await updateAllWordbookSelectors();
+            await updateSelectedWordbookDisplay();
+            showToast('单词本删除成功', 'success');
         } else {
-            alert((data.error && data.error.message) || '删除单词本失败');
+            showToast((data.error && data.error.message) || '删除单词本失败', 'error');
         }
     } catch (e: unknown) {
         console.error('删除单词本失败:', e);
-        alert('删除单词本失败');
+        showToast('删除单词本失败', 'error');
     }
 }
 
 export async function renameWordbook(oldName: string): Promise<void> {
-    const newName = prompt('请输入新名称：', oldName);
+    const newName = await showPrompt('请输入新名称：', oldName, '重命名单词本');
     if (!newName || newName.trim() === '' || newName.trim() === oldName) {
         return;
     }
@@ -691,14 +729,15 @@ export async function renameWordbook(oldName: string): Promise<void> {
                 appState.lastSelectedWordbook = newName.trim();
                 localStorage.setItem('lastSelectedWordbook', appState.lastSelectedWordbook);
             }
-            updateAllWordbookSelectors();
-            updateSelectedWordbookDisplay();
+            await updateAllWordbookSelectors();
+            await updateSelectedWordbookDisplay();
+            showToast('单词本重命名成功', 'success');
         } else {
-            alert((data.error && data.error.message) || '重命名失败');
+            showToast((data.error && data.error.message) || '重命名失败', 'error');
         }
     } catch (e: unknown) {
         console.error('重命名单词本失败:', e);
-        alert('重命名单词本失败');
+        showToast('重命名单词本失败', 'error');
     }
 }
 
@@ -745,6 +784,17 @@ export function getWordbookItemType(item: any): string {
     if (words.length > 5 || /[.!?;]/.test(word)) return ContentType.Sentence;
     return ContentType.Phrase;
 }
+
+// 按类型规范化首字母：单词/短语小写，句子大写
+export function normalizeCaseByType(text: string): string {
+    if (!text || text.length === 0) return text;
+    const type = getWordbookItemType(text);
+    if (type === ContentType.Sentence) {
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+    return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
 
 export function removeFromWordlist(word: string): void {
     // 在所有自定义单词本中查找并移除
@@ -847,6 +897,7 @@ export async function updateSelectedWordbookDisplay(): Promise<void> {
     const renameBtn = document.getElementById('rename-wordbook') as HTMLButtonElement;
     const deleteBtn = document.getElementById('delete-wordbook') as HTMLButtonElement;
     const importBtn = document.getElementById('import-wordbook-btn') as HTMLButtonElement;
+
     if (renameBtn) {
         renameBtn.disabled = isSystem || isDefault;
         renameBtn.style.opacity = (isSystem || isDefault) ? '0.5' : '1';
@@ -1180,8 +1231,13 @@ export function initWordbookVue(): void {
             },
             setWordList(words: WordbookWordItem[], selectedWordbook?: string, errorbookData?: Record<string, unknown>, keepScroll?: boolean) {
                 const prevWordbook = this.selectedWordbook;
-                const wordSet = new Set(words.map(w => w.word));
-                this.wordList = words;
+                const processed = words.map(item => {
+                    const type = item.type || getWordbookItemType(item);
+                    const displayWord = normalizeCaseByType(item.word);
+                    return { ...item, type, displayWord };
+                });
+                const wordSet = new Set(processed.map(w => w.word));
+                this.wordList = processed;
                 this.selectedWordbook = selectedWordbook || '';
                 this._errorbook = errorbookData || {};
                 this.isSystemWordbook = !!(selectedWordbook && selectedWordbook.startsWith('sys_'));
@@ -1247,7 +1303,10 @@ export function initWordbookVue(): void {
                 this.overIndex = index;
             },
             onDragEnd() {
-                document.querySelectorAll('[data-word].dragging').forEach(el => { el.classList.remove('dragging'); });
+                const root = this.$el as HTMLElement | null;
+                if (root) {
+                    root.querySelectorAll('[data-word].dragging').forEach(el => { el.classList.remove('dragging'); });
+                }
                 if (this.dragIndex >= 0 && this.overIndex >= 0 && this.dragIndex !== this.overIndex) {
                     const item = this.wordList.splice(this.dragIndex, 1)[0];
                     this.wordList.splice(this.overIndex, 0, item);

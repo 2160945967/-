@@ -3,6 +3,7 @@
 import { appState, jumpToWord } from '../global';
 import { updateStudyStats } from './stats';
 import { SortBy, FilterType, ContentType } from '../types/enums';
+import { normalizeCaseByType } from './wordbook';
 import { playPronunciation } from '../utils/audio';
 import { virtualScrollMixin } from '../utils/virtualScroll';
 import { cardMixin } from '../utils/cardMixin';
@@ -219,7 +220,8 @@ export function initErrorbookVue(): void {
                 return '';
             },
             measureWordHeight(word: string) {
-                const el = document.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
+                const root = this.$el as HTMLElement | null;
+                const el = root ? root.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null : null;
 
                 // 清理旧的 ResizeObserver，避免元素被移除后继续回调
                 if (this._resizeObservers[word]) {
@@ -244,7 +246,7 @@ export function initErrorbookVue(): void {
                 }
 
                 const updateHeight = () => {
-                    const h = el!.offsetHeight + 12;
+                    const h = el!.offsetHeight + 20;
                     if (this.cachedHeights[word] !== h) {
                         this.cachedHeights[word] = h;
                         this.clearCache();
@@ -273,7 +275,11 @@ export function initErrorbookVue(): void {
             },
             setWordList(words: ErrorbookItem[], errorbookData: Record<string, unknown>) {
                 const wordSet = new Set(words.map(w => w.word));
-                this.wordList = words;
+                this.wordList = words.map(item => {
+                    const type = item.type || getErrorbookItemType(item);
+                    const displayWord = normalizeCaseByType(item.word);
+                    return { ...item, type, displayWord };
+                });
                 this._errorbook = errorbookData;
                 // 切页返回、筛选排序时保留展开/翻转状态和已加载释义；清理已不在列表中的单词缓存
                 Object.keys(this.expandedMap).forEach(k => { if (!wordSet.has(k)) delete this.expandedMap[k]; });
