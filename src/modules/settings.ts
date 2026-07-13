@@ -73,17 +73,7 @@ export function initSettings(): void {
     }
 
     initAssetDownloads();
-    // 先加载数据资源列表，确保 StarDict 等项排在离线发音包之前
-    void (async () => {
-        for (let i = 0; i < 30; i++) {
-            await fetchAssetStatus();
-            if (assetStatusCache.length > 0) break;
-            await new Promise(r => setTimeout(r, 200));
-        }
-        initPronunciationBulkDownload();
-        startPollingPronunciationDownloadStatus();
-    })();
-    startPollingAssetStatus();
+    initPronunciationBulkDownload();
 
     // API密钥设置弹窗
     const apiSettingsLink = document.getElementById('api-settings-link');
@@ -144,6 +134,38 @@ export function initSettings(): void {
                 showToast('已恢复使用默认密钥', 'success');
             }
             closeApiSettingsModal();
+        });
+    }
+
+    // 数据资源管理弹窗
+    const assetManageLink = document.getElementById('asset-manage-link');
+    const assetManageModal = document.getElementById('asset-manage-modal');
+    const assetManageClose = document.getElementById('asset-manage-close');
+    const assetManageDone = document.getElementById('asset-manage-done');
+
+    function openAssetManageModal() {
+        if (!assetManageModal) return;
+        // 打开时刷新一次状态
+        void fetchAssetStatus();
+        void fetchPronunciationDownloadStatus();
+        openModal(assetManageModal);
+    }
+    function closeAssetManageModal() {
+        if (!assetManageModal) return;
+        closeModal(assetManageModal);
+    }
+
+    if (assetManageLink && assetManageModal) {
+        assetManageLink.addEventListener('click', (e: Event) => {
+            e.preventDefault();
+            openAssetManageModal();
+        });
+    }
+    if (assetManageClose) assetManageClose.addEventListener('click', closeAssetManageModal);
+    if (assetManageDone) assetManageDone.addEventListener('click', closeAssetManageModal);
+    if (assetManageModal) {
+        assetManageModal.addEventListener('click', (e: MouseEvent) => {
+            if (e.target === assetManageModal) closeAssetManageModal();
         });
     }
 
@@ -1034,7 +1056,8 @@ function initAssetDownloads(): void {
         console.warn('[settings] 找不到资源下载容器');
         return;
     }
-    // 由 initSettings 统一控制首次加载与轮询顺序
+    void fetchAssetStatus();
+    startPollingAssetStatus();
 }
 
 // 设置项拖拽排序：基于 pointer 事件 + 浮动 ghost + transform 挤压动画

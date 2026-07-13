@@ -258,11 +258,41 @@ export function clearPronunciationCache(): { success: boolean; message: string }
 /** 获取当前下载状态 */
 export function getBulkDownloadStatus(): PronunciationDownloadStatus {
   const state = loadState();
-  const done = state.total - state.pending.length;
-  const percent = state.total > 0 ? Math.round((done / state.total) * 1000) / 10 : 0;
+  const dir = path.join(ASSETS_DIR, 'pronunciations');
+  let downloadedCount = 0;
+  try {
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir);
+      downloadedCount = files.filter(f => f.endsWith('.mp3')).length;
+    }
+  } catch {}
+
+  let totalWords = state.total;
+  let completed = state.completed;
+
+  // 如果 state 记录不可信（total 为 0 但已有文件），尝试从词典获取真实总数
+  if ((totalWords === 0 || completed === 0) && downloadedCount > 0) {
+    try {
+      const db = getMainDb();
+      if (db) {
+        totalWords = db.getAllWords().length;
+      }
+    } catch {}
+    completed = downloadedCount;
+  } else if (totalWords > 0) {
+    completed = Math.max(state.completed, totalWords - state.pending.length, downloadedCount);
+  }
+
+  if (totalWords === 0 && downloadedCount > 0) {
+    totalWords = Math.max(downloadedCount, state.pending.length + downloadedCount);
+  }
+
+  const done = totalWords > 0 ? Math.min(completed, totalWords) : downloadedCount;
+  const percent = totalWords > 0 ? Math.round((done / totalWords) * 1000) / 10 : (downloadedCount > 0 ? 100 : 0);
+
   return {
-    total: state.total,
-    completed: state.completed,
+    total: totalWords,
+    completed: done,
     failed: state.failed,
     pending: state.pending.length,
     inProgress: state.inProgress && !state.paused,
