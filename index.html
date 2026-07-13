@@ -606,30 +606,30 @@
                     <div class="setting-item" draggable="true" data-setting-key="asset-downloads">
                         <span class="drag-handle" title="拖动排序">⋮⋮</span>
                         <label>数据资源下载：</label>
-                        <p style="font-size: 14px; color: #7f8c8d; margin-top: 8px;">词库为必需资源，缺失时无法查词；例句库和语音识别模型为可选资源</p>
-                        <div style="margin-top: 10px;">
-                            <button id="open-asset-downloads-modal" type="button">管理数据资源</button>
+                        <p class="setting-desc">词库为必需资源，缺失时无法查词；例句库和语音识别模型为可选资源</p>
+                        <div class="setting-action-row">
+                            <button id="open-asset-downloads-modal" type="button" class="btn-gradient btn-blue btn-sm">管理数据资源</button>
                         </div>
                     </div>
 
                     <div class="setting-item" draggable="true" data-setting-key="pronunciation-bulk-download">
                         <span class="drag-handle" title="拖动排序">⋮⋮</span>
                         <label>离线发音包：</label>
-                        <p style="font-size: 14px; color: #7f8c8d; margin-top: 8px;">下载词典中所有单词的发音文件到本地，可大幅提升每次播放发音的响应速度</p>
-                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                            <select id="bulk-download-accent">
+                        <p class="setting-desc">下载词典中所有单词的发音文件到本地，可大幅提升每次播放发音的响应速度</p>
+                        <div class="setting-action-row">
+                            <select id="bulk-download-accent" class="setting-select">
                                 <option value="us">美式发音</option>
                                 <option value="uk">英式发音</option>
                             </select>
-                            <button id="bulk-download-start">开始下载</button>
-                            <button id="bulk-download-pause" disabled>暂停</button>
-                            <button id="bulk-download-cancel" disabled>取消</button>
+                            <button id="bulk-download-start" class="btn-gradient btn-green btn-sm">开始下载</button>
+                            <button id="bulk-download-pause" class="btn-gradient btn-orange btn-sm" disabled>暂停</button>
+                            <button id="bulk-download-cancel" class="btn-gradient btn-red btn-sm" disabled>取消</button>
                         </div>
-                        <div id="bulk-download-progress-area" style="margin-top: 10px; width: 100%; display: none;">
-                            <div style="background: #e9ecef; border-radius: 4px; height: 18px; overflow: hidden;">
-                                <div id="bulk-download-bar" style="background: #3498db; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                        <div id="bulk-download-progress-area" class="bulk-progress-area" style="display: none;">
+                            <div class="bulk-progress-bar-track">
+                                <div id="bulk-download-bar" class="bulk-progress-bar-fill"></div>
                             </div>
-                            <p id="bulk-download-status" style="font-size: 13px; color: #555; margin-top: 6px;">准备下载...</p>
+                            <p id="bulk-download-status" class="bulk-progress-status">准备下载...</p>
                         </div>
                     </div>
                 </div>
@@ -933,7 +933,7 @@
                 <h2 class="modal-title">数据资源下载</h2>
                 <button id="asset-downloads-modal-close" class="modal-close-btn">&times;</button>
             </div>
-            <p style="font-size: 14px; color: #7f8c8d; margin-bottom: 16px;">词库为必需资源，缺失时无法查词；例句库和语音识别模型为可选资源。下载过程中可暂停，再次下载会自动从断点续传。</p>
+            <p class="modal-desc">词库为必需资源，缺失时无法查词；例句库和语音识别模型为可选资源。下载过程中可暂停，再次下载会自动从断点续传。</p>
             <div id="asset-downloads-list">
                 <!-- 由 JS 动态生成 -->
             </div>

@@ -804,12 +804,15 @@ export function getWordbookItemType(item: any): string {
     return ContentType.Phrase;
 }
 
-// 按类型规范化首字母：单词/短语小写，句子大写
+// 按类型规范化：单词/短语首字母小写，词组强制全小写，句子首字母大写
 export function normalizeCaseByType(text: string): string {
     if (!text || text.length === 0) return text;
     const type = getWordbookItemType(text);
     if (type === ContentType.Sentence) {
         return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+    if (type === ContentType.Phrase) {
+        return text.toLowerCase();
     }
     return text.charAt(0).toLowerCase() + text.slice(1);
 }

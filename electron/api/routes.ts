@@ -1458,7 +1458,7 @@ export function setupRoutes(app: any) {
           const phraseLower = word.toLowerCase();
           if (!seenPhrases.has(phraseLower)) {
             seenPhrases.add(phraseLower);
-            uniqueWordList.push(word);
+            uniqueWordList.push(phraseLower);
           }
         } else {
           const normalized = normalizeWord(word);
@@ -1868,7 +1868,7 @@ function processImport(req: Request, res: Response, wordbookName: string, wordLi
       const phraseLower = word.toLowerCase();
       if (!seenPhrases.has(phraseLower)) {
         seenPhrases.add(phraseLower);
-        uniqueWordList.push(word);
+        uniqueWordList.push(phraseLower);
       }
     } else {
       const normalized = normalizeWord(word);

@@ -451,5 +451,5 @@ export async function downloadRequiredAssets(): Promise<void> {
 
 /** 获取当前所有资源的状态 */
 export function getAssetsStatus(): Array<AssetItem & { downloaded: boolean }> {
-  return getAllAssets().map(a => ({ ...a, downloaded: isAssetDownloaded(a.id) }));
+  return getAllAssets().map(a => ({ ...a, downloaded: isAssetAvailable(a.id) }));
 }
