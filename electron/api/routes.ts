@@ -142,9 +142,6 @@ function extractWordsFromText(text: string): string[] {
       w = w.split('|')[0].trim();
     }
     if (w) {
-      if (w.includes(' ')) {
-        w = w.charAt(0).toLowerCase() + w.slice(1);
-      }
       words.push(w);
     }
   }
@@ -1454,10 +1451,15 @@ export function setupRoutes(app: any) {
       }
 
       const seenLemmas = new Set<string>();
+      const seenPhrases = new Set<string>();
       const uniqueWordList: string[] = [];
       for (const word of wordList) {
         if (word.includes(' ')) {
-          uniqueWordList.push(normalizeCaseByType(word));
+          const phraseLower = word.toLowerCase();
+          if (!seenPhrases.has(phraseLower)) {
+            seenPhrases.add(phraseLower);
+            uniqueWordList.push(word);
+          }
         } else {
           const normalized = normalizeWord(word);
           const lemma = getLemma(word);
@@ -1858,11 +1860,16 @@ function processImport(req: Request, res: Response, wordbookName: string, wordLi
   }
 
   const seenLemmas = new Set<string>();
+  const seenPhrases = new Set<string>();
   const uniqueWordList: string[] = [];
 
   for (const word of wordList) {
     if (word.includes(' ')) {
-      uniqueWordList.push(normalizeCaseByType(word));
+      const phraseLower = word.toLowerCase();
+      if (!seenPhrases.has(phraseLower)) {
+        seenPhrases.add(phraseLower);
+        uniqueWordList.push(word);
+      }
     } else {
       const normalized = normalizeWord(word);
       const lemma = getLemma(word);

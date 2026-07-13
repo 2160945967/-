@@ -432,6 +432,15 @@ export async function updateWordbookSelect(): Promise<void> {
     wordbookSelect.value = targetValue;
     appState.lastSelectedWordbook = targetValue;
     localStorage.setItem('lastSelectedWordbook', targetValue);
+
+    // 每次重建选择器后重新注册 change 监听（innerHTML 会清空旧事件）
+    wordbookSelect.addEventListener('change', function onWordbookChange() {
+        const val = wordbookSelect.value;
+        appState.lastSelectedWordbook = val;
+        localStorage.setItem('lastSelectedWordbook', val);
+        // 切换单词本时重置筛选类型为"全部"
+        setWordbookFilter(FilterType.All);
+    });
 }
 
 // 更新所有单词本选择器（查询页面、句子添加页面、测验页面）
