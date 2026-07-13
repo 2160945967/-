@@ -175,6 +175,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initGsapAnimations();
     setupGsapGlobal();
 
+    // 19. 初始化使用说明弹窗
+    initUsageGuide();
+
     console.log('拾词应用初始化完成');
 });
 
@@ -375,5 +378,83 @@ function initExportOptions(): void {
         exportPhonetic.addEventListener('change', () => {
             localStorage.setItem('lastExportPhonetic', String(exportPhonetic.checked));
         });
+    }
+}
+
+function initUsageGuide(): void {
+    const modal = document.getElementById('usage-guide-modal') as HTMLElement;
+    const closeBtn = document.getElementById('usage-guide-close') as HTMLElement;
+    const okBtn = document.getElementById('usage-guide-ok') as HTMLElement;
+    const helpTrigger = document.getElementById('help-trigger') as HTMLElement;
+    const helpBadge = document.getElementById('help-badge') as HTMLElement;
+    const noShowCheckbox = document.getElementById('usage-guide-noshow') as HTMLInputElement;
+    const tabs = document.querySelectorAll('.usage-tab');
+    const sections = document.querySelectorAll('.usage-section');
+
+    if (!modal || !helpTrigger) return;
+
+    const NOSHOW_KEY = 'usageGuideNoShow';
+    const SEEN_KEY = 'usageGuideSeen';
+
+    function switchTab(tabName: string): void {
+        tabs.forEach(t => {
+            if (t.getAttribute('data-tab') === tabName) {
+                t.classList.add('active');
+            } else {
+                t.classList.remove('active');
+            }
+        });
+        sections.forEach(s => {
+            if (s.getAttribute('data-section') === tabName) {
+                s.classList.add('active');
+            } else {
+                s.classList.remove('active');
+            }
+        });
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.getAttribute('data-tab');
+            if (tabName) switchTab(tabName);
+        });
+    });
+
+    function openGuide(): void {
+        openModal(modal);
+        if (helpBadge) helpBadge.style.display = 'none';
+    }
+
+    function closeGuide(): void {
+        closeModal(modal);
+        localStorage.setItem(SEEN_KEY, 'true');
+        if (noShowCheckbox && noShowCheckbox.checked) {
+            localStorage.setItem(NOSHOW_KEY, 'true');
+        }
+        if (helpBadge) helpBadge.style.display = 'flex';
+    }
+
+    helpTrigger.addEventListener('click', (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openGuide();
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeGuide);
+    if (okBtn) okBtn.addEventListener('click', closeGuide);
+
+    modal.addEventListener('click', (e: MouseEvent) => {
+        if (e.target === modal) closeGuide();
+    });
+
+    const noShow = localStorage.getItem(NOSHOW_KEY) === 'true';
+    const hasSeen = localStorage.getItem(SEEN_KEY) === 'true';
+
+    if (!noShow && !hasSeen) {
+        setTimeout(() => {
+            openGuide();
+        }, 600);
+    } else {
+        if (helpBadge) helpBadge.style.display = 'flex';
     }
 }

@@ -103,8 +103,10 @@
         <nav class="navbar glass" id="navbar">
             <div class="navbar-container">
                 <div class="navbar-logo-wrapper">
-                    <a href="#" class="navbar-brand">
+                    <a href="#" class="navbar-brand" id="help-trigger" title="">
                         <img src="/logo.svg" alt="拾词" style="height: 80px; width: 80px; vertical-align: middle; border-radius: 8px;">
+                        <span class="help-badge" id="help-badge" style="display:none;">?</span>
+                        <span class="help-tooltip" id="help-tooltip">点击查看拾词使用说明</span>
                     </a>
                 </div>
                 <div class="navbar-left">
@@ -918,6 +920,188 @@
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 16px; flex-shrink: 0;">
                 <button id="asset-manage-done" class="asset-download-btn" style="background: var(--primary-blue, #3498db);">完成</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用说明弹窗 -->
+    <div id="usage-guide-modal" class="modal-overlay usage-guide-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.55); z-index: 10000; justify-content: center; align-items: center;">
+        <div class="modal-content glass usage-guide-modal" style="padding: 0; max-width: 720px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.3); border-radius: 16px; overflow: hidden;">
+            <div class="usage-guide-header" style="padding: 24px 28px 16px; flex-shrink: 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; color: var(--text-dark);">📖 拾词使用说明</h2>
+                    <p style="margin: 0; font-size: 13px; color: var(--text-gray);">欢迎使用拾词！下面是各页面功能介绍，点击左侧标签快速跳转。</p>
+                </div>
+                <button id="usage-guide-close" class="modal-close-btn" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-gray); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; line-height: 1; flex-shrink: 0;">&times;</button>
+            </div>
+            <div class="usage-guide-body" style="display: flex; flex: 1; min-height: 0; overflow: hidden;">
+                <div class="usage-guide-tabs" style="width: 130px; flex-shrink: 0; border-right: 1px solid var(--border-color); padding: 12px 0; overflow-y: auto;">
+                    <button class="usage-tab active" data-tab="dict">🔍 词典</button>
+                    <button class="usage-tab" data-tab="quiz">📝 单词测验</button>
+                    <button class="usage-tab" data-tab="wordbook">📚 单词本</button>
+                    <button class="usage-tab" data-tab="favorites">⭐ 我的收藏</button>
+                    <button class="usage-tab" data-tab="errorbook">❌ 错题本</button>
+                    <button class="usage-tab" data-tab="review">🔄 复习模式</button>
+                    <button class="usage-tab" data-tab="settings">⚙️ 设置</button>
+                    <button class="usage-tab" data-tab="sidebar">📊 侧边栏</button>
+                    <button class="usage-tab" data-tab="shortcuts">⌨️ 快捷键</button>
+                </div>
+                <div class="usage-guide-content" style="flex: 1; overflow-y: auto; padding: 20px 28px;">
+                    <!-- 词典 -->
+                    <div class="usage-section active" data-section="dict">
+                        <h3 style="margin-top: 0;">🔍 词典页面</h3>
+                        <p><strong>查词：</strong>在顶部搜索框输入英文单词/词组或中文，按回车或点击「查询」按钮搜索。</p>
+                        <ul>
+                            <li><strong>英文查词：</strong>输入英文单词后显示音标、词性释义、时态变化、例句等。</li>
+                            <li><strong>中文查词：</strong>输入中文会列出所有包含该释义的英文单词。</li>
+                            <li><strong>输入联想：</strong>输入时自动弹出候选词列表，点击可快速选中。</li>
+                            <li><strong>语音输入：</strong>点击搜索框右侧🎤按钮，可通过麦克风语音输入单词（需联网或下载语音模型）。</li>
+                            <li><strong>句子翻译：</strong>输入英文句子可获取中文翻译。</li>
+                        </ul>
+                        <p><strong>查词结果操作：</strong></p>
+                        <ul>
+                            <li><strong>播放发音：</strong>点击「美式发音」或「英式发音」按钮朗读单词。如需离线使用，可在设置中下载离线发音包。</li>
+                            <li><strong>加入单词本：</strong>选择目标单词本后点击「加入单词本」按钮。</li>
+                            <li><strong>加入收藏：</strong>点击「加入收藏」按钮收藏单词。</li>
+                            <li><strong>例句跳转：</strong>例句中的英文单词可点击直接跳转查词。</li>
+                            <li><strong>时态变位：</strong>单词的过去式、复数、比较级等形式可点击跳转。</li>
+                        </ul>
+                        <p><strong>查词历史：</strong>页面底部显示最近搜索的单词，点击可快速重新查询。</p>
+                    </div>
+                    <!-- 单词测验 -->
+                    <div class="usage-section" data-section="quiz">
+                        <h3 style="margin-top: 0;">📝 单词测验</h3>
+                        <p><strong>测验模式：</strong></p>
+                        <ul>
+                            <li><strong>中文→英文：</strong>给出中文释义，输入对应英文单词。</li>
+                            <li><strong>英文→中文：</strong>给出英文单词，输入中文释义（多个释义用逗号/分号/空格分隔）。</li>
+                            <li><strong>听写模式：</strong>播放发音后输入对应单词。</li>
+                        </ul>
+                        <p><strong>单词来源：</strong>可选择从「我的收藏」或「错题本」中出题。</p>
+                        <p><strong>答题操作：</strong></p>
+                        <ul>
+                            <li>在输入框输入答案后按 <strong>Enter</strong> 提交。</li>
+                            <li>不会时可点击「显示答案」查看正确答案，再按Enter进入下一题。</li>
+                            <li>答对答错会显示不同颜色反馈。</li>
+                            <li>答错的单词会自动加入错题本（可在设置中关闭）。</li>
+                            <li>可点击「加入收藏」将当前单词收藏。</li>
+                        </ul>
+                        <p><strong>测验设置：</strong>可设置测验个数（1-100）和出题顺序（随机/顺序），各设置项支持拖拽排序。</p>
+                        <p><strong>艾宾浩斯遗忘曲线：</strong>启用后系统根据遗忘规律安排复习，答错的单词会在特定时间点重复出现。</p>
+                    </div>
+                    <!-- 单词本 -->
+                    <div class="usage-section" data-section="wordbook">
+                        <h3 style="margin-top: 0;">📚 单词本管理</h3>
+                        <p><strong>创建单词本：</strong>输入名称后点击「创建」按钮。系统内置8种词库（四级、六级、考研、中考、高考、TOEFL、IELTS、GRE）。</p>
+                        <p><strong>管理单词本：</strong>选择单词本后可重命名或删除（系统内置词库不可删除）。</p>
+                        <p><strong>导入单词：</strong>支持导入 TXT 和 DOCX 格式文件。</p>
+                        <ul>
+                            <li><strong>TXT格式：</strong>每行一个单词，或用逗号/制表符分隔单词和释义，例如：<br><code>apple n.苹果</code> 或 <code>apple,苹果</code></li>
+                            <li><strong>词组支持：</strong>词组如 <code>look forward to</code> 会自动转为全小写存储。</li>
+                            <li>点击「📋 导入格式说明」查看详细格式。</li>
+                        </ul>
+                        <p><strong>导出单词：</strong>支持导出为 TXT 或 DOCX，可选是否包含释义和音标。</p>
+                        <p><strong>单词列表操作：</strong></p>
+                        <ul>
+                            <li>可按「全部/单词/词组」筛选显示。</li>
+                            <li>支持搜索框过滤单词。</li>
+                            <li>每个单词卡片可点击展开详情、加入收藏或从单词本移除。</li>
+                            <li>可选择进入测验模式，测验当前单词本中的单词。</li>
+                        </ul>
+                    </div>
+                    <!-- 我的收藏 -->
+                    <div class="usage-section" data-section="favorites">
+                        <h3 style="margin-top: 0;">⭐ 我的收藏</h3>
+                        <p>收藏的单词会集中展示在此页面，方便重点复习。</p>
+                        <ul>
+                            <li>支持搜索过滤已收藏单词。</li>
+                            <li>点击单词可展开查看详情。</li>
+                            <li>可点击「取消收藏」移除单词。</li>
+                            <li>可进入测验模式，只测验收藏的单词。</li>
+                        </ul>
+                    </div>
+                    <!-- 错题本 -->
+                    <div class="usage-section" data-section="errorbook">
+                        <h3 style="margin-top: 0;">❌ 错题本</h3>
+                        <p>测验中答错的单词会自动记录到错题本（可在设置中关闭此功能）。</p>
+                        <ul>
+                            <li>每个错题记录了错误次数和答错的释义。</li>
+                            <li>连续答对设定次数后会自动移出错题本（默认3次，可在设置中调整）。</li>
+                            <li>可手动移除错题。</li>
+                            <li>可进入测验模式，只测验错题。</li>
+                        </ul>
+                    </div>
+                    <!-- 复习模式 -->
+                    <div class="usage-section" data-section="review">
+                        <h3 style="margin-top: 0;">🔄 复习模式</h3>
+                        <p>基于艾宾浩斯遗忘曲线的智能复习模式。启用后系统自动安排每日需复习的单词。</p>
+                        <ul>
+                            <li>系统每天展示到期该复习的单词。</li>
+                            <li>答对的单词按遗忘曲线安排下次复习时间。</li>
+                            <li>答错的单词缩短复习间隔，加强记忆。</li>
+                            <li>可在侧边栏查看「明日学习单词数」。</li>
+                        </ul>
+                    </div>
+                    <!-- 设置 -->
+                    <div class="usage-section" data-section="settings">
+                        <h3 style="margin-top: 0;">⚙️ 设置</h3>
+                        <p><strong>可配置项：</strong></p>
+                        <ul>
+                            <li><strong>发音类型：</strong>设置快捷键/自动播放时使用美式或英式发音。</li>
+                            <li><strong>中文释义数量：</strong>中译英模式时显示几个中文释义。</li>
+                            <li><strong>快捷键自定义：</strong>可自定义显示答案、播放发音、加入单词本、收藏等快捷键。设置项支持拖拽排序。</li>
+                            <li><strong>自动加入错题本：</strong>手动显示答案后是否自动加入错题本。</li>
+                            <li><strong>错题自动播放：</strong>答错指定次数后自动播放发音（0为不播放）。</li>
+                            <li><strong>错题答对次数：</strong>连续答对几次后自动移出错题本。</li>
+                            <li><strong>多词性/同词性概率：</strong>调整测验中多词性单词和同词性单词的出现比例。</li>
+                            <li><strong>查词历史数量：</strong>设置保存的查词历史条数。</li>
+                            <li><strong>艾宾浩斯遗忘曲线：</strong>开启/关闭智能复习功能。</li>
+                            <li><strong>API设置：</strong>可配置自定义腾讯云翻译API密钥，留空使用默认密钥。</li>
+                            <li><strong>每日学习单词数：</strong>设置每日新学单词目标。</li>
+                            <li><strong>数据资源管理：</strong>管理词库、例句库、语音识别模型、离线发音包的下载和删除。</li>
+                        </ul>
+                        <p><strong>清除数据：</strong>可清除本地存储数据、翻译缓存和音频缓存。</p>
+                    </div>
+                    <!-- 侧边栏 -->
+                    <div class="usage-section" data-section="sidebar">
+                        <h3 style="margin-top: 0;">📊 侧边栏</h3>
+                        <p>左侧面板展示学习统计信息：</p>
+                        <ul>
+                            <li><strong>总学习单词数：</strong>累计学习的单词总量。</li>
+                            <li><strong>查词总个数：</strong>累计查询次数。</li>
+                            <li><strong>学习天数：</strong>使用拾词学习的天数。</li>
+                            <li><strong>今日/明日学习单词数：</strong>当天和次日的学习计划。</li>
+                            <li><strong>错题数：</strong>当前错题本中待复习的错题数量。</li>
+                            <li><strong>学习类别：</strong>选择考试类别（四级/六级/考研/中考/高考/TOEFL/IELTS/GRE），系统统计对应类别数据。</li>
+                            <li>点击侧边栏顶部箭头按钮可折叠/展开侧边栏。</li>
+                        </ul>
+                        <p><strong>主题切换：</strong>点击右上角🌙/☀️按钮可切换明暗主题。</p>
+                    </div>
+                    <!-- 快捷键 -->
+                    <div class="usage-section" data-section="shortcuts">
+                        <h3 style="margin-top: 0;">⌨️ 快捷键说明</h3>
+                        <p>默认快捷键（可在设置中自定义）：</p>
+                        <ul>
+                            <li><strong>数字键 1：</strong>显示答案（测验中）</li>
+                            <li><strong>数字键 2：</strong>播放发音（测验中）</li>
+                            <li><strong>数字键 3：</strong>加入收藏（测验中）</li>
+                        </ul>
+                        <p><strong>注意：</strong>快捷键仅在测验页面且输入框未获得焦点时生效，避免与输入冲突。</p>
+                        <p><strong>其他提示：</strong></p>
+                        <ul>
+                            <li>设置中所有带 ⋮⋮ 拖拽手柄的项目均可拖动调整顺序。</li>
+                            <li>弹窗打开时快捷键会自动禁用，关闭后恢复。</li>
+                            <li>资源下载支持暂停和恢复，关闭程序后下次启动自动继续。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="usage-guide-footer" style="padding: 14px 28px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; color: var(--text-gray);">
+                    <input type="checkbox" id="usage-guide-noshow" style="width: 16px; height: 16px; cursor: pointer;">
+                    以后不再提示
+                </label>
+                <button id="usage-guide-ok" class="asset-download-btn" style="background: var(--primary-blue, #3498db); color: #fff; border: none; padding: 8px 28px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">开始使用</button>
             </div>
         </div>
     </div>
