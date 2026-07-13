@@ -4,8 +4,9 @@
  * 功能：
  * - 从词典数据库读取全部单词
  * - 逐个调用 TTS 下载发音并保存到 userData/assets/pronunciations
- * - 支持断点续传（退出后下次启动自动继续）
+ * - 支持断点续传（退出后下次启动自动继续未完成的下载）
  * - 提供进度、暂停、取消接口
+ * - 启动时扫描检测已下载文件，清理中文发音文件
  */
 
 import * as fs from 'fs';
@@ -15,6 +16,7 @@ import { getMainDb } from './database';
 import { getTTS } from './tts';
 
 const STATE_FILE = path.join(USER_DATA_DIR, 'pronunciation-download-state.json');
+const PRONUNCIATIONS_DIR = path.join(ASSETS_DIR, 'pronunciations');
 
 const BATCH_SIZE = 20;
 const CONCURRENCY = 2;
@@ -56,6 +58,10 @@ const DEFAULT_STATE: DownloadState = {
 
 let activeLoopPromise: Promise<void> | null = null;
 
+function hasChinese(text: string): boolean {
+  return /[\u4e00-\u9fa5]/.test(text);
+}
+
 function loadState(): DownloadState {
   try {
     if (fs.existsSync(STATE_FILE)) {
@@ -83,7 +89,7 @@ function saveState(state: DownloadState): void {
 
 function getAudioFilePath(word: string, accent: string): string {
   const filename = `${normalizeWordForFilename(word)}_${accent}.mp3`;
-  return path.join(ASSETS_DIR, 'pronunciations', filename);
+  return path.join(PRONUNCIATIONS_DIR, filename);
 }
 
 function isDownloaded(word: string, accent: string): boolean {
@@ -95,8 +101,52 @@ function isDownloaded(word: string, accent: string): boolean {
   }
 }
 
+function getMp3FilesForAccent(accent: string): string[] {
+  try {
+    if (!fs.existsSync(PRONUNCIATIONS_DIR)) return [];
+    const suffix = `_${accent}.mp3`;
+    const allFiles = fs.readdirSync(PRONUNCIATIONS_DIR);
+    return allFiles.filter(f => f.endsWith(suffix) && f.length > suffix.length + 1);
+  } catch {
+    return [];
+  }
+}
+
+function countDownloadedForAccent(accent: string): number {
+  return getMp3FilesForAccent(accent).length;
+}
+
+function cleanupChinesePronunciationFiles(): number {
+  let cleaned = 0;
+  try {
+    if (!fs.existsSync(PRONUNCIATIONS_DIR)) return 0;
+    const files = fs.readdirSync(PRONUNCIATIONS_DIR);
+    for (const file of files) {
+      const baseName = file.replace(/_(us|uk)\.mp3$/, '');
+      if (hasChinese(baseName)) {
+        try {
+          fs.unlinkSync(path.join(PRONUNCIATIONS_DIR, file));
+          const providerFile = path.join(PRONUNCIATIONS_DIR, file + '.provider');
+          if (fs.existsSync(providerFile)) fs.unlinkSync(providerFile);
+          cleaned++;
+        } catch (e) {
+          console.error('[pronunciation-downloader] 删除中文发音文件失败:', file, e);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[pronunciation-downloader] 清理中文发音文件出错:', e);
+  }
+  if (cleaned > 0) {
+    console.log(`[pronunciation-downloader] 已清理 ${cleaned} 个中文发音文件`);
+  }
+  return cleaned;
+}
+
 async function downloadOne(word: string, accent: string): Promise<boolean> {
   if (isDownloaded(word, accent)) return true;
+
+  if (hasChinese(word)) return false;
 
   const tts = getTTS();
   if (!tts) {
@@ -146,7 +196,6 @@ async function processLoop(): Promise<void> {
       const batch = state.pending.slice(0, BATCH_SIZE);
       const batchResults = await runBatch(batch, state.accent);
 
-      // 重新加载状态，防止暂停/取消操作被覆盖
       const current = loadState();
       if (!current.inProgress || current.paused) break;
 
@@ -182,7 +231,6 @@ async function processLoop(): Promise<void> {
       saveState(nextState);
     }
 
-    // 兜底：如果 pending 为空则自动结束
     const finalState = loadState();
     if (finalState.pending.length === 0 && (finalState.inProgress || finalState.paused)) {
       finalState.inProgress = false;
@@ -198,12 +246,13 @@ async function processLoop(): Promise<void> {
   }
 }
 
-/** 开始/重新开始批量下载 */
 export async function startBulkDownload(accent: 'us' | 'uk' = 'us'): Promise<void> {
   const db = getMainDb();
   if (!db) throw new Error('词典数据库未初始化');
 
-  const allWords = db.getAllWords();
+  cleanupChinesePronunciationFiles();
+
+  const allWords = db.getAllWords().filter(w => !hasChinese(w));
   const pending = allWords.filter(w => !isDownloaded(w, accent));
 
   const state: DownloadState = {
@@ -222,7 +271,6 @@ export async function startBulkDownload(accent: 'us' | 'uk' = 'us'): Promise<voi
   processLoop().catch(e => console.error('[pronunciation-downloader] 下载循环异常:', e));
 }
 
-/** 暂停下载 */
 export function pauseBulkDownload(): void {
   const state = loadState();
   if (state.inProgress) {
@@ -231,20 +279,20 @@ export function pauseBulkDownload(): void {
   }
 }
 
-/** 取消下载（保留已完成进度） */
 export function cancelBulkDownload(): void {
   const state = loadState();
   state.inProgress = false;
   state.paused = false;
+  state.pending = [];
+  state.failedWords = [];
+  state.failed = 0;
   saveState(state);
 }
 
-/** 清空离线发音包缓存（删除已下载文件并重置状态） */
 export function clearPronunciationCache(): { success: boolean; message: string } {
   try {
-    const dir = path.join(ASSETS_DIR, 'pronunciations');
-    if (fs.existsSync(dir)) {
-      fs.rmSync(dir, { recursive: true, force: true });
+    if (fs.existsSync(PRONUNCIATIONS_DIR)) {
+      fs.rmSync(PRONUNCIATIONS_DIR, { recursive: true, force: true });
     }
     if (fs.existsSync(STATE_FILE)) {
       fs.rmSync(STATE_FILE, { force: true });
@@ -255,109 +303,108 @@ export function clearPronunciationCache(): { success: boolean; message: string }
   }
 }
 
-/** 获取当前下载状态 */
 export function getBulkDownloadStatus(): PronunciationDownloadStatus {
   const state = loadState();
-  const dir = path.join(ASSETS_DIR, 'pronunciations');
+
+  cleanupChinesePronunciationFiles();
+
+  const accent = state.accent || 'us';
+  const dirExists = fs.existsSync(PRONUNCIATIONS_DIR);
   let downloadedCount = 0;
+
+  if (dirExists) {
+    downloadedCount = countDownloadedForAccent(accent);
+  }
+
+  let dbTotal = 0;
   try {
-    if (fs.existsSync(dir)) {
-      const files = fs.readdirSync(dir);
-      downloadedCount = files.filter(f => f.endsWith('.mp3')).length;
+    const db = getMainDb();
+    if (db) {
+      dbTotal = db.getAllWords().filter(w => !hasChinese(w)).length;
     }
   } catch {}
 
-  let totalWords = state.total;
-  let completed = state.completed;
+  let totalWords: number;
+  let completed: number;
 
-  // 如果 state 记录不可信（total 为 0 但已有文件），尝试从词典获取真实总数
-  if ((totalWords === 0 || completed === 0) && downloadedCount > 0) {
-    try {
-      const db = getMainDb();
-      if (db) {
-        totalWords = db.count();
-      }
-    } catch {}
+  if (state.inProgress || state.paused || (state.total > 0 && state.pending.length > 0)) {
+    totalWords = state.total > 0 ? state.total : Math.max(dbTotal, downloadedCount + state.pending.length);
+    completed = Math.max(state.completed, downloadedCount, totalWords - state.pending.length);
+  } else if (state.total > 0 && state.completed > 0) {
+    totalWords = state.total;
+    completed = Math.max(state.completed, downloadedCount);
+    if (dbTotal > 0 && dbTotal !== totalWords) {
+      totalWords = dbTotal;
+      completed = downloadedCount;
+    }
+  } else if (downloadedCount > 0) {
+    totalWords = dbTotal > 0 ? dbTotal : downloadedCount;
     completed = downloadedCount;
-  } else if (totalWords > 0) {
-    completed = Math.max(state.completed, totalWords - state.pending.length, downloadedCount);
+  } else {
+    totalWords = dbTotal;
+    completed = 0;
   }
 
-  if (totalWords === 0 && downloadedCount > 0) {
-    totalWords = Math.max(downloadedCount, state.pending.length + downloadedCount);
+  if (totalWords > 0 && completed > totalWords) {
+    completed = totalWords;
   }
 
-  const done = totalWords > 0 ? Math.min(completed, totalWords) : downloadedCount;
-  const percent = totalWords > 0 ? Math.round((done / totalWords) * 1000) / 10 : (downloadedCount > 0 ? 100 : 0);
+  const percent = totalWords > 0
+    ? Math.round((completed / totalWords) * 1000) / 10
+    : (downloadedCount > 0 ? 100 : 0);
+
+  const isAllDownloaded = totalWords > 0 && completed >= totalWords && !state.inProgress && !state.paused;
 
   return {
     total: totalWords,
-    completed: done,
+    completed: isAllDownloaded ? totalWords : completed,
     failed: state.failed,
-    pending: state.pending.length,
+    pending: state.inProgress || state.paused ? state.pending.length : 0,
     inProgress: state.inProgress && !state.paused,
     paused: state.paused,
-    percent,
-    accent: state.accent,
+    percent: isAllDownloaded ? 100 : percent,
+    accent,
   };
 }
 
-function hasDownloadedAnyPronunciation(): boolean {
-  const dir = path.join(ASSETS_DIR, 'pronunciations');
-  try {
-    if (!fs.existsSync(dir)) return false;
-    const files = fs.readdirSync(dir);
-    return files.some(f => f.endsWith('.mp3'));
-  } catch {
-    return false;
-  }
-}
-
-/** 应用启动时调用：
- * 1. 如果上回正在下载，直接继续；
- * 2. 如果已有发音文件或还有 pending，后台扫描缺失并补下。
- */
 export function autoResumePronunciationDownloads(): void {
+  cleanupChinesePronunciationFiles();
+
   const state = loadState();
 
-  // 情况 1：上次退出时仍在下载中
   if (state.inProgress && !state.paused && state.pending.length > 0) {
     console.log(`[pronunciation-downloader] 检测到未完成的下载任务，自动继续：${state.pending.length} 个单词待下载`);
     processLoop().catch(e => console.error('[pronunciation-downloader] 自动继续异常:', e));
     return;
   }
 
-  // 情况 2：后台检查缺失（用户取消过、文件被删、或之前下载过一部分）
-  if (state.pending.length > 0 || hasDownloadedAnyPronunciation()) {
-    const db = getMainDb();
-    if (!db) {
-      console.warn('[pronunciation-downloader] 词典未初始化，跳过后台检查');
-      return;
-    }
-
-    const accent = state.accent || 'us';
-    const allWords = db.getAllWords();
-    const missing = allWords.filter(w => !isDownloaded(w, accent));
-
-    if (missing.length === 0) {
-      console.log('[pronunciation-downloader] 后台检查完成，无缺失发音文件');
-      return;
-    }
-
-    console.log(`[pronunciation-downloader] 后台检查发现 ${missing.length} 个缺失发音文件，开始补下`);
-
-    const newState: DownloadState = {
-      ...state,
-      total: allWords.length,
-      completed: allWords.length - missing.length,
-      pending: missing,
-      failed: 0,
-      failedWords: [],
-      inProgress: true,
-      paused: false,
-      accent,
-    };
-    saveState(newState);
-    processLoop().catch(e => console.error('[pronunciation-downloader] 后台补下异常:', e));
+  if (state.paused && state.pending.length > 0) {
+    console.log(`[pronunciation-downloader] 检测到已暂停的下载任务（${state.pending.length} 个待下载），等待用户手动继续`);
+    return;
   }
+
+  if (!state.inProgress && !state.paused && state.pending.length > 0) {
+    state.pending = [];
+    state.failedWords = [];
+    state.failed = 0;
+    saveState(state);
+  }
+
+  if (state.total > 0) {
+    const accent = state.accent || 'us';
+    const downloadedCount = countDownloadedForAccent(accent);
+    if (downloadedCount !== state.completed || downloadedCount >= state.total) {
+      state.completed = downloadedCount;
+      if (downloadedCount >= state.total && state.total > 0) {
+        state.inProgress = false;
+        state.paused = false;
+        state.pending = [];
+        state.failed = 0;
+        state.failedWords = [];
+      }
+      saveState(state);
+    }
+  }
+
+  console.log('[pronunciation-downloader] 启动检查完成');
 }

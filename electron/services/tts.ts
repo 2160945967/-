@@ -247,6 +247,10 @@ export class TencentTTS {
     const trimmed = text.trim();
     if (!trimmed) return null;
 
+    if (/[\u4e00-\u9fa5]/.test(trimmed)) {
+      return null;
+    }
+
     // 优先查词典：词典收录的（单词/词组）走更快的单词发音通道
     const inDict = this.isInDictionary(trimmed);
     const type = classifyText(trimmed);
