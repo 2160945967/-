@@ -122,6 +122,56 @@ export function getAssetLocalPath(assetId: string): string {
   return '';
 }
 
+/** 删除用户数据目录中已下载的资源（保留安装包自带资源） */
+export function deleteAsset(assetId: string): { success: boolean; message: string } {
+  const asset = getAssetById(assetId);
+  if (!asset) return { success: false, message: '资源不存在' };
+
+  // 先取消可能正在进行的下载
+  pauseAssetDownload(assetId);
+
+  const localFile = path.join(ASSETS_DIR, asset.localPath);
+  let deleted = false;
+
+  try {
+    if (fs.existsSync(localFile)) {
+      const stat = fs.statSync(localFile);
+      if (stat.isDirectory()) {
+        fs.rmSync(localFile, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(localFile);
+        // zip/7z 资源还要清理解压后的目录
+        if (asset.localPath.endsWith('.zip')) {
+          const extractedDir = localFile.replace(/\.zip$/, '');
+          try { fs.rmSync(extractedDir, { recursive: true, force: true }); } catch {}
+        }
+      }
+      deleted = true;
+    }
+
+    // 清理可能存在的临时下载文件
+    const tmpFile = `${localFile}.tmp`;
+    if (fs.existsSync(tmpFile)) {
+      try { fs.rmSync(tmpFile, { recursive: true, force: true }); } catch {}
+    }
+
+    // 清理分卷临时文件
+    if (asset.parts && asset.parts.length > 0) {
+      const partDir = path.join(ASSETS_DIR, `${asset.localPath}.parts`);
+      if (fs.existsSync(partDir)) {
+        try { fs.rmSync(partDir, { recursive: true, force: true }); } catch {}
+      }
+    }
+
+    // 清理内存中的进度状态
+    downloadProgressMap.delete(assetId);
+
+    return { success: true, message: deleted ? '已删除资源' : '资源不存在于下载目录' };
+  } catch (e: any) {
+    return { success: false, message: e.message || '删除失败' };
+  }
+}
+
 /** 单个 URL 下载超时（毫秒） */
 const DOWNLOAD_TIMEOUT_MS = 30_000;
 

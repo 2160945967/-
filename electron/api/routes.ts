@@ -21,7 +21,9 @@ import { downloadAsset,
   getDownloadProgress,
   isAssetDownloaded,
   pauseAssetDownload,
+  deleteAsset,
 } from '../services/asset-manager';
+import { getAssetById } from '../config/assets';
 import {
   startBulkDownload,
   pauseBulkDownload,
@@ -1830,6 +1832,34 @@ export function setupRoutes(app: any) {
       res.json(successResponse({ assetId, paused }));
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '暂停失败', 500));
+    }
+  });
+
+  // ---- 删除已下载的可选资源 ----
+  app.post('/api/assets/delete', (req: Request, res: Response) => {
+    try {
+      const assetId = (getRequestParam(req, 'assetId', '') as string).trim();
+      if (!assetId) {
+        res.status(400).json(errorResponse('请提供 assetId'));
+        return;
+      }
+      const asset = getAssetById(assetId);
+      if (!asset) {
+        res.status(404).json(errorResponse('资源不存在'));
+        return;
+      }
+      if (asset.required) {
+        res.status(400).json(errorResponse('必需资源不能删除'));
+        return;
+      }
+      const result = deleteAsset(assetId);
+      if (result.success) {
+        res.json(successResponse({ assetId, message: result.message }));
+      } else {
+        res.status(500).json(errorResponse(result.message, 500));
+      }
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '删除失败', 500));
     }
   });
 }

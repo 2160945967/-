@@ -676,16 +676,19 @@ function getOrCreateAssetItemEl(container: HTMLElement, asset: AssetStatusItem):
     item.className = 'asset-download-item';
     item.dataset.assetId = asset.id;
     item.innerHTML = `
-        <div class="asset-download-info">
-            <span class="asset-name"></span>
-            <span class="asset-tag required">必需</span>
-            <span class="asset-tag optional">可选</span>
-            <span class="asset-size"></span>
-            <span class="asset-status"></span>
-        </div>
-        <div class="asset-action-btns">
-            <button class="asset-download-btn secondary asset-pause-btn" style="display:none;">暂停</button>
-            <button class="asset-download-btn asset-action-btn">下载</button>
+        <div class="asset-download-main">
+            <div class="asset-download-info">
+                <span class="asset-name"></span>
+                <span class="asset-tag required">必需</span>
+                <span class="asset-tag optional">可选</span>
+                <span class="asset-size"></span>
+                <span class="asset-status"></span>
+            </div>
+            <div class="asset-action-btns">
+                <button class="asset-download-btn secondary asset-pause-btn" style="display:none;">暂停</button>
+                <button class="asset-download-btn asset-action-btn">下载</button>
+                <button class="asset-download-btn danger asset-delete-btn" style="display:none;">删除</button>
+            </div>
         </div>
         <div class="asset-progress-area" style="display:none;">
             <div class="asset-progress-bar"><div class="asset-progress-fill"></div></div>
@@ -694,8 +697,10 @@ function getOrCreateAssetItemEl(container: HTMLElement, asset: AssetStatusItem):
     `;
     const actionBtn = item.querySelector('.asset-action-btn') as HTMLButtonElement;
     const pauseBtn = item.querySelector('.asset-pause-btn') as HTMLButtonElement;
+    const deleteBtn = item.querySelector('.asset-delete-btn') as HTMLButtonElement;
     actionBtn.addEventListener('click', () => handleAssetActionClick(asset.id));
     pauseBtn.addEventListener('click', () => pauseAssetDownloadUI(asset.id));
+    deleteBtn.addEventListener('click', () => deleteAssetUI(asset.id));
     container.appendChild(item);
     return item;
 }
@@ -726,6 +731,7 @@ function updateAssetDownloadUI(assets: AssetStatusItem[]): void {
         const statusEl = item.querySelector('.asset-status') as HTMLElement;
         const actionBtn = item.querySelector('.asset-action-btn') as HTMLButtonElement;
         const pauseBtn = item.querySelector('.asset-pause-btn') as HTMLButtonElement;
+        const deleteBtn = item.querySelector('.asset-delete-btn') as HTMLButtonElement;
         const area = item.querySelector('.asset-progress-area') as HTMLElement;
 
         nameEl.textContent = asset.name;
@@ -740,6 +746,7 @@ function updateAssetDownloadUI(assets: AssetStatusItem[]): void {
             actionBtn.textContent = '下载中';
             actionBtn.disabled = true;
             pauseBtn.style.display = 'inline-block';
+            deleteBtn.style.display = 'none';
             return;
         }
 
@@ -749,6 +756,7 @@ function updateAssetDownloadUI(assets: AssetStatusItem[]): void {
             actionBtn.textContent = asset.required ? '已下载' : '重新下载';
             actionBtn.disabled = asset.required;
             pauseBtn.style.display = 'none';
+            deleteBtn.style.display = asset.required ? 'none' : 'inline-block';
             area.style.display = 'none';
         } else {
             const isPaused = assetDownloadingState.get(asset.id) === false;
@@ -757,6 +765,7 @@ function updateAssetDownloadUI(assets: AssetStatusItem[]): void {
             actionBtn.textContent = isPaused ? '继续' : '下载';
             actionBtn.disabled = false;
             pauseBtn.style.display = 'none';
+            deleteBtn.style.display = 'none';
         }
     });
 }
@@ -788,8 +797,15 @@ function updateAssetProgress(progressMap: Record<string, AssetProgressItem>): vo
         } else if (progress.percent >= 100) {
             area.style.display = 'none';
             assetDownloadingState.delete(assetId);
-            actionBtn.textContent = '重新下载';
-            actionBtn.disabled = false;
+            const cachedAsset = assetStatusCache.find(a => a.id === assetId);
+            const isRequired = cachedAsset?.required ?? false;
+            if (isRequired) {
+                actionBtn.textContent = '已下载';
+                actionBtn.disabled = true;
+            } else {
+                actionBtn.textContent = '重新下载';
+                actionBtn.disabled = false;
+            }
             pauseBtn.style.display = 'none';
             statusEl.textContent = '已下载';
             statusEl.className = 'asset-status downloaded';
@@ -873,6 +889,36 @@ async function pauseAssetDownloadUI(assetId: string): Promise<void> {
     }
 }
 
+async function deleteAssetUI(assetId: string): Promise<void> {
+    const asset = assetStatusCache.find(a => a.id === assetId);
+    if (!asset || asset.required) {
+        showToast('必需资源不能删除', 'error');
+        return;
+    }
+    if (!confirm(`确定要删除「${asset.name}」吗？删除后该功能将无法使用，可重新下载。`)) {
+        return;
+    }
+    try {
+        const response = await fetch('/api/assets/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetId })
+        });
+        const result = await response.json();
+        if (result.success) {
+            assetDownloadingState.delete(assetId);
+            assetCompletedToasts.delete(assetId);
+            showToast(`已删除 ${asset.name}`);
+            void fetchAssetStatus();
+        } else {
+            showToast(result.error?.message || '删除失败', 'error');
+        }
+    } catch (e) {
+        console.error('[settings] 删除资源失败:', e);
+        showToast('删除失败', 'error');
+    }
+}
+
 function startPollingAssetStatus(): void {
     if (assetDownloadPollTimer) return;
     assetDownloadPollTimer = setInterval(() => {
@@ -882,29 +928,10 @@ function startPollingAssetStatus(): void {
 }
 
 function initAssetDownloads(): void {
-    const openBtn = document.getElementById('open-asset-downloads-modal');
-    const modal = document.getElementById('asset-downloads-modal');
-    const closeBtn = document.getElementById('asset-downloads-modal-close');
-
-    if (openBtn && modal) {
-        openBtn.addEventListener('click', () => {
-            modal.style.display = 'flex';
-            void fetchAssetStatus();
-        });
-    }
-
-    if (closeBtn && modal) {
-        closeBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-    }
-
-    if (modal) {
-        modal.addEventListener('click', (e: MouseEvent) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
+    const container = document.getElementById('asset-downloads-list');
+    if (!container) {
+        console.warn('[settings] 找不到资源下载容器');
+        return;
     }
 
     void fetchAssetStatus();

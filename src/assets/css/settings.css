@@ -256,18 +256,33 @@ body.dark-mode .word-source-display {
     color: var(--text-light);
 }
 
-/* 数据资源下载项 */
-.asset-download-item {
+/* 数据资源管理内联列表 */
+.asset-downloads-inline {
+    margin-top: 14px;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-direction: column;
     gap: 10px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border-color, #e9ecef);
 }
 
-.asset-download-item:last-child {
-    border-bottom: none;
+/* 数据资源下载项 */
+.asset-download-item {
+    padding: 14px;
+    background: var(--box-bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.asset-download-item:hover {
+    background: var(--box-bg-light);
+    border-color: var(--primary-blue-light);
+}
+
+.asset-download-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .asset-download-info {
@@ -286,7 +301,7 @@ body.dark-mode .word-source-display {
 }
 
 .asset-download-info .asset-tag {
-    font-size: 12px;
+    font-size: 11px;
     padding: 2px 8px;
     border-radius: 10px;
     font-weight: 500;
@@ -332,15 +347,31 @@ body.dark-mode .asset-download-info .asset-tag.optional {
     color: #e67e22;
 }
 
+html.dark-mode .asset-download-info .asset-status.not-downloaded,
+body.dark-mode .asset-download-info .asset-status.not-downloaded {
+    color: #f5b041;
+}
+
+.asset-action-btns {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
 .asset-download-btn {
-    padding: 6px 16px;
+    padding: 6px 14px;
     border: none;
-    border-radius: var(--radius-sm, 4px);
+    border-radius: var(--radius-sm, 6px);
     background: var(--primary-blue, #3498db);
     color: #fff;
     font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    transition: opacity 0.2s ease;
+    transition: filter 0.2s ease, transform 0.15s ease;
+    min-width: 64px;
+    text-align: center;
 }
 
 .asset-download-btn:disabled {
@@ -349,7 +380,19 @@ body.dark-mode .asset-download-info .asset-tag.optional {
 }
 
 .asset-download-btn:hover:not(:disabled) {
-    opacity: 0.85;
+    filter: brightness(1.08);
+}
+
+.asset-download-btn:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.asset-download-btn.secondary {
+    background: var(--accent-orange, #f39c12);
+}
+
+.asset-download-btn.danger {
+    background: var(--accent-red, #e74c3c);
 }
 
 .asset-progress-area {
@@ -357,53 +400,30 @@ body.dark-mode .asset-download-info .asset-tag.optional {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 4px;
+    margin-top: 10px;
 }
 
 .asset-progress-bar {
     flex: 1;
-    height: 14px;
-    background: #e9ecef;
-    border-radius: 7px;
+    height: 10px;
+    background: var(--border-color);
+    border-radius: 5px;
     overflow: hidden;
 }
 
 .asset-progress-fill {
     height: 100%;
     width: 0%;
-    background: var(--primary-blue, #3498db);
+    background: linear-gradient(90deg, var(--primary-blue) 0%, var(--accent-green) 100%);
+    border-radius: 5px;
     transition: width 0.3s ease;
 }
 
 .asset-progress-text {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-gray);
     min-width: 44px;
     text-align: right;
-}
-
-/* 数据资源下载弹窗内样式 */
-#asset-downloads-modal .asset-download-item {
-    padding: 14px 0;
-}
-
-#asset-downloads-modal .asset-download-info {
-    gap: 8px;
-}
-
-#asset-downloads-modal .asset-action-btns {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
-#asset-downloads-modal .asset-action-btns .asset-download-btn {
-    min-width: 72px;
-}
-
-#asset-downloads-modal .asset-download-btn.secondary {
-    background: var(--text-gray, #95a5a6);
 }
 
 /* 设置页通用描述文字 */
