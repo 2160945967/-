@@ -1512,44 +1512,12 @@ body.dark-mode .quiz-word-time {
 
 /* ========== 使用说明弹窗 ========== */
 
-/* 帮助徽章 - 显示在logo右下角 */
-.help-badge {
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 24px;
-    height: 24px;
-    background: linear-gradient(135deg, #e74c3c, #c0392b);
-    color: #fff;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.5);
-    animation: help-badge-pulse 2s ease-in-out infinite;
-    z-index: 2;
-    pointer-events: none;
-}
-
-@keyframes help-badge-pulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(231, 76, 60, 0.5); }
-    50% { transform: scale(1.15); box-shadow: 0 2px 14px rgba(231, 76, 60, 0.7); }
-}
-
-body.dark-mode .help-badge {
-    background: linear-gradient(135deg, #e74c3c, #a93226);
-}
-
-/* logo容器已在上方定义为position:absolute，这里无需重复 */
-
-/* 悬浮提示tooltip - 类似微信风格 */
+/* 悬浮提示tooltip - 类似微信风格，显示在logo下方，向右延伸避免被侧边栏遮挡 */
 .help-tooltip {
     position: absolute;
-    bottom: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.8);
+    top: calc(100% + 10px);
+    left: 0;
+    transform: translateY(4px) scale(0.9);
     background: rgba(45, 45, 45, 0.95);
     color: #fff;
     padding: 8px 16px;
@@ -1563,33 +1531,33 @@ body.dark-mode .help-badge {
     z-index: 10001;
     letter-spacing: 0.5px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    transform-origin: top left;
 }
 
-/* tooltip小三角箭头 */
+/* tooltip小三角箭头 - 向上指，指向logo中心 */
 .help-tooltip::after {
     content: '';
     position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 100%;
+    left: 37px;
     border: 7px solid transparent;
-    border-top-color: rgba(45, 45, 45, 0.95);
+    border-bottom-color: rgba(45, 45, 45, 0.95);
 }
 
 body.dark-mode .help-tooltip {
-    background: rgba(230, 230, 230, 0.95);
+    background: rgba(240, 240, 240, 0.95);
     color: #222;
     box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 
 body.dark-mode .help-tooltip::after {
-    border-top-color: rgba(230, 230, 230, 0.95);
+    border-bottom-color: rgba(240, 240, 240, 0.95);
 }
 
 /* hover时显示tooltip */
 #help-trigger:hover .help-tooltip {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    transform: translateY(0) scale(1);
 }
 
 /* 使用说明弹窗tab按钮 */

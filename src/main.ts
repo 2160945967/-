@@ -387,7 +387,6 @@ function initUsageGuide(): void {
     const okBtn = document.getElementById('usage-guide-ok') as HTMLElement;
     const helpTrigger = document.getElementById('help-trigger') as HTMLElement;
     const helpLogoImg = document.getElementById('help-logo-img') as HTMLElement;
-    const helpBadge = document.getElementById('help-badge') as HTMLElement;
     const noShowCheckbox = document.getElementById('usage-guide-noshow') as HTMLInputElement;
     const tabs = document.querySelectorAll('.usage-tab');
     const sections = document.querySelectorAll('.usage-section');
@@ -434,7 +433,6 @@ function initUsageGuide(): void {
         modal.classList.remove('shrinking-to-logo');
         modal.classList.remove('modal-visible');
         openModal(modal);
-        if (helpBadge) helpBadge.style.display = 'none';
     }
 
     function closeGuide(): void {
@@ -444,7 +442,6 @@ function initUsageGuide(): void {
         if (noShowCheckbox && noShowCheckbox.checked) {
             localStorage.setItem(NOSHOW_KEY, 'true');
         }
-        if (helpBadge) helpBadge.style.display = 'flex';
 
         const modalContent = modal.querySelector('.usage-guide-modal') as HTMLElement;
         if (!modalContent) {
@@ -529,7 +526,5 @@ function initUsageGuide(): void {
         setTimeout(() => {
             openGuide();
         }, 600);
-    } else {
-        if (helpBadge) helpBadge.style.display = 'flex';
     }
 }
