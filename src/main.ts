@@ -386,6 +386,7 @@ function initUsageGuide(): void {
     const closeBtn = document.getElementById('usage-guide-close') as HTMLElement;
     const okBtn = document.getElementById('usage-guide-ok') as HTMLElement;
     const helpTrigger = document.getElementById('help-trigger') as HTMLElement;
+    const helpLogoImg = document.getElementById('help-logo-img') as HTMLElement;
     const helpBadge = document.getElementById('help-badge') as HTMLElement;
     const noShowCheckbox = document.getElementById('usage-guide-noshow') as HTMLInputElement;
     const tabs = document.querySelectorAll('.usage-tab');
@@ -421,17 +422,91 @@ function initUsageGuide(): void {
     });
 
     function openGuide(): void {
+        const modalContent = modal.querySelector('.usage-guide-modal') as HTMLElement;
+        if (modalContent) {
+            modalContent.style.transform = '';
+            modalContent.style.opacity = '';
+            modalContent.style.transformOrigin = '';
+            modalContent.style.transition = '';
+        }
+        modal.style.opacity = '';
+        modal.style.transition = '';
+        modal.classList.remove('shrinking-to-logo');
+        modal.classList.remove('modal-visible');
         openModal(modal);
         if (helpBadge) helpBadge.style.display = 'none';
     }
 
     function closeGuide(): void {
-        closeModal(modal);
+        if (modal.classList.contains('shrinking-to-logo')) return;
+
         localStorage.setItem(SEEN_KEY, 'true');
         if (noShowCheckbox && noShowCheckbox.checked) {
             localStorage.setItem(NOSHOW_KEY, 'true');
         }
         if (helpBadge) helpBadge.style.display = 'flex';
+
+        const modalContent = modal.querySelector('.usage-guide-modal') as HTMLElement;
+        if (!modalContent) {
+            closeModal(modal);
+            return;
+        }
+
+        const logoEl = helpLogoImg || helpTrigger;
+        const logoRect = logoEl.getBoundingClientRect();
+        const contentRect = modalContent.getBoundingClientRect();
+
+        const logoCenterX = logoRect.left + logoRect.width / 2;
+        const logoCenterY = logoRect.top + logoRect.height / 2;
+
+        const originX = logoCenterX - contentRect.left;
+        const originY = logoCenterY - contentRect.top;
+
+        const targetScale = Math.max(0.05, Math.min(logoRect.width, logoRect.height) / Math.max(contentRect.width, contentRect.height));
+
+        modal.classList.add('shrinking-to-logo');
+
+        modalContent.style.transformOrigin = `${originX}px ${originY}px`;
+        modalContent.style.willChange = 'transform, opacity';
+        modalContent.style.transform = '';
+
+        const duration = 550;
+        const easing = 'cubic-bezier(0.4, 0, 0.2, 1)';
+
+        const overlayAnim = modal.animate(
+            [
+                { opacity: 1 },
+                { opacity: 0 }
+            ],
+            { duration: duration - 50, easing: 'ease-in', fill: 'forwards' }
+        );
+
+        const contentAnim = modalContent.animate(
+            [
+                { transform: 'scale(1) translateY(0px)', opacity: 1 },
+                { transform: `scale(${targetScale}) translateY(0px)`, opacity: 0 }
+            ],
+            { duration, easing, fill: 'forwards' }
+        );
+
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            try { overlayAnim.cancel(); } catch {}
+            try { contentAnim.cancel(); } catch {}
+            modalContent.style.transform = '';
+            modalContent.style.opacity = '';
+            modalContent.style.transformOrigin = '';
+            modalContent.style.willChange = '';
+            modal.style.opacity = '';
+            modal.classList.remove('shrinking-to-logo');
+            modal.classList.remove('modal-visible');
+            modal.style.display = 'none';
+        };
+
+        contentAnim.onfinish = finish;
+        setTimeout(finish, duration + 100);
     }
 
     helpTrigger.addEventListener('click', (e: Event) => {
