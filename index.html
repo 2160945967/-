@@ -606,30 +606,9 @@
                     <div class="setting-item" draggable="true" data-setting-key="asset-downloads">
                         <span class="drag-handle" title="拖动排序">⋮⋮</span>
                         <label>数据资源管理：</label>
-                        <p class="setting-desc">词库为必需资源，缺失时无法查词；例句库和语音识别模型为可选资源</p>
+                        <p class="setting-desc">词库为必需资源，缺失时无法查词；例句库、语音识别模型和离线发音包为可选资源</p>
                         <div id="asset-downloads-list" class="asset-downloads-inline">
                             <!-- 由 JS 动态生成 -->
-                        </div>
-                    </div>
-
-                    <div class="setting-item" draggable="true" data-setting-key="pronunciation-bulk-download">
-                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
-                        <label>离线发音包：</label>
-                        <p class="setting-desc">下载词典中所有单词的发音文件到本地，可大幅提升每次播放发音的响应速度</p>
-                        <div class="setting-action-row">
-                            <select id="bulk-download-accent" class="setting-select">
-                                <option value="us">美式发音</option>
-                                <option value="uk">英式发音</option>
-                            </select>
-                            <button id="bulk-download-start" class="btn-gradient btn-green btn-sm">开始下载</button>
-                            <button id="bulk-download-pause" class="btn-gradient btn-orange btn-sm" disabled>暂停</button>
-                            <button id="bulk-download-cancel" class="btn-gradient btn-red btn-sm" disabled>取消</button>
-                        </div>
-                        <div id="bulk-download-progress-area" class="bulk-progress-area" style="display: none;">
-                            <div class="bulk-progress-bar-track">
-                                <div id="bulk-download-bar" class="bulk-progress-bar-fill"></div>
-                            </div>
-                            <p id="bulk-download-status" class="bulk-progress-status">准备下载...</p>
                         </div>
                     </div>
                 </div>

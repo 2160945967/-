@@ -395,6 +395,14 @@ body.dark-mode .asset-download-info .asset-status.not-downloaded {
     background: var(--accent-red, #e74c3c);
 }
 
+.asset-action-btns .setting-select {
+    min-height: 28px;
+    padding: 4px 22px 4px 8px;
+    font-size: 13px;
+    background-position: right 7px center;
+    background-size: 10px;
+}
+
 .asset-progress-area {
     width: 100%;
     display: flex;

@@ -239,6 +239,22 @@ export function cancelBulkDownload(): void {
   saveState(state);
 }
 
+/** 清空离线发音包缓存（删除已下载文件并重置状态） */
+export function clearPronunciationCache(): { success: boolean; message: string } {
+  try {
+    const dir = path.join(ASSETS_DIR, 'pronunciations');
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(STATE_FILE)) {
+      fs.rmSync(STATE_FILE, { force: true });
+    }
+    return { success: true, message: '已清空离线发音包缓存' };
+  } catch (e: any) {
+    return { success: false, message: e.message || '清空失败' };
+  }
+}
+
 /** 获取当前下载状态 */
 export function getBulkDownloadStatus(): PronunciationDownloadStatus {
   const state = loadState();

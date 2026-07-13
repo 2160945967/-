@@ -28,7 +28,8 @@ import {
   startBulkDownload,
   pauseBulkDownload,
   cancelBulkDownload,
-  getBulkDownloadStatus
+  getBulkDownloadStatus,
+  clearPronunciationCache
 } from '../services/pronunciation-downloader';
 import { LRUCache } from '../utils/cache';
 
@@ -730,6 +731,19 @@ export function setupRoutes(app: any) {
   app.post('/api/pronunciations/download/cancel', (req: Request, res: Response) => {
     cancelBulkDownload();
     res.json(successResponse(getBulkDownloadStatus()));
+  });
+
+  app.post('/api/pronunciations/clear', (req: Request, res: Response) => {
+    try {
+      const result = clearPronunciationCache();
+      if (result.success) {
+        res.json(successResponse(result));
+      } else {
+        res.status(500).json(errorResponse(result.message, 500));
+      }
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '清空失败', 500));
+    }
   });
 
   // ---- 11. 语音识别（Sherpa-ONNX） ----

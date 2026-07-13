@@ -72,8 +72,18 @@ export function initSettings(): void {
         });
     }
 
-    initPronunciationBulkDownload();
     initAssetDownloads();
+    // 先加载数据资源列表，确保 StarDict 等项排在离线发音包之前
+    void (async () => {
+        for (let i = 0; i < 30; i++) {
+            await fetchAssetStatus();
+            if (assetStatusCache.length > 0) break;
+            await new Promise(r => setTimeout(r, 200));
+        }
+        initPronunciationBulkDownload();
+        startPollingPronunciationDownloadStatus();
+    })();
+    startPollingAssetStatus();
 
     // API密钥设置弹窗
     const apiSettingsLink = document.getElementById('api-settings-link');
@@ -514,38 +524,176 @@ interface PronunciationDownloadStatus {
 
 let pronunciationDownloadPollTimer: ReturnType<typeof setInterval> | null = null;
 
-function updatePronunciationDownloadUI(status: PronunciationDownloadStatus): void {
-    const area = document.getElementById('bulk-download-progress-area');
-    const bar = document.getElementById('bulk-download-bar');
-    const statusText = document.getElementById('bulk-download-status');
-    const startBtn = document.getElementById('bulk-download-start') as HTMLButtonElement | null;
-    const pauseBtn = document.getElementById('bulk-download-pause') as HTMLButtonElement | null;
-    const cancelBtn = document.getElementById('bulk-download-cancel') as HTMLButtonElement | null;
-    const accentSelect = document.getElementById('bulk-download-accent') as HTMLSelectElement | null;
+function getOrCreatePronunciationItemEl(container: HTMLElement): HTMLElement {
+    let item = container.querySelector('[data-asset-id="pronunciations"]') as HTMLElement | null;
+    if (item) return item;
 
-    if (!area || !bar || !statusText) return;
+    item = document.createElement('div');
+    item.className = 'asset-download-item';
+    item.dataset.assetId = 'pronunciations';
+    item.innerHTML = `
+        <div class="asset-download-main">
+            <div class="asset-download-info">
+                <span class="asset-name">离线发音包</span>
+                <span class="asset-tag optional">可选</span>
+                <span class="asset-size">-</span>
+                <span class="asset-status not-downloaded">未下载</span>
+            </div>
+            <div class="asset-action-btns">
+                <select class="setting-select pronunciation-accent-select" aria-label="发音口音">
+                    <option value="us">美式发音</option>
+                    <option value="uk">英式发音</option>
+                </select>
+                <button class="asset-download-btn secondary pronunciation-pause-btn" style="display:none;">暂停</button>
+                <button class="asset-download-btn pronunciation-action-btn">下载</button>
+                <button class="asset-download-btn danger pronunciation-clear-btn" style="display:none;">清空</button>
+            </div>
+        </div>
+        <div class="asset-progress-area pronunciation-progress-area" style="display:none;">
+            <div class="asset-progress-bar"><div class="asset-progress-fill"></div></div>
+            <span class="asset-progress-text pronunciation-progress-text">0%</span>
+        </div>
+    `;
+
+    const actionBtn = item.querySelector('.pronunciation-action-btn') as HTMLButtonElement;
+    const pauseBtn = item.querySelector('.pronunciation-pause-btn') as HTMLButtonElement;
+    const clearBtn = item.querySelector('.pronunciation-clear-btn') as HTMLButtonElement;
+    const accentSelect = item.querySelector('.pronunciation-accent-select') as HTMLSelectElement;
+
+    actionBtn.addEventListener('click', () => {
+        if (actionBtn.textContent === '继续') {
+            void continuePronunciationDownload();
+        } else {
+            void startPronunciationDownload(accentSelect.value);
+        }
+    });
+    pauseBtn.addEventListener('click', () => void pausePronunciationDownload());
+    clearBtn.addEventListener('click', () => void clearPronunciationCacheUI());
+
+    container.appendChild(item);
+    return item;
+}
+
+function updatePronunciationDownloadUI(status: PronunciationDownloadStatus): void {
+    const container = document.getElementById('asset-downloads-list');
+    if (!container) return;
+    const item = getOrCreatePronunciationItemEl(container);
+    // 确保离线发音包始终位于资源列表末尾
+    container.appendChild(item);
+    const statusEl = item.querySelector('.asset-status') as HTMLElement;
+    const actionBtn = item.querySelector('.pronunciation-action-btn') as HTMLButtonElement;
+    const pauseBtn = item.querySelector('.pronunciation-pause-btn') as HTMLButtonElement;
+    const clearBtn = item.querySelector('.pronunciation-clear-btn') as HTMLButtonElement;
+    const accentSelect = item.querySelector('.pronunciation-accent-select') as HTMLSelectElement;
+    const area = item.querySelector('.pronunciation-progress-area') as HTMLElement;
+    const fill = item.querySelector('.asset-progress-fill') as HTMLElement;
+    const text = item.querySelector('.pronunciation-progress-text') as HTMLElement;
 
     const inProgress = status.inProgress;
     const paused = status.paused;
     const done = status.total - status.pending;
 
     if (inProgress || paused || status.completed > 0 || status.pending > 0) {
-        area.style.display = 'block';
+        area.style.display = 'flex';
+    } else {
+        area.style.display = 'none';
     }
 
-    bar.style.width = `${status.percent}%`;
+    fill.style.width = `${status.percent}%`;
+    text.textContent = `${status.percent}% (${done}/${status.total})`;
 
-    let stateLabel = '未开始';
-    if (inProgress) stateLabel = '下载中';
-    else if (paused) stateLabel = '已暂停';
-    else if (done === status.total && status.total > 0) stateLabel = '已完成';
+    if (accentSelect) {
+        if (status.accent && (status.accent === 'us' || status.accent === 'uk')) {
+            accentSelect.value = status.accent;
+        }
+        accentSelect.disabled = inProgress || paused;
+    }
 
-    statusText.textContent = `${status.percent}% (${done}/${status.total}) ${stateLabel}`;
+    if (inProgress) {
+        statusEl.textContent = '下载中';
+        statusEl.className = 'asset-status not-downloaded';
+        actionBtn.textContent = '下载中';
+        actionBtn.disabled = true;
+        pauseBtn.style.display = 'inline-block';
+        clearBtn.style.display = 'none';
+    } else if (paused) {
+        statusEl.textContent = '已暂停';
+        statusEl.className = 'asset-status not-downloaded';
+        actionBtn.textContent = '继续';
+        actionBtn.disabled = false;
+        pauseBtn.style.display = 'none';
+        clearBtn.style.display = done > 0 ? 'inline-block' : 'none';
+    } else if (done === status.total && status.total > 0) {
+        statusEl.textContent = '已下载';
+        statusEl.className = 'asset-status downloaded';
+        actionBtn.textContent = '重新下载';
+        actionBtn.disabled = false;
+        pauseBtn.style.display = 'none';
+        clearBtn.style.display = 'inline-block';
+    } else {
+        statusEl.textContent = '未下载';
+        statusEl.className = 'asset-status not-downloaded';
+        actionBtn.textContent = '下载';
+        actionBtn.disabled = false;
+        pauseBtn.style.display = 'none';
+        clearBtn.style.display = 'none';
+    }
+}
 
-    if (startBtn) startBtn.disabled = inProgress;
-    if (pauseBtn) pauseBtn.disabled = !inProgress;
-    if (cancelBtn) cancelBtn.disabled = !inProgress && !paused;
-    if (accentSelect) accentSelect.disabled = inProgress || paused;
+async function startPronunciationDownload(accent: string): Promise<void> {
+    try {
+        const response = await fetch('/api/pronunciations/download/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accent })
+        });
+        const result = await response.json();
+        if (result.success) {
+            updatePronunciationDownloadUI(result.data);
+            showToast('已开始下载离线发音包');
+        } else {
+            showToast(result.error?.message || '启动失败');
+        }
+    } catch (e) {
+        console.error('[settings] 启动发音下载失败:', e);
+        showToast('启动下载失败');
+    }
+}
+
+async function continuePronunciationDownload(): Promise<void> {
+    const accentSelect = document.querySelector('.pronunciation-accent-select') as HTMLSelectElement | null;
+    const accent = accentSelect?.value || 'us';
+    await startPronunciationDownload(accent);
+}
+
+async function pausePronunciationDownload(): Promise<void> {
+    try {
+        const response = await fetch('/api/pronunciations/download/pause', { method: 'POST' });
+        const result = await response.json();
+        if (result.success) {
+            updatePronunciationDownloadUI(result.data);
+            showToast('已暂停下载');
+        }
+    } catch (e) {
+        console.error('[settings] 暂停发音下载失败:', e);
+    }
+}
+
+async function clearPronunciationCacheUI(): Promise<void> {
+    if (!confirm('确定要清空离线发音包缓存吗？清空后需要重新下载。')) return;
+    try {
+        const response = await fetch('/api/pronunciations/clear', { method: 'POST' });
+        const result = await response.json();
+        if (result.success) {
+            showToast(result.message || '已清空离线发音包缓存');
+            void fetchPronunciationDownloadStatus();
+        } else {
+            showToast(result.error?.message || '清空失败', 'error');
+        }
+    } catch (e) {
+        console.error('[settings] 清空发音缓存失败:', e);
+        showToast('清空失败', 'error');
+    }
 }
 
 async function fetchPronunciationDownloadStatus(): Promise<PronunciationDownloadStatus | null> {
@@ -570,62 +718,15 @@ function startPollingPronunciationDownloadStatus(): void {
 }
 
 function initPronunciationBulkDownload(): void {
-    const startBtn = document.getElementById('bulk-download-start');
-    const pauseBtn = document.getElementById('bulk-download-pause');
-    const cancelBtn = document.getElementById('bulk-download-cancel');
-    const accentSelect = document.getElementById('bulk-download-accent') as HTMLSelectElement | null;
+    const container = document.getElementById('asset-downloads-list');
+    if (!container) {
+        console.warn('[settings] 找不到资源下载容器，离线发音包初始化失败');
+        return;
+    }
 
-    if (!startBtn || !pauseBtn || !cancelBtn) return;
-
+    getOrCreatePronunciationItemEl(container);
     void fetchPronunciationDownloadStatus();
     startPollingPronunciationDownloadStatus();
-
-    startBtn.addEventListener('click', async () => {
-        const accent = accentSelect?.value || 'us';
-        try {
-            const response = await fetch('/api/pronunciations/download/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accent })
-            });
-            const result = await response.json();
-            if (result.success) {
-                updatePronunciationDownloadUI(result.data);
-                showToast('已开始下载离线发音包');
-            } else {
-                showToast(result.error?.message || '启动失败');
-            }
-        } catch (e) {
-            console.error('[settings] 启动发音下载失败:', e);
-            showToast('启动下载失败');
-        }
-    });
-
-    pauseBtn.addEventListener('click', async () => {
-        try {
-            const response = await fetch('/api/pronunciations/download/pause', { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
-                updatePronunciationDownloadUI(result.data);
-                showToast('已暂停下载');
-            }
-        } catch (e) {
-            console.error('[settings] 暂停发音下载失败:', e);
-        }
-    });
-
-    cancelBtn.addEventListener('click', async () => {
-        try {
-            const response = await fetch('/api/pronunciations/download/cancel', { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
-                updatePronunciationDownloadUI(result.data);
-                showToast('已取消下载');
-            }
-        } catch (e) {
-            console.error('[settings] 取消发音下载失败:', e);
-        }
-    });
 }
 
 // ==================== 数据资源下载 ====================
@@ -933,9 +1034,7 @@ function initAssetDownloads(): void {
         console.warn('[settings] 找不到资源下载容器');
         return;
     }
-
-    void fetchAssetStatus();
-    startPollingAssetStatus();
+    // 由 initSettings 统一控制首次加载与轮询顺序
 }
 
 // 设置项拖拽排序：基于 pointer 事件 + 浮动 ghost + transform 挤压动画
