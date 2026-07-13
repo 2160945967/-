@@ -275,7 +275,7 @@ export function getBulkDownloadStatus(): PronunciationDownloadStatus {
     try {
       const db = getMainDb();
       if (db) {
-        totalWords = db.getAllWords().length;
+        totalWords = db.count();
       }
     } catch {}
     completed = downloadedCount;
