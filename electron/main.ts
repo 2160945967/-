@@ -41,23 +41,15 @@ app.whenReady().then(async () => {
     }
   });
 
-  // 修复 Windows 下 alert/confirm 弹窗关闭后输入框无法聚焦的问题
-  // 参考 https://github.com/electron/electron/issues/20400
-  const isWindows = process.platform === 'win32';
-  let needsFocusFix = false;
-  let triggeringProgrammaticBlur = false;
-  let lastFocusFixTime = 0;
-  let isRestoringFromMinimize = false;
-
-  win.on('minimize', () => {
-    isRestoringFromMinimize = true;
-    needsFocusFix = false;
+  // Windows 下 alert/confirm 关闭后输入框可能无法聚焦，由渲染进程通过 IPC 触发修复
+  ipcMain.on('fix-focus', () => {
+    if (process.platform !== 'win32' || win.isDestroyed() || win.isMinimized()) return;
+    win.blur();
+    win.focus();
   });
 
+  // 最小化还原后强制置顶，Windows 下有时还原后 Z-order 不对
   win.on('restore', () => {
-    isRestoringFromMinimize = true;
-    // 最小化还原后强制置顶，Windows 下有时还原后 Z-order 不对
-    // 多轮重试 + 临时 alwaysOnTop 兜底，确保窗口在最前面
     const bringToFront = (delay: number) => {
       setTimeout(() => {
         if (win.isDestroyed()) return;
@@ -77,37 +69,6 @@ app.whenReady().then(async () => {
     bringToFront(30);
     bringToFront(150);
     bringToFront(350);
-    // 最后解禁焦点修复
-    setTimeout(() => {
-      isRestoringFromMinimize = false;
-    }, 500);
-  });
-
-  win.on('blur', () => {
-    if (!triggeringProgrammaticBlur && !win.isMinimized()) {
-      needsFocusFix = true;
-    }
-  });
-
-  win.on('focus', () => {
-    if (isWindows && needsFocusFix && !isRestoringFromMinimize) {
-      const now = Date.now();
-      // 冷却 1 秒，避免频繁触发导致窗口闪烁
-      if (now - lastFocusFixTime < 1000) {
-        needsFocusFix = false;
-        return;
-      }
-      needsFocusFix = false;
-      triggeringProgrammaticBlur = true;
-      lastFocusFixTime = now;
-      setTimeout(() => {
-        win.blur();
-        win.focus();
-        setTimeout(() => {
-          triggeringProgrammaticBlur = false;
-        }, 50);
-      }, 100);
-    }
   });
 
   // Fork 子进程运行 Express 后端
