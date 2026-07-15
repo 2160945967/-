@@ -680,9 +680,10 @@ export async function searchWord(word: string): Promise<void> {
         appState.studyStats.searchCount++;
         updateStudyStats();
 
-        const [searchResponse, enhancedResponse] = await Promise.all([
+        const [searchResponse, enhancedResponse, examplesData] = await Promise.all([
             fetch('/api/search?word=' + encodeURIComponent(word)),
-            fetch('/api/enhanced?word=' + encodeURIComponent(word))
+            fetch('/api/enhanced?word=' + encodeURIComponent(word)),
+            apiGet('/api/examples?word=' + encodeURIComponent(word))
         ]);
         console.log('searchWord fetch 完成, searchResponse status:', searchResponse.status);
 
@@ -700,7 +701,6 @@ export async function searchWord(word: string): Promise<void> {
                 console.error('获取增强信息失败:', e);
             }
             try {
-                const examplesData = await apiGet('/api/examples?word=' + encodeURIComponent(word));
                 if (examplesData.success && examplesData.data && examplesData.data.length > 0) {
                     formattedData.examples = examplesData.data;
                 }
