@@ -68,8 +68,10 @@ async function start() {
 
   initTTS(PRONUNCIATIONS_DIR, CACHE_DIR);
 
-  // 启动后在后台检查/继续未完成的离线发音包下载
-  setTimeout(() => autoResumePronunciationDownloads(), 0);
+  // 启动后在后台异步检查/继续未完成的离线发音包下载，避免阻塞事件循环
+  setTimeout(() => {
+    autoResumePronunciationDownloads().catch(e => console.error('启动时恢复发音下载失败:', e));
+  }, 0);
 
   const app = express();
 

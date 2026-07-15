@@ -10,6 +10,7 @@
  */
 
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { USER_DATA_DIR, ASSETS_DIR, ensureDirExists, normalizeWordForFilename } from '../utils/helpers';
 import { getMainDb } from './database';
@@ -101,33 +102,34 @@ function isDownloaded(word: string, accent: string): boolean {
   }
 }
 
-function getMp3FilesForAccent(accent: string): string[] {
+async function getMp3FilesForAccent(accent: string): Promise<string[]> {
   try {
-    if (!fs.existsSync(PRONUNCIATIONS_DIR)) return [];
+    await fsp.access(PRONUNCIATIONS_DIR);
     const suffix = `_${accent}.mp3`;
-    const allFiles = fs.readdirSync(PRONUNCIATIONS_DIR);
+    const allFiles = await fsp.readdir(PRONUNCIATIONS_DIR);
     return allFiles.filter(f => f.endsWith(suffix) && f.length > suffix.length + 1);
   } catch {
     return [];
   }
 }
 
-function countDownloadedForAccent(accent: string): number {
-  return getMp3FilesForAccent(accent).length;
+async function countDownloadedForAccent(accent: string): Promise<number> {
+  const files = await getMp3FilesForAccent(accent);
+  return files.length;
 }
 
-function cleanupChinesePronunciationFiles(): number {
+async function cleanupChinesePronunciationFiles(): Promise<number> {
   let cleaned = 0;
   try {
-    if (!fs.existsSync(PRONUNCIATIONS_DIR)) return 0;
-    const files = fs.readdirSync(PRONUNCIATIONS_DIR);
+    await fsp.access(PRONUNCIATIONS_DIR);
+    const files = await fsp.readdir(PRONUNCIATIONS_DIR);
     for (const file of files) {
       const baseName = file.replace(/_(us|uk)\.mp3$/, '');
       if (hasChinese(baseName)) {
         try {
-          fs.unlinkSync(path.join(PRONUNCIATIONS_DIR, file));
+          await fsp.unlink(path.join(PRONUNCIATIONS_DIR, file));
           const providerFile = path.join(PRONUNCIATIONS_DIR, file + '.provider');
-          if (fs.existsSync(providerFile)) fs.unlinkSync(providerFile);
+          try { await fsp.unlink(providerFile); } catch { /* ignore */ }
           cleaned++;
         } catch (e) {
           console.error('[pronunciation-downloader] 删除中文发音文件失败:', file, e);
@@ -250,7 +252,7 @@ export async function startBulkDownload(accent: 'us' | 'uk' = 'us'): Promise<voi
   const db = getMainDb();
   if (!db) throw new Error('词典数据库未初始化');
 
-  cleanupChinesePronunciationFiles();
+  await cleanupChinesePronunciationFiles();
 
   const allWords = db.getAllWords().filter(w => !hasChinese(w));
   const pending = allWords.filter(w => !isDownloaded(w, accent));
@@ -303,24 +305,19 @@ export function clearPronunciationCache(): { success: boolean; message: string }
   }
 }
 
-export function getBulkDownloadStatus(): PronunciationDownloadStatus {
+export async function getBulkDownloadStatus(): Promise<PronunciationDownloadStatus> {
   const state = loadState();
 
-  cleanupChinesePronunciationFiles();
+  await cleanupChinesePronunciationFiles();
 
   const accent = state.accent || 'us';
-  const dirExists = fs.existsSync(PRONUNCIATIONS_DIR);
-  let downloadedCount = 0;
-
-  if (dirExists) {
-    downloadedCount = countDownloadedForAccent(accent);
-  }
+  const downloadedCount = await countDownloadedForAccent(accent);
 
   let dbTotal = 0;
   try {
     const db = getMainDb();
     if (db) {
-      dbTotal = db.getAllWords().filter(w => !hasChinese(w)).length;
+      dbTotal = db.count();
     }
   } catch {}
 
@@ -367,8 +364,8 @@ export function getBulkDownloadStatus(): PronunciationDownloadStatus {
   };
 }
 
-export function autoResumePronunciationDownloads(): void {
-  cleanupChinesePronunciationFiles();
+export async function autoResumePronunciationDownloads(): Promise<void> {
+  await cleanupChinesePronunciationFiles();
 
   const state = loadState();
 
@@ -392,7 +389,7 @@ export function autoResumePronunciationDownloads(): void {
 
   if (state.total > 0) {
     const accent = state.accent || 'us';
-    const downloadedCount = countDownloadedForAccent(accent);
+    const downloadedCount = await countDownloadedForAccent(accent);
     if (downloadedCount !== state.completed || downloadedCount >= state.total) {
       state.completed = downloadedCount;
       if (downloadedCount >= state.total && state.total > 0) {

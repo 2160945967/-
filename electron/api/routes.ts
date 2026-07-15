@@ -705,8 +705,8 @@ export function setupRoutes(app: any) {
   });
 
   // ---- 10. 离线发音包批量下载 ----
-  app.get('/api/pronunciations/download/status', (req: Request, res: Response) => {
-    res.json(successResponse(getBulkDownloadStatus()));
+  app.get('/api/pronunciations/download/status', async (req: Request, res: Response) => {
+    res.json(successResponse(await getBulkDownloadStatus()));
   });
 
   app.post('/api/pronunciations/download/start', async (req: Request, res: Response) => {
@@ -717,20 +717,20 @@ export function setupRoutes(app: any) {
         return;
       }
       await startBulkDownload(accent as 'us' | 'uk');
-      res.json(successResponse(getBulkDownloadStatus()));
+      res.json(successResponse(await getBulkDownloadStatus()));
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '启动下载失败', 500));
     }
   });
 
-  app.post('/api/pronunciations/download/pause', (req: Request, res: Response) => {
+  app.post('/api/pronunciations/download/pause', async (req: Request, res: Response) => {
     pauseBulkDownload();
-    res.json(successResponse(getBulkDownloadStatus()));
+    res.json(successResponse(await getBulkDownloadStatus()));
   });
 
-  app.post('/api/pronunciations/download/cancel', (req: Request, res: Response) => {
+  app.post('/api/pronunciations/download/cancel', async (req: Request, res: Response) => {
     cancelBulkDownload();
-    res.json(successResponse(getBulkDownloadStatus()));
+    res.json(successResponse(await getBulkDownloadStatus()));
   });
 
   app.post('/api/pronunciations/clear', (req: Request, res: Response) => {
