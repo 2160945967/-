@@ -658,8 +658,8 @@ export function convertApiDataToFrontendFormat(apiData: {
 export async function searchWord(word: string): Promise<void> {
     console.log('searchWord 被调用:', word);
     try {
-        // 查词前刷新单词本数据，避免在单词本页新建的单词本这里不显示
-        await pageHandlers.loadWordbooks?.();
+        // 查词前后台刷新单词本数据（不阻塞查词），避免在单词本页新建的单词本这里不显示
+        void pageHandlers.loadWordbooks?.();
 
         const translationContainer = document.getElementById('translation-container');
         const chineseResultDiv = document.getElementById('chinese-search-result');
