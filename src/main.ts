@@ -430,9 +430,9 @@ function initUsageGuide(): void {
         }
         modal.style.opacity = '';
         modal.style.transition = '';
+        modal.style.display = 'flex';
         modal.classList.remove('shrinking-to-logo');
         modal.classList.remove('modal-visible');
-        openModal(modal);
 
         if (!modalContent) return;
 
@@ -450,7 +450,6 @@ function initUsageGuide(): void {
 
         modalContent.style.transformOrigin = `${originX}px ${originY}px`;
         modalContent.style.willChange = 'transform, opacity';
-        modalContent.style.transform = '';
 
         const duration = 550;
         const easing = 'cubic-bezier(0.4, 0, 0.2, 1)';
@@ -487,7 +486,8 @@ function initUsageGuide(): void {
 
         const modalContent = modal.querySelector('.usage-guide-modal') as HTMLElement;
         if (!modalContent) {
-            closeModal(modal);
+            modal.classList.remove('modal-visible');
+            modal.style.display = 'none';
             return;
         }
 
