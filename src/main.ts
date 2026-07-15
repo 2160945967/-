@@ -433,6 +433,48 @@ function initUsageGuide(): void {
         modal.classList.remove('shrinking-to-logo');
         modal.classList.remove('modal-visible');
         openModal(modal);
+
+        if (!modalContent) return;
+
+        const logoEl = helpLogoImg || helpTrigger;
+        const logoRect = logoEl.getBoundingClientRect();
+        const contentRect = modalContent.getBoundingClientRect();
+
+        const logoCenterX = logoRect.left + logoRect.width / 2;
+        const logoCenterY = logoRect.top + logoRect.height / 2;
+
+        const originX = logoCenterX - contentRect.left;
+        const originY = logoCenterY - contentRect.top;
+
+        const startScale = Math.max(0.05, Math.min(logoRect.width, logoRect.height) / Math.max(contentRect.width, contentRect.height));
+
+        modalContent.style.transformOrigin = `${originX}px ${originY}px`;
+        modalContent.style.willChange = 'transform, opacity';
+        modalContent.style.transform = '';
+
+        const duration = 550;
+        const easing = 'cubic-bezier(0.4, 0, 0.2, 1)';
+
+        modal.animate(
+            [
+                { opacity: 0 },
+                { opacity: 1 }
+            ],
+            { duration: duration - 50, easing: 'ease-out', fill: 'forwards' }
+        );
+
+        const contentAnim = modalContent.animate(
+            [
+                { transform: `scale(${startScale}) translateY(0px)`, opacity: 0 },
+                { transform: 'scale(1) translateY(0px)', opacity: 1 }
+            ],
+            { duration, easing, fill: 'forwards' }
+        );
+
+        contentAnim.onfinish = () => {
+            modalContent.style.transformOrigin = '';
+            modalContent.style.willChange = '';
+        };
     }
 
     function closeGuide(): void {
