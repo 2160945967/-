@@ -520,9 +520,8 @@ function initUsageGuide(): void {
     });
 
     const noShow = localStorage.getItem(NOSHOW_KEY) === 'true';
-    const hasSeen = localStorage.getItem(SEEN_KEY) === 'true';
 
-    if (!noShow && !hasSeen) {
+    if (!noShow) {
         setTimeout(() => {
             openGuide();
         }, 600);
