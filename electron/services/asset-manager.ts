@@ -157,7 +157,7 @@ export function deleteAsset(assetId: string): { success: boolean; message: strin
 
     // 清理分卷临时文件
     if (asset.parts && asset.parts.length > 0) {
-      const partDir = path.join(ASSETS_DIR, `${asset.localPath}.parts`);
+      const partDir = path.join(ASSETS_DIR, '.downloads', asset.id);
       if (fs.existsSync(partDir)) {
         try { fs.rmSync(partDir, { recursive: true, force: true }); } catch {}
       }
