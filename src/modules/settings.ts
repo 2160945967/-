@@ -615,7 +615,9 @@ function updatePronunciationDownloadUI(status: PronunciationDownloadStatus): voi
     const paused = status.paused;
     const done = status.total - status.pending;
 
-    if (inProgress || paused || status.completed > 0 || status.pending > 0) {
+    const isDownloaded = done === status.total && status.total > 0;
+
+    if (inProgress || paused || (!isDownloaded && (status.completed > 0 || status.pending > 0))) {
         area.style.display = 'flex';
     } else {
         area.style.display = 'none';
