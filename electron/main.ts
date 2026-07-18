@@ -128,6 +128,13 @@ app.whenReady().then(async () => {
     console.log(`已释放 ${count} 个后台页面`);
   });
 
+  // 渲染进程请求重启应用（如下载完成后需要重启生效）
+  ipcMain.on('app-restart', () => {
+    console.log('[main] 收到重启请求，准备重启应用');
+    app.relaunch();
+    app.quit();
+  });
+
   // 处理媒体权限请求
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === 'media');

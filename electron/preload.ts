@@ -14,8 +14,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const port = await ipcRenderer.invoke('get-server-port');
     return `http://127.0.0.1:${port}`;
   },
-  /** 通知主进程修复窗口焦点（Windows 下 alert/confirm 关闭后输入框可能无法聚焦） */
+  /** 通知主进程修复窗口焦点（Windows 下 alert/confirm 关闭后输入框可能无法响应键盘） */
   fixFocus: () => ipcRenderer.send('fix-focus'),
+  /** 请求主进程重启应用 */
+  restartApp: () => ipcRenderer.send('app-restart'),
 });
 
 // Windows 下原生 alert/confirm 关闭后，窗口焦点可能丢失，导致输入框无法响应键盘。

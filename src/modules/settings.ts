@@ -937,6 +937,18 @@ function updateAssetProgress(progressMap: Record<string, AssetProgressItem>): vo
             if (!assetCompletedToasts.has(assetId)) {
                 assetCompletedToasts.add(assetId);
                 showToast(`${getAssetNameById(assetId)} 下载完成`, 'success');
+                // 可选资源下载完成后提示用户重启生效
+                const cachedAsset = assetStatusCache.find(a => a.id === assetId);
+                if (!cachedAsset?.required) {
+                    setTimeout(() => {
+                        const shouldRestart = window.confirm(
+                            `${getAssetNameById(assetId)} 下载完成，需要重启应用后才能生效。\n\n是否立即重启？`
+                        );
+                        if (shouldRestart) {
+                            window.electronAPI?.restartApp?.();
+                        }
+                    }, 500);
+                }
             }
             // 进度完成后立即刷新一次状态，避免状态和进度不一致
             void fetchAssetStatus();

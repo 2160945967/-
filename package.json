@@ -22,7 +22,15 @@
     "directories": {
       "output": "release-final4"
     },
-    "extraResources": [],
+    "extraResources": [
+      "pronunciations/**/*",
+      "stardict.db",
+      "examples.db",
+      "sherpa-onnx-sense-voice-zh-en-ja-ko-yue/**/*",
+      "resemble.txt",
+      "lemma.en.txt",
+      "wordroot.txt"
+    ],
     "compression": "maximum",
     "asar": true,
     "asarUnpack": [
