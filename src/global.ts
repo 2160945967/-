@@ -3,7 +3,7 @@ export { appState };
 
 import { searchWord } from './modules/dictionary';
 import { PageSection, WordSource } from './types/enums';
-import { animatePageEnter } from './utils/gsap';
+import { animatePageEnter, showToast } from './utils/gsap';
 import { SYSTEM_WORDBOOKS, MAX_RENDERED_PAGES } from './constants';
 
 // 当前所在页面 + 切换锁，防止连续点击叠加
@@ -447,24 +447,66 @@ export async function updateWordSourceSelector(): Promise<void> {
     }
 }
 
+// 当前网络状态缓存
+let isNetworkOnline: boolean | null = null;
+
+/** 暂停所有进行中的下载任务 */
+async function pauseAllDownloads(): Promise<void> {
+    try {
+        // 暂停数据资源下载
+        await fetch('/api/assets/download/pause', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetId: 'all' })
+        });
+    } catch (e) {
+        console.error('[network] 暂停资源下载失败:', e);
+    }
+    try {
+        // 暂停发音批量下载
+        await fetch('/api/pronunciations/download/pause', { method: 'POST' });
+    } catch (e) {
+        console.error('[network] 暂停发音下载失败:', e);
+    }
+}
+
 // 初始化网络状态检测
 export function initNetworkStatus(): void {
     const container = document.querySelector('.network-status') as HTMLElement;
     if (container) {
         container.addEventListener('click', () => {
             if (!container.classList.contains('checking')) {
-                checkNetworkStatus();
+                void checkNetworkStatus();
             }
         });
     }
-    checkNetworkStatus();
+    void checkNetworkStatus();
     window.addEventListener('offline', () => {
         updateNetworkUI(false, '离线');
+        void handleNetworkChange(false);
     });
     window.addEventListener('online', () => {
-        checkNetworkStatus();
+        void checkNetworkStatus();
     });
-    setInterval(checkNetworkStatus, 30000);
+    // 5 分钟低频兜底，防止系统事件丢失
+    setInterval(() => void checkNetworkStatus(), 5 * 60 * 1000);
+}
+
+/** 网络状态变化时执行业务逻辑 */
+async function handleNetworkChange(online: boolean): Promise<void> {
+    if (isNetworkOnline === online) return;
+    const previous = isNetworkOnline;
+    isNetworkOnline = online;
+
+    // 初始化首次检测时不弹窗，避免启动时多余提示
+    if (previous === null) return;
+
+    if (!online) {
+        showToast('网络已断开，下载任务已自动暂停', 'error');
+        await pauseAllDownloads();
+    } else {
+        showToast('网络已恢复', 'success');
+    }
 }
 
 function updateNetworkUI(isOnline: boolean, text?: string, isChecking?: boolean): void {
@@ -503,8 +545,10 @@ export async function checkNetworkStatus(): Promise<void> {
         const data = await response.json();
         const online = data.success && data.data && data.data.online;
         updateNetworkUI(online, online ? '在线' : '离线');
+        await handleNetworkChange(online);
     } catch (error: unknown) {
         updateNetworkUI(false, '离线');
+        await handleNetworkChange(false);
     }
 }
 

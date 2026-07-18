@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import * as https from 'https';
 import { Request, Response } from 'express';
 import {
   getMainDb, getExamplesDb, getExamplesDbPath, getLemmaDB,
@@ -23,7 +24,7 @@ import { downloadAsset,
   pauseAssetDownload,
   deleteAsset,
 } from '../services/asset-manager';
-import { getAssetById } from '../config/assets';
+import { getAssetById, getAllAssets } from '../config/assets';
 import {
   startBulkDownload,
   pauseBulkDownload,
@@ -891,15 +892,28 @@ export function setupRoutes(app: any) {
   });
 
   // ---- 12. 网络测试 ----
-  app.get('/api/network/test', (req: Request, res: Response) => {
+  app.get('/api/network/test', async (req: Request, res: Response) => {
     try {
-      const tts = getTTS();
-      const online = tts ? tts.testNetwork() : false;
+      const online = await testInternetConnectivity();
       res.json(successResponse({ online }));
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '网络测试失败', 500));
     }
   });
+
+  /** 探测公网可达性，超时 3 秒 */
+  function testInternetConnectivity(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const req = https.get('https://www.baidu.com/favicon.ico', { timeout: 3000 }, (res) => {
+        resolve(res.statusCode !== undefined && res.statusCode < 500);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+    });
+  }
 
   // ---- 13. 单词本列表 ----
   app.get('/api/wordbook/list', (req: Request, res: Response) => {
@@ -1840,6 +1854,16 @@ export function setupRoutes(app: any) {
       const assetId = (getRequestParam(req, 'assetId', '') as string).trim();
       if (!assetId) {
         res.status(400).json(errorResponse('请提供 assetId'));
+        return;
+      }
+      // 支持 assetId='all' 一键暂停所有进行中的资源下载
+      if (assetId === 'all') {
+        const allAssets = getAllAssets();
+        let pausedAny = false;
+        for (const asset of allAssets) {
+          if (pauseAssetDownload(asset.id)) pausedAny = true;
+        }
+        res.json(successResponse({ assetId, paused: pausedAny }));
         return;
       }
       const paused = pauseAssetDownload(assetId);
