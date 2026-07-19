@@ -18,7 +18,7 @@ import {
 
 import { initSearch, searchWord, initKeyboardShortcuts, translateText, showSearchHistory, removeFromSearchHistory, refreshResultWordbookSelector } from './modules/dictionary';
 import { initQuiz, showLearningHistory, toggleHistoryDay, toggleDueWords, showDueWordsCondition, removeDueWord, toggleHistoryPanel, cleanupShowAnswerEnterHandler } from './modules/quiz';
-import { initWordbookManagement, loadWordbooks, abortLoadWordbooks, abortWordbookRendering, renameWordbook, updateSelectedWordbookDisplay, updateWordbookSelect } from './modules/wordbook';
+import { initWordbookManagement, loadWordbooks, abortLoadWordbooks, abortWordbookRendering, saveWordbookScroll, restoreWordbookScroll, renameWordbook, updateSelectedWordbookDisplay, updateWordbookSelect } from './modules/wordbook';
 import { initSettings } from './modules/settings';
 import { initStudyStats } from './modules/stats';
 import { initReviewQuiz } from './modules/review';
@@ -53,6 +53,7 @@ function initGlassScrollDegradation(): void {
 }
 
 // 全局函数注册表供动态 HTML 中的 onclick 调用
+import { PageSection } from './types/enums';
 import { setupGlobalRegistry } from './global-registry';
 setupGlobalRegistry({
     jumpToWord,
@@ -97,6 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
     pageHandlers.loadWordbooks = loadWordbooks;
     pageHandlers.abortLoadWordbooks = abortLoadWordbooks;
     pageHandlers.abortWordbookRendering = abortWordbookRendering;
+    pageHandlers.saveWordbookScroll = saveWordbookScroll;
+    pageHandlers.restoreWordbookScroll = restoreWordbookScroll;
     pageHandlers.showLearningHistory = showLearningHistory;
     pageHandlers.initReviewQuiz = initReviewQuiz;
     pageHandlers.cleanupShowAnswerEnterHandler = cleanupShowAnswerEnterHandler;
@@ -177,6 +180,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 19. 初始化使用说明弹窗
     initUsageGuide();
+
+    // 20. 恢复上次访问的页面（默认是词典页）
+    const lastPage = appState.lastVisitedPage;
+    if (lastPage && lastPage !== PageSection.Dictionary && document.getElementById(`${lastPage}-page`)) {
+        void switchPage(lastPage);
+    }
 
     console.log('拾词应用初始化完成');
 });

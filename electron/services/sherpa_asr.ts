@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { ROOT_DIR, ASSETS_DIR, resolveAssetPath } from '../utils/helpers';
-import { downloadAsset, isAssetDownloaded } from './asset-manager';
+import { downloadAsset, isAssetAvailable } from './asset-manager';
 
 const PROJECT_MODEL_DIR = resolveAssetPath('sherpa-onnx-sense-voice-zh-en-ja-ko-yue');
 
@@ -15,13 +15,21 @@ let recognizer: any = null;
 const MODEL_FILES = ['model.int8.onnx', 'tokens.txt'];
 
 async function ensureModelDownloaded(): Promise<void> {
-    // 如果本地不存在模型且配置了下载地址，则尝试下载
-    if (!isAssetDownloaded('sherpa-onnx-sense-voice')) {
-        try {
-            await downloadAsset('sherpa-onnx-sense-voice');
-        } catch (e: any) {
-            console.error('[sherpa] 模型下载失败:', e.message);
+    // 优先检查安装包/下载目录是否已有可用模型，避免打包后仍尝试下载
+    if (isAssetAvailable('sherpa-onnx-sense-voice')) {
+        // 清理可能残留的损坏分卷临时文件，防止后续触发无效解压
+        const partDir = path.join(ASSETS_DIR, '.downloads', 'sherpa-onnx-sense-voice');
+        if (fs.existsSync(partDir)) {
+            try { fs.rmSync(partDir, { recursive: true, force: true }); } catch {}
         }
+        return;
+    }
+
+    // 安装包中没有且未下载完成，才尝试下载
+    try {
+        await downloadAsset('sherpa-onnx-sense-voice');
+    } catch (e: any) {
+        console.error('[sherpa] 模型下载失败:', e.message);
     }
 }
 

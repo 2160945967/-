@@ -39,6 +39,9 @@ let systemWordbookAbortController: AbortController | null = null;
 let wordbookListAbortController: AbortController | null = null;
 let systemWordbookListAbortController: AbortController | null = null;
 
+// 单词本下拉框 change 事件处理器（避免重复注册）
+let wordbookChangeHandler: ((this: HTMLSelectElement, ev: Event) => any) | null = null;
+
 /** 中断正在进行的单词本列表加载请求 */
 export function abortLoadWordbooks(): void {
     wordbookListAbortController?.abort();
@@ -53,6 +56,30 @@ export function abortWordbookRendering(): void {
     systemWordbookListAbortController?.abort();
     systemWordbookAbortController = null;
     systemWordbookListAbortController = null;
+}
+
+/** 保存单词本列表滚动位置 */
+export function saveWordbookScroll(): void {
+    const scrollEl = document.querySelector('#wordbook-vue-app .wordbook-vue-scroll') as HTMLElement | null;
+    const top = scrollEl ? scrollEl.scrollTop : 0;
+    appState.wordbookScrollTop = top;
+    localStorage.setItem('wordbookScrollTop', String(top));
+}
+
+/** 恢复单词本列表滚动位置 */
+export function restoreWordbookScroll(): void {
+    const targetTop = appState.wordbookScrollTop || 0;
+    if (!targetTop) return;
+    const scrollEl = document.querySelector('#wordbook-vue-app .wordbook-vue-scroll') as HTMLElement | null;
+    if (!scrollEl) return;
+    // 等待 Vue 完成 DOM 更新后再恢复滚动位置
+    requestAnimationFrame(() => {
+        scrollEl.scrollTop = targetTop;
+        if (appState.wordbookVueInstance) {
+            appState.wordbookVueInstance.scrollTop = targetTop;
+            appState.wordbookVueInstance._pendingScrollTop = targetTop;
+        }
+    });
 }
 
 async function validateImportTarget(selectedWordbook: string): Promise<boolean> {
@@ -72,12 +99,36 @@ async function validateImportTarget(selectedWordbook: string): Promise<boolean> 
     return ok;
 }
 
+function getFilenameWithoutExtension(filename: string): string {
+    const base = filename.replace(/\\/g, '/').split('/').pop() || filename;
+    const dotIndex = base.lastIndexOf('.');
+    return dotIndex > 0 ? base.slice(0, dotIndex) : base;
+}
+
+async function validateNewWordbookName(name: string): Promise<boolean> {
+    if (!name) {
+        await showAlert('请输入单词本名称');
+        return false;
+    }
+    if (name.startsWith('sys_')) {
+        await showAlert('单词本名称不能以 sys_ 开头');
+        return false;
+    }
+    if (name === WordSource.Favorites || name === WordSource.Errorbook || name === 'wordlist') {
+        await showAlert('该名称为保留名称，请使用其他名称');
+        return false;
+    }
+    return true;
+}
+
 export function initWordbookManagement(): void {
     const createWordbookBtn = document.getElementById('create-wordbook') as HTMLButtonElement;
     const deleteWordbookBtn = document.getElementById('delete-wordbook') as HTMLButtonElement;
     const wordbookSelect = document.getElementById('wordbook-select') as HTMLSelectElement;
     const importWordbookBtn = document.getElementById('import-wordbook-btn') as HTMLButtonElement;
     const importWordbookInput = document.getElementById('import-wordbook') as HTMLInputElement;
+    const importNewWordbookBtn = document.getElementById('import-new-wordbook-btn') as HTMLButtonElement;
+    const importNewWordbookInput = document.getElementById('import-new-wordbook') as HTMLInputElement;
     const exportWordbookBtn = document.getElementById('export-wordbook-btn') as HTMLButtonElement;
 
     loadWordbooks();
@@ -128,6 +179,19 @@ export function initWordbookManagement(): void {
         target.value = '';
     });
 
+    importNewWordbookBtn.addEventListener('click', function() {
+        importNewWordbookInput.click();
+    });
+
+    importNewWordbookInput.addEventListener('change', function(e: Event) {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) {
+            void handleImportNewWordbookFile(file);
+        }
+        target.value = '';
+    });
+
     exportWordbookBtn.addEventListener('click', function() {
         const selectedWordbook = wordbookSelect.value;
         if (!selectedWordbook) {
@@ -155,6 +219,26 @@ export function handleFileImport(event: Event): void {
         importWordbook(file, selectedWordbook);
     }
     target.value = '';
+}
+
+export async function handleImportNewWordbookFile(file: File): Promise<void> {
+    const defaultName = getFilenameWithoutExtension(file.name);
+    const name = await showPrompt(
+        `是否将新单词本命名为「${defaultName}」？\n可修改下方名称后点击确定。`,
+        defaultName,
+        '命名新单词本'
+    );
+    if (name === null) return;
+
+    const trimmedName = name.trim();
+    if (!(await validateNewWordbookName(trimmedName))) return;
+
+    if (appState.wordbooks[trimmedName]) {
+        const ok = await showConfirm(`单词本「${trimmedName}」已存在，导入会追加到该单词本中，是否继续？`, '单词本已存在');
+        if (!ok) return;
+    }
+
+    await importWordbook(file, trimmedName);
 }
 
 export async function handleExportWordbook(): Promise<void> {
@@ -433,14 +517,18 @@ export async function updateWordbookSelect(): Promise<void> {
     appState.lastSelectedWordbook = targetValue;
     localStorage.setItem('lastSelectedWordbook', targetValue);
 
-    // 每次重建选择器后重新注册 change 监听（innerHTML 会清空旧事件）
-    wordbookSelect.addEventListener('change', function onWordbookChange() {
+    // 每次重建选择器后重新注册 change 监听（innerHTML 会清空旧事件，但 addEventListener 不会）
+    if (wordbookChangeHandler) {
+        wordbookSelect.removeEventListener('change', wordbookChangeHandler);
+    }
+    wordbookChangeHandler = function onWordbookChange() {
         const val = wordbookSelect.value;
         appState.lastSelectedWordbook = val;
         localStorage.setItem('lastSelectedWordbook', val);
         // 切换单词本时重置筛选类型为"全部"
         setWordbookFilter(FilterType.All);
-    });
+    };
+    wordbookSelect.addEventListener('change', wordbookChangeHandler);
 }
 
 // 更新所有单词本选择器（查询页面、句子添加页面、测验页面）

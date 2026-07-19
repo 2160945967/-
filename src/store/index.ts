@@ -33,6 +33,8 @@ export interface AppState {
     // 筛选/排序 UI 状态
     lastSelectedWordbook: string;
     lastWordbookSelector: string;
+    lastVisitedPage: string;
+    wordbookScrollTop: number;
     favoritesFilter: FilterType;
     favoritesSortBy: SortBy;
     errorbookSortBy: SortBy;
@@ -97,6 +99,8 @@ const PERSISTENCE_MAP: Record<string, string[][]> = {
     'errorbook':         [['errorbook']],
     'lastSelectedWordbook':  [['lastSelectedWordbook']],
     'lastWordbookSelector':  [['lastWordbookSelector']],
+    'lastVisitedPage':       [['lastVisitedPage']],
+    'wordbookScrollTop':     [['wordbookScrollTop']],
     'favoritesFilter':   [['favoritesFilter']],
     'favoritesSortBy':   [['favoritesSortBy']],
     'errorbookSortBy':   [['errorbookSortBy']],
@@ -117,6 +121,8 @@ function getDefaultState(): AppState {
         errorbook: {},
         lastSelectedWordbook: '',
         lastWordbookSelector: '',
+        lastVisitedPage: '',
+        wordbookScrollTop: 0,
         favoritesFilter: FilterType.All,
         favoritesSortBy: SortBy.Alphabetical,
         errorbookSortBy: SortBy.Frequency,
@@ -355,6 +361,8 @@ function hydrate(): void {
     rawState.errorbook = readFromStorage<Record<string, any>>('errorbook', {});
     rawState.lastSelectedWordbook = readFromStorage<string>('lastSelectedWordbook', '');
     rawState.lastWordbookSelector = readFromStorage<string>('lastWordbookSelector', '');
+    rawState.lastVisitedPage = readFromStorage<string>('lastVisitedPage', '');
+    rawState.wordbookScrollTop = readFromStorage<number>('wordbookScrollTop', 0);
     rawState.favoritesFilter = readFromStorage<string>('favoritesFilter', FilterType.All) as FilterType;
     rawState.favoritesSortBy = readFromStorage<string>('favoritesSortBy', SortBy.Alphabetical) as SortBy;
     rawState.errorbookSortBy = readFromStorage<string>('errorbookSortBy', SortBy.Frequency) as SortBy;

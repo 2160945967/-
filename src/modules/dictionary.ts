@@ -1021,7 +1021,7 @@ export function displayResult(data: WordData): void {
     const addToWordlistBtn = document.getElementById('add-to-wordlist');
     if (addToWordlistBtn) {
         addToWordlistBtn.addEventListener('click', function() {
-            toggleWordlist(data);
+            void toggleWordlist(data);
         });
     }
 
@@ -1087,7 +1087,7 @@ export function initKeyboardShortcuts(): void {
 
         if (e.key === appState.settings.addToWordlistKey) {
             e.preventDefault();
-            addCurrentToWordlist();
+            void addCurrentToWordlist();
         }
 
         if (e.key === appState.settings.addToFavoritesKey) {
@@ -1099,26 +1099,35 @@ export function initKeyboardShortcuts(): void {
 
 export async function addToCustomWordbook(wordbookName: string, word: WordData | string): Promise<void> {
     try {
-        // 构造单词数据
         const wordData = typeof word === 'string' ? { word: word } : word;
-
-        if (!appState.wordbooks[wordbookName]) {
-            appState.wordbooks[wordbookName] = [];
+        const targetWord = wordData.word;
+        if (!targetWord) {
+            showToast('单词为空，添加失败', 'error');
+            return;
         }
 
-        const isInWordbook = appState.wordbooks[wordbookName].some(item =>
-            (typeof item === 'string' ? item : item.word) === wordData.word
-        );
+        const response = await fetch('/api/wordbook/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                wordbook: wordbookName,
+                word: targetWord
+            })
+        });
 
-        if (!isInWordbook) {
-            appState.wordbooks[wordbookName].push(wordData as unknown as WordbookItem);
+        const data = await response.json();
+
+        if (data.success) {
+            appState.wordbooks = { ...(data.data && data.data.wordbooks) || {} };
             localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
             appState.studyStats.todayWords++;
             updateStudyStats();
             updateAllWordbookSelectors();
             showToast(`已添加到 ${wordbookName}`, 'success');
         } else {
-            showToast(`该单词已在 ${wordbookName} 中`, 'info');
+            showToast((data.error && data.error.message) || '添加失败', 'error');
         }
     } catch (e: unknown) {
         console.error('添加到自定义单词本失败:', e);
@@ -1127,7 +1136,7 @@ export async function addToCustomWordbook(wordbookName: string, word: WordData |
 }
 
 // 将当前查词加入单词本
-export function addCurrentToWordlist(): void {
+export async function addCurrentToWordlist(): Promise<void> {
     if (!appState.currentSearchWord) return;
 
     const wordbookSelector = document.getElementById('wordbook-selector') as HTMLSelectElement;
@@ -1138,7 +1147,11 @@ export function addCurrentToWordlist(): void {
         return;
     }
 
-    addToCustomWordbook(selectedWordbook, appState.currentSearchWord);
+    await addToCustomWordbook(selectedWordbook, appState.currentSearchWord);
+
+    // 记住当前使用的单词本，返回词典页时能恢复选中状态
+    appState.lastWordbookSelector = selectedWordbook;
+    localStorage.setItem('lastWordbookSelector', selectedWordbook);
 
     updateAddToWordlistButton();
 }
@@ -1439,7 +1452,7 @@ export function updateSentenceButtons(): void {
     }
 }
 
-export function toggleWordlist(data: { word: string }): void {
+export async function toggleWordlist(data: { word: string }): Promise<void> {
     const word = data.word;
     const wordbookSelector = document.getElementById('wordbook-selector') as HTMLSelectElement;
     const selectedWordbook = wordbookSelector ? wordbookSelector.value : '';
@@ -1449,8 +1462,10 @@ export function toggleWordlist(data: { word: string }): void {
         return;
     }
 
-    appState.lastWordbookSelector = selectedWordbook;
-    localStorage.setItem('lastWordbookSelector', appState.lastWordbookSelector);
+    if (selectedWordbook) {
+        appState.lastWordbookSelector = selectedWordbook;
+        localStorage.setItem('lastWordbookSelector', selectedWordbook);
+    }
 
     let isInWordbook = false;
 
@@ -1460,35 +1475,46 @@ export function toggleWordlist(data: { word: string }): void {
         );
     }
 
-    if (!isInWordbook) {
-        if (!appState.wordbooks[selectedWordbook]) {
-            appState.wordbooks[selectedWordbook] = [];
-        }
-        appState.wordbooks[selectedWordbook].push(data as unknown as WordbookItem);
-        localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
+    const endpoint = isInWordbook ? '/api/wordbook/remove' : '/api/wordbook/add';
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                wordbook: selectedWordbook,
+                word: word
+            })
+        });
 
-        showToast(`已添加到 ${selectedWordbook}`, 'success');
-        const addToWordlistBtn = document.getElementById('add-to-wordlist');
-        if (addToWordlistBtn) {
-            addToWordlistBtn.classList.add('active');
-            addToWordlistBtn.textContent = '已在单词本';
-        }
+        const resData = await response.json();
 
-        appState.studyStats.todayWords++;
-        updateStudyStats();
-    } else {
-        // 从所选单词本移除
-        appState.wordbooks[selectedWordbook] = appState.wordbooks[selectedWordbook].filter(item =>
-            (typeof item === 'string' ? item : item.word) !== word
-        );
-        localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
+        if (resData.success) {
+            appState.wordbooks = { ...(resData.data && resData.data.wordbooks) || {} };
+            localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
 
-        showToast(`已从 ${selectedWordbook} 移除`, 'info');
-        const addToWordlistBtn = document.getElementById('add-to-wordlist');
-        if (addToWordlistBtn) {
-            addToWordlistBtn.classList.remove('active');
-            addToWordlistBtn.textContent = '加入单词本';
+            const nowInWordbook = !!(appState.wordbooks[selectedWordbook] && appState.wordbooks[selectedWordbook].some(item =>
+                (typeof item === 'string' ? item : item.word) === word
+            ));
+
+            showToast(nowInWordbook ? `已添加到 ${selectedWordbook}` : `已从 ${selectedWordbook} 移除`, nowInWordbook ? 'success' : 'info');
+            const addToWordlistBtn = document.getElementById('add-to-wordlist');
+            if (addToWordlistBtn) {
+                addToWordlistBtn.classList.toggle('active', nowInWordbook);
+                addToWordlistBtn.textContent = nowInWordbook ? '已在单词本' : '加入单词本';
+            }
+
+            if (nowInWordbook && !isInWordbook) {
+                appState.studyStats.todayWords++;
+                updateStudyStats();
+            }
+        } else {
+            showToast((resData.error && resData.error.message) || '操作失败', 'error');
         }
+    } catch (e: unknown) {
+        console.error('单词本操作失败:', e);
+        showToast('操作失败', 'error');
     }
 
     updateWordlistDisplay();

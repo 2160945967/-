@@ -20,7 +20,7 @@ import { downloadAsset,
   getAssetsStatus,
   getAllDownloadProgress,
   getDownloadProgress,
-  isAssetDownloaded,
+  isAssetAvailable,
   pauseAssetDownload,
   deleteAsset,
 } from '../services/asset-manager';
@@ -1830,8 +1830,8 @@ export function setupRoutes(app: any) {
         res.status(400).json(errorResponse('请提供 assetId'));
         return;
       }
-      if (isAssetDownloaded(assetId)) {
-        res.json(successResponse({ message: '资源已存在', assetId, downloaded: true }));
+      if (isAssetAvailable(assetId)) {
+        res.json(successResponse({ message: '资源已存在', assetId, downloaded: true, available: true }));
         return;
       }
       // 启动后台下载并立即返回，前端通过 /api/assets/progress 轮询进度

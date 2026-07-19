@@ -555,7 +555,8 @@ body.dark-mode #errorbook-empty p {
 .wordbook-actions button:disabled,
 #rename-wordbook:disabled,
 #delete-wordbook:disabled,
-#import-wordbook-btn:disabled {
+#import-wordbook-btn:disabled,
+#import-new-wordbook-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }

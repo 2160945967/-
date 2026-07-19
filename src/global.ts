@@ -342,8 +342,9 @@ export async function switchPage(section: string): Promise<void> {
                 pageHandlers.abortLoadWordbooks?.();
                 pageHandlers.cleanupShowAnswerEnterHandler?.();
             }
-            // 离开单词本页时中断选择器和单词列表渲染
+            // 离开单词本页时中断选择器和单词列表渲染，并保存滚动位置
             if (prevSection === PageSection.Wordbook) {
+                pageHandlers.saveWordbookScroll?.();
                 pageHandlers.abortWordbookRendering?.();
             }
             prevActive.classList.add('rendered');
@@ -364,6 +365,9 @@ export async function switchPage(section: string): Promise<void> {
         targetPage.classList.add('active');
         // currentSection 在页面入口 handler 前更新，避免 wordbook 等模块用 currentSection 判断时还是旧页面
         currentSection = section as PageSection;
+        // 记录用户最后访问的页面，下次启动时恢复
+        appState.lastVisitedPage = section;
+        localStorage.setItem('lastVisitedPage', section);
         animatePageEnter(targetPage);
 
         if (section === PageSection.Favorites) {
@@ -372,14 +376,18 @@ export async function switchPage(section: string): Promise<void> {
         else if (section === PageSection.Wordbook) {
             initWordbookAndErrorbookSearch();
             await pageHandlers.updateWordbookSelect?.();
-            // 默认回到「我的收藏」，避免一进来就加载大型系统单词本导致卡顿
+            // 恢复上次选择的单词本，避免每次进入都重置为「我的收藏」
             const wordbookSelect = document.getElementById('wordbook-select') as HTMLSelectElement;
             if (wordbookSelect) {
-                wordbookSelect.value = WordSource.Favorites;
+                const targetValue = appState.lastSelectedWordbook &&
+                    wordbookSelect.querySelector(`option[value="${appState.lastSelectedWordbook}"]`)
+                    ? appState.lastSelectedWordbook : WordSource.Favorites;
+                wordbookSelect.value = targetValue;
+                appState.lastSelectedWordbook = targetValue;
+                localStorage.setItem('lastSelectedWordbook', targetValue);
             }
-            appState.lastSelectedWordbook = WordSource.Favorites;
-            localStorage.setItem('lastSelectedWordbook', WordSource.Favorites);
-            pageHandlers.updateSelectedWordbookDisplay?.();
+            await pageHandlers.updateSelectedWordbookDisplay?.();
+            pageHandlers.restoreWordbookScroll?.();
         }
         else if (section === PageSection.Errorbook) {
             initWordbookAndErrorbookSearch();
@@ -711,7 +719,7 @@ export function showPrompt(message: string, defaultValue: string = '', title: st
                 <div class="modal-content" style="background: var(--bg-white); border-radius: 12px; padding: 24px; width: 360px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
                     <h3 style="margin: 0 0 12px 0; color: var(--text-dark); font-size: 16px;">${title}</h3>
                     <p style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-gray); line-height: 1.6; white-space: pre-line;">${message}</p>
-                    <input id="custom-prompt-input" type="text" value="${escapeHtml(defaultValue)}" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-bottom: 20px; background: var(--bg-white); color: var(--text-dark);" />
+                    <input id="custom-prompt-input" type="text" value="${escapeHtml(defaultValue)}" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-bottom: 20px; background: var(--bg-light); color: var(--text-dark);" />
                     <div style="display: flex; gap: 12px; justify-content: flex-end;">
                         <button id="custom-prompt-ok" class="btn-modal-confirm" style="padding: 8px 20px;">确定</button>
                         <button id="custom-prompt-cancel" class="btn-modal-cancel" style="padding: 8px 20px;">取消</button>
@@ -981,6 +989,8 @@ export const pageHandlers: {
     showLearningHistory?: () => void;
     initReviewQuiz?: () => void;
     cleanupShowAnswerEnterHandler?: () => void;
+    saveWordbookScroll?: () => void;
+    restoreWordbookScroll?: () => void;
 } = {};
 
 // 侧边栏折叠/展开

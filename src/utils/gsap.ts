@@ -269,6 +269,7 @@ const CLICKABLE_SELECTOR = [
     '#clear-cache',
     '#start-quiz',
     '#import-wordbook-btn',
+    '#import-new-wordbook-btn',
     '#export-wordbook-btn',
     '#save-settings',
     '.sort-btn',

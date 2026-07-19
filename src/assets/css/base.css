@@ -564,6 +564,7 @@ h1::after {
 #start-quiz,
 #start-review,
 #import-wordbook-btn,
+#import-new-wordbook-btn,
 #export-wordbook-btn,
 #show-import-format-btn,
 #wordbook-search-btn,
@@ -599,6 +600,7 @@ h1::after {
 #start-quiz::before,
 #start-review::before,
 #import-wordbook-btn::before,
+#import-new-wordbook-btn::before,
 #export-wordbook-btn::before,
 #show-import-format-btn::before,
 #wordbook-search-btn::before,
@@ -640,6 +642,7 @@ h1::after {
 #start-quiz:hover,
 #start-review:hover,
 #import-wordbook-btn:hover,
+#import-new-wordbook-btn:hover,
 #export-wordbook-btn:hover,
 #show-import-format-btn:hover,
 #wordbook-search-btn:hover,
@@ -658,6 +661,7 @@ h1::after {
 #start-quiz:active,
 #start-review:active,
 #import-wordbook-btn:active,
+#import-new-wordbook-btn:active,
 #export-wordbook-btn:active,
 #show-import-format-btn:active,
 #wordbook-search-btn:active,
@@ -789,7 +793,7 @@ textarea:focus,
 /* 统一圆角 */
 button, .favorites-btn, .wordlist-btn, .quiz-buttons button,
 #save-settings, #clear-cache, #start-quiz, #start-review,
-#import-wordbook-btn, #export-wordbook-btn, #show-import-format-btn,
+#import-wordbook-btn, #import-new-wordbook-btn, #export-wordbook-btn, #show-import-format-btn,
 #wordbook-search-btn, #favorites-search-btn, #errorbook-search-btn, #history-search-btn,
 .wordbook-actions button, #rename-wordbook, #delete-wordbook, #clear-stats {
     border-radius: 8px;
@@ -969,6 +973,7 @@ body.dark-mode * {
 .btn-green  { background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%); }
 .btn-blue   { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
 .btn-orange { background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); }
+.btn-purple { background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); }
 .btn-red    { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
 .btn-gray   { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
 .btn-lg { padding: 12px 36px; font-size: 15px; border-radius: var(--radius-lg); box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); }
