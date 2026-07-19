@@ -446,19 +446,27 @@ export function saveQuizSettings(): void {
 
 export async function clearAllData(): Promise<void> {
     const ok = await showConfirm(
-        '确定要清除所有数据吗？\n\n这将清除：\n- 本地存储数据（单词本、收藏、错题本、学习统计等）\n- 服务器翻译缓存\n- 音频缓存\n\n该操作不可恢复！',
+        '确定要清除所有数据吗？\n\n这将清除：\n- 本地存储数据（收藏、错题本、学习统计、学习历史等）\n- 服务器端用户单词本\n- 服务器翻译缓存\n- 音频缓存\n\n该操作不可恢复！',
         '清除所有数据'
     );
     if (!ok) return;
 
     try {
-        const response = await fetch('/api/cache/clear', {
+        const cacheResponse = await fetch('/api/cache/clear', {
             method: 'POST'
         });
 
-        const result = await response.json();
-        if (!response.ok) {
+        const result = await cacheResponse.json();
+        if (!cacheResponse.ok) {
             throw new Error(result.error?.message || result.message || '服务器清除数据失败');
+        }
+
+        const wordbookResponse = await fetch('/api/wordbook/clear', {
+            method: 'POST'
+        });
+        if (!wordbookResponse.ok) {
+            const wordbookResult = await wordbookResponse.json().catch(() => ({}));
+            throw new Error(wordbookResult.error?.message || wordbookResult.message || '清空单词本失败');
         }
 
         localStorage.clear();

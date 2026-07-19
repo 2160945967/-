@@ -39,11 +39,20 @@ function stripword(word: string): string {
   return result.toLowerCase();
 }
 
+function cleanPhonetic(phonetic: string | null | undefined): string {
+  if (!phonetic) return '';
+  // 修复 stardict 数据源中 `\\\\:` 被错误编码为 `ɜː` 的问题
+  return phonetic.replace(/\\\\\\\\:/g, 'ɜː');
+}
+
 function recordToObj(record: any): any {
   if (!record) return null;
   const word: any = {};
   for (let i = 0; i < FIELDS.length; i++) {
     word[FIELDS[i]] = record[FIELDS[i]];
+  }
+  if (word['phonetic']) {
+    word['phonetic'] = cleanPhonetic(word['phonetic']);
   }
   if (word['detail']) {
     try {

@@ -1103,7 +1103,17 @@ export function setupRoutes(app: any) {
     }
   });
 
-  // ---- 20. 导出单词本 ----
+  // ---- 20. 清空所有单词本 ----
+  app.post('/api/wordbook/clear', (req: Request, res: Response) => {
+    try {
+      saveWordbooks({});
+      res.json(successResponse({ wordbooks: {} }));
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '清空单词本失败', 500));
+    }
+  });
+
+  // ---- 21. 导出单词本 ----
   app.post('/api/wordbook/export', async (req: Request, res: Response) => {
     try {
       const wordbookName = (getRequestParam(req, 'name', '') as string).trim();

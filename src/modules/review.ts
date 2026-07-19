@@ -40,6 +40,7 @@ let reviewTotal = 0;
 let reviewActive = false;
 let reviewCurrentMode = QuizMode.EnToZh;
 let reviewCurrentMeanings: { part: string; definition: string }[] = [];
+let reviewCurrentErrorCount = 0;
 let reviewShowAnswerCalled = false;
 let reviewQuizInitialized = false;
 let reviewShortcutsRemove: (() => void) | null = null;
@@ -299,6 +300,7 @@ async function renderReviewQuestion(): Promise<void> {
 
     reviewShowAnswerCalled = false;
     reviewCurrentMeanings = [];
+    reviewCurrentErrorCount = 0;
     const word = reviewWords[reviewIndex];
     const questionEl = document.getElementById('review-question');
     const answerInput = document.getElementById('review-answer') as HTMLInputElement;
@@ -614,6 +616,7 @@ function reviewCheckAnswer(): void {
         if (feedback) { feedback.textContent = '对了一部分哦，再检查检查'; feedback.className = 'quiz-feedback-partial'; }
     } else {
         reviewWrong++;
+        reviewCurrentErrorCount++;
         if (feedback) { feedback.textContent = '拼写错误，请检查拼写'; feedback.className = 'quiz-feedback-error'; animateErrorShake(feedback); }
 
         if (!appState.errorbook[word.word]) {
@@ -641,7 +644,7 @@ function reviewCheckAnswer(): void {
         if (reviewSession) markAnswered(reviewSession, word.word, false);
 
         const autoPlayThreshold = Number(appState.settings.autoPlayPronunciationAfterErrors) || 0;
-        if (autoPlayThreshold > 0 && appState.errorbook[word.word].errorCount >= autoPlayThreshold && !isSentence) {
+        if (autoPlayThreshold > 0 && reviewCurrentErrorCount >= autoPlayThreshold && !isSentence) {
             playPronunciation(appState.settings.pronunciationType, word.word);
         }
     }
