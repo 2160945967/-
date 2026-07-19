@@ -58,6 +58,10 @@ export function initQuiz(): void {
             if (quizAnswerInput) {
                 if (quizModeSelect.value === QuizMode.EnToZh) {
                     quizAnswerInput.placeholder = '请输入答案，输入多个中文时用逗号分号或空格隔开，按Enter提交';
+                } else if (quizModeSelect.value === QuizMode.Spelling) {
+                    quizAnswerInput.placeholder = '请根据释义拼写单词，按Enter提交';
+                } else if (quizModeSelect.value === QuizMode.ListeningStuck) {
+                    quizAnswerInput.placeholder = '请听发音并写出听到的单词或句子，按Enter提交';
                 } else {
                     quizAnswerInput.placeholder = '请输入答案...按Enter提交';
                 }
@@ -172,6 +176,13 @@ export function initQuiz(): void {
 
         // 输入冷却期
         setupInputCooldown(quizAnswerInput);
+
+        // 拼写模式：逐字符即时反馈
+        quizAnswerInput.addEventListener('input', function() {
+            if (appState.currentQuizMode === QuizMode.Spelling) {
+                updateSpellingFeedback();
+            }
+        });
 
         // 兜底：点击输入框时强制聚焦
         quizAnswerInput.addEventListener('click', function() {
@@ -522,6 +533,8 @@ let quizAnswerSubmitted = false; // 标记用户是否提交了答案（区别�
 let quizLastAnswerCorrect = false; // 上一题答对还是答错
 let _showAnswerEnterHandler: ((e: KeyboardEvent) => void) | null = null;
 let quizSession: SessionState | null = null;
+let spellingAutoSubmitTimer: ReturnType<typeof setTimeout> | null = null;
+let currentRoundStuckWords: string[] = []; // 本轮听力卡壳词
 
 // 区域显隐
 function showQuizAnswerArea(): void {
@@ -537,6 +550,7 @@ function showQuizSettingsArea(): void {
     const result = document.getElementById('quiz-result');
     if (settings) settings.style.display = 'block';
     if (answer) answer.style.display = 'none';
+    updateSpellingFeedback();
     if (result) {
         result.style.display = 'none';
         const handler = (result as any)._keyHandler;
@@ -628,6 +642,7 @@ export async function startQuiz(): Promise<void> {
 
     appState.currentQuizMode = quizMode as QuizMode;
     appState.errorCount = 0;
+    currentRoundStuckWords = [];
 
     // 根据单词来源选择单词
     if (wordSource === 'favorites') {
@@ -857,9 +872,14 @@ export async function generateQuestion(): Promise<void> {
     const quizAnswerInput = document.getElementById('quiz-answer') as HTMLInputElement;
     quizAnswerInput.value = '';
     quizAnswerInput.disabled = false;
+    updateSpellingFeedback();
     const quizModeSelect = document.getElementById('quiz-mode') as HTMLSelectElement;
     if (quizModeSelect && quizModeSelect.value === QuizMode.EnToZh) {
         quizAnswerInput.placeholder = '请输入答案，输入多个中文时用逗号分号或空格隔开，按Enter提交';
+    } else if (quizModeSelect && quizModeSelect.value === QuizMode.Spelling) {
+        quizAnswerInput.placeholder = '请根据释义拼写单词，按Enter提交';
+    } else if (quizModeSelect && quizModeSelect.value === QuizMode.ListeningStuck) {
+        quizAnswerInput.placeholder = '请听发音并写出听到的单词或句子，按Enter提交';
     } else {
         quizAnswerInput.placeholder = '请输入答案...按Enter提交';
     }
@@ -945,6 +965,29 @@ export async function generateQuestion(): Promise<void> {
         `;
         // 自动播放一次
         setTimeout(() => playPronunciation(appState.settings.pronunciationType, appState.currentQuizWord.word), 500);
+    } else if (appState.currentQuizMode === QuizMode.ListeningStuck) {
+        // 听力卡壳词追踪：听发音写单词/句子，答错可标记为卡壳词
+        const isSentence = appState.currentQuizWord.word.includes(' ') || appState.currentQuizWord.isSentence;
+        quizQuestion.innerHTML = `
+            <p><strong>听力卡壳词追踪：</strong></p>
+            <p style="margin-top: 10px;">${isSentence ? '请听发音并写出整句' : '请听发音并写出单词'}</p>
+            <button class="quiz-play-btn" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">
+                🔊 播放发音
+            </button>
+            ${isSentence && appState.currentQuizWord.meanings && appState.currentQuizWord.meanings[0]?.definition
+                ? `<p class="quiz-listening-hint" title="需要提示时再看">💡 中文参考：${escapeHtml(appState.currentQuizWord.meanings[0].definition)}</p>`
+                : ''}
+        `;
+        // 自动播放一次
+        setTimeout(() => playPronunciation(appState.settings.pronunciationType, appState.currentQuizWord.word), 500);
+    } else if (appState.currentQuizMode === QuizMode.Spelling) {
+        // 拼写模式：看中文释义拼写英文单词，支持发音提示与逐字符反馈
+        const meaningsHtml = buildMeaningDisplayHtml(selectedMeanings, formatDefinitionHtml);
+
+        const pronunciationKey = appState.settings.playPronunciationKey || '2';
+        const speakerHtml = `<span id="quiz-speak-btn" class="quiz-speak-btn" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">🔊</span>`;
+
+        quizQuestion.innerHTML = `<p><strong>拼写模式：</strong></p><p>请根据释义拼写对应的英文单词</p><p class="quiz-zh-to-en-meanings">${meaningsHtml}${speakerHtml}</p>`;
     } else if (appState.currentQuizMode === QuizMode.ZhToEn) {
         // 中文 -> 英文模式
         const meaningsHtml = buildMeaningDisplayHtml(selectedMeanings, formatDefinitionHtml);
@@ -976,6 +1019,50 @@ export function scrollToQuizArea(): void {
         quizContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+// 拼写模式：逐字符即时反馈（正确绿色、错误红色），完整拼写正确后自动提交
+function updateSpellingFeedback(): void {
+    const input = document.getElementById('quiz-answer') as HTMLInputElement | null;
+    const feedback = document.getElementById('quiz-spelling-feedback');
+    if (!input || !feedback) return;
+
+    if (appState.currentQuizMode !== QuizMode.Spelling || !appState.currentQuizWord) {
+        feedback.innerHTML = '';
+        return;
+    }
+
+    const word = appState.currentQuizWord.word || '';
+    const value = input.value;
+    let html = '';
+    let allCorrect = true;
+
+    for (let i = 0; i < value.length; i++) {
+        const char = value[i];
+        const targetChar = word[i];
+        if (targetChar && char.toLowerCase() === targetChar.toLowerCase()) {
+            html += `<span class="spelling-char spelling-char-correct">${escapeHtml(char)}</span>`;
+        } else {
+            html += `<span class="spelling-char spelling-char-wrong">${escapeHtml(char)}</span>`;
+            allCorrect = false;
+        }
+    }
+
+    feedback.innerHTML = html;
+
+    if (spellingAutoSubmitTimer) {
+        clearTimeout(spellingAutoSubmitTimer);
+        spellingAutoSubmitTimer = null;
+    }
+
+    if (value.length > 0 && value.length === word.length && allCorrect && !appState.isProcessingAnswer && !input.disabled) {
+        spellingAutoSubmitTimer = setTimeout(() => {
+            spellingAutoSubmitTimer = null;
+            if (!appState.isProcessingAnswer && appState.currentQuizMode === QuizMode.Spelling) {
+                checkAnswer();
+            }
+        }, 250);
     }
 }
 
@@ -1094,6 +1181,11 @@ export function checkAnswer(): void {
         appState.errorCount++;
         quizAnswerSubmitted = true;
 
+        // 听力卡壳词追踪：记录到卡壳词列表
+        if (appState.currentQuizMode === QuizMode.ListeningStuck) {
+            markAsListeningStuck(appState.currentQuizWord);
+        }
+
         if (!appState.errorbook[appState.currentQuizWord.word]) {
             appState.errorbook[appState.currentQuizWord.word] = {
                 errorCount: 1,
@@ -1135,7 +1227,9 @@ export function checkAnswer(): void {
             playPronunciation(appState.settings.pronunciationType, appState.currentQuizWord.word);
         }
 
-        if (appState.errorCount >= 2) {
+        if (appState.currentQuizMode === QuizMode.ListeningStuck) {
+            feedback.textContent = '已标记为听力卡壳词，按Enter查看答案并继续';
+        } else if (appState.errorCount >= 2) {
             feedback.textContent = '拼写错误，请检查拼写';
         } else {
             feedback.textContent = '回答错误，请再试一次';
@@ -1144,6 +1238,21 @@ export function checkAnswer(): void {
         animateErrorShake(feedback);
 
         appState.isProcessingAnswer = false;
+    }
+}
+
+function markAsListeningStuck(wordData: QuizWordData): void {
+    const word = wordData.word;
+    const existing = appState.listeningStuckWords[word];
+    appState.listeningStuckWords[word] = {
+        word,
+        phonetic: wordData.phonetic || existing?.phonetic,
+        meanings: (wordData.meanings && wordData.meanings.length > 0) ? wordData.meanings : existing?.meanings,
+        stuckCount: (existing?.stuckCount || 0) + 1,
+        lastStuckTime: Date.now(),
+    };
+    if (!currentRoundStuckWords.includes(word)) {
+        currentRoundStuckWords.push(word);
     }
 }
 
@@ -1234,6 +1343,7 @@ export function showAnswer(manual: boolean = false): void {
     quizAnswerInput.value = '';
     quizAnswerInput.disabled = false;
     quizAnswerInput.placeholder = '可以输入答案巩固一下哦';
+    updateSpellingFeedback();
     requestAnimationFrame(() => quizAnswerInput.focus());
 
     appState.isWaitingForNextQuestion = true;
@@ -1340,6 +1450,28 @@ export async function redoQuiz(): Promise<void> {
     await generateQuestion();
 }
 
+function buildCurrentRoundStuckWordsHtml(): string {
+    if (currentRoundStuckWords.length === 0) return '';
+    const items = currentRoundStuckWords.map(word => {
+        const stuck = appState.listeningStuckWords[word];
+        const meaning = stuck?.meanings && stuck.meanings[0]?.definition
+            ? escapeHtml(stuck.meanings[0].definition)
+            : '';
+        return `<li class="quiz-stuck-word-item">
+            <span class="quiz-stuck-word-text" onclick="g('jumpToWord', '${escapeForJsString(word)}')">${escapeHtml(word)}</span>
+            ${meaning ? `<span class="quiz-stuck-word-meaning">${meaning}</span>` : ''}
+            <span class="quiz-stuck-word-count">卡壳 ${stuck?.stuckCount || 1} 次</span>
+        </li>`;
+    }).join('');
+    return `
+        <div class="quiz-stuck-words-section">
+            <h4>本轮听力卡壳词</h4>
+            <ul class="quiz-stuck-words-list">${items}</ul>
+            <p class="quiz-stuck-words-tip">点击单词可跳转查词，重点练习这些词的发音。</p>
+        </div>
+    `;
+}
+
 // 显示测验完成结果界面
 function showQuizResult(): void {
     if (!quizSession) return;
@@ -1374,6 +1506,8 @@ function showQuizResult(): void {
     const wrong = quizSession.wrongCount;
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
 
+    const stuckWordsHtml = buildCurrentRoundStuckWordsHtml();
+
     if (allCompleted) {
         const loopCount = getLoopCount(source);
         result.innerHTML = `
@@ -1383,6 +1517,7 @@ function showQuizResult(): void {
                 <div class="review-stat-row">答对的单词：<span class="review-stat-val">${correct}</span></div>
                 <div class="review-stat-row">答错的单词：<span class="review-stat-val">${wrong}</span></div>
                 <div class="review-stat-row">循环次数：<span class="review-stat-val">${loopCount}</span></div>
+                ${stuckWordsHtml}
                 <div class="quiz-result-actions">
                     <button id="quiz-restart-wordbook" class="btn-gradient btn-green">重新测验该单词本</button>
                     <button id="quiz-finish" class="btn-gradient btn-red">结束测验</button>
@@ -1426,6 +1561,7 @@ function showQuizResult(): void {
             <div class="review-stat-row">答对：<span class="review-stat-val">${correct}</span></div>
             <div class="review-stat-row">答错：<span class="review-stat-val">${wrong}</span></div>
             <div class="review-stat-row">正确率：<span class="review-stat-val">${accuracy}%</span></div>
+            ${stuckWordsHtml}
             <div class="quiz-result-actions">
                 <button id="quiz-retry" class="btn-gradient btn-green">重新测验</button>
                 <button id="quiz-next-round" class="btn-gradient btn-blue">开始下一轮</button>

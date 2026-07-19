@@ -187,6 +187,8 @@
                             <option value="zh-to-en">中文 → 英文</option>
                             <option value="en-to-zh">英文 → 中文</option>
                             <option value="dictation">听写模式</option>
+                            <option value="spelling">拼写模式</option>
+                            <option value="listening-stuck">听力卡壳词追踪</option>
                         </select>
                     </div>
                     <div class="setting-item" draggable="true" data-setting-key="word-source">
@@ -229,6 +231,7 @@
                         </div>
                         <div id="quiz-question"></div>
                         <input type="text" id="quiz-answer" placeholder="输入多个中文时用逗号分号或空格隔开，按Enter提交" autocomplete="off" autocapitalize="off" spellcheck="false">
+                        <div id="quiz-spelling-feedback" class="quiz-spelling-feedback"></div>
                         <div id="quiz-feedback"></div>
                         <div class="quiz-buttons">
                             <button id="show-answer">显示答案</button>
@@ -977,6 +980,8 @@
                             <li><strong>中文→英文：</strong>给出中文释义，输入对应英文单词。</li>
                             <li><strong>英文→中文：</strong>给出英文单词，输入中文释义（多个释义用逗号/分号/空格分隔）。</li>
                             <li><strong>听写模式：</strong>播放发音后输入对应单词。</li>
+                            <li><strong>拼写模式：</strong>根据中文释义拼写英文单词，输入过程中会逐字符显示绿色（正确）或红色（错误）反馈，拼写完整且正确后自动进入下一题。</li>
+                            <li><strong>听力卡壳词追踪：</strong>播放单词或句子发音，输入听到的内容。回答错误会自动标记为「听力卡壳词」，测验结束后展示本轮卡壳词列表，方便针对性练习听力薄弱点。</li>
                         </ul>
                         <p><strong>单词来源：</strong>可选择从「我的收藏」或「错题本」中出题。</p>
                         <p><strong>答题操作：</strong></p>

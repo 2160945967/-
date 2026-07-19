@@ -258,7 +258,7 @@ export function checkQuizAnswer(
   let isCorrect = false;
   let isPartial = false;
 
-  if (mode === QuizMode.ZhToEn || mode === QuizMode.Dictation) {
+  if (mode === QuizMode.ZhToEn || mode === QuizMode.Dictation || mode === QuizMode.Spelling || mode === QuizMode.ListeningStuck) {
     if (isSentence) {
       const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'"]/g, '').trim();
       isCorrect = normalize(userAnswer) === normalize(word);

@@ -128,10 +128,19 @@ interface FavoriteEntry {
 
 // 虚拟滚动列表项
 interface WordListItem {
-  word: string;
-  _idx: number;
-  type?: string;
-  timestamp?: number;
-  translation?: string;
-  meanings?: WordMeaning[];
+    word: string;
+    _idx: number;
+    type?: string;
+    timestamp?: number;
+    translation?: string;
+    meanings?: WordMeaning[];
+}
+
+// 听力卡壳词条目
+interface ListeningStuckWord {
+    word: string;
+    phonetic?: string;
+    meanings?: WordMeaning[];
+    stuckCount: number;
+    lastStuckTime: number;
 }

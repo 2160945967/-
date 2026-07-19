@@ -12,6 +12,8 @@ export const enum QuizMode {
     EnToZh = 'en-to-zh',
     WordMeaning = 'word-meaning',
     Dictation = 'dictation',
+    Spelling = 'spelling',
+    ListeningStuck = 'listening-stuck',
 }
 
 /** 答题顺序 */

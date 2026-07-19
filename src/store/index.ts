@@ -30,6 +30,8 @@ export interface AppState {
     wordbooks: Record<string, WordbookItem[]>;
     // 错题本
     errorbook: Record<string, ErrorbookEntry>;
+    // 听力卡壳词（识别/听写不出的词）
+    listeningStuckWords: Record<string, ListeningStuckWord>;
     // 筛选/排序 UI 状态
     lastSelectedWordbook: string;
     lastWordbookSelector: string;
@@ -97,6 +99,7 @@ const PERSISTENCE_MAP: Record<string, string[][]> = {
     'favorites':         [['favorites']],
     'wordbooks':         [['wordbooks']],
     'errorbook':         [['errorbook']],
+    'listeningStuckWords': [['listeningStuckWords']],
     'lastSelectedWordbook':  [['lastSelectedWordbook']],
     'lastWordbookSelector':  [['lastWordbookSelector']],
     'lastVisitedPage':       [['lastVisitedPage']],
@@ -119,6 +122,7 @@ function getDefaultState(): AppState {
         favorites: [],
         wordbooks: {},
         errorbook: {},
+        listeningStuckWords: {},
         lastSelectedWordbook: '',
         lastWordbookSelector: '',
         lastVisitedPage: '',
@@ -359,6 +363,7 @@ function hydrate(): void {
     rawState.favorites = readFromStorage<any[]>('favorites', []);
     rawState.wordbooks = readFromStorage<Record<string, any[]>>('wordbooks', {});
     rawState.errorbook = readFromStorage<Record<string, any>>('errorbook', {});
+    rawState.listeningStuckWords = readFromStorage<Record<string, ListeningStuckWord>>('listeningStuckWords', {});
     rawState.lastSelectedWordbook = readFromStorage<string>('lastSelectedWordbook', '');
     rawState.lastWordbookSelector = readFromStorage<string>('lastWordbookSelector', '');
     rawState.lastVisitedPage = readFromStorage<string>('lastVisitedPage', '');
