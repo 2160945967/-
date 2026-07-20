@@ -142,7 +142,6 @@ CREATE TABLE IF NOT EXISTS "stardict" (
     "bnc" INTEGER DEFAULT(NULL),
     "frq" INTEGER DEFAULT(NULL),
     "exchange" TEXT,
-    "detail" TEXT,
     "audio" TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "stardict_1" ON stardict (id);
@@ -153,8 +152,8 @@ CREATE INDEX IF NOT EXISTS "sd_1" ON stardict (word collate nocase);
 
 # 准备插入语句
 insert_sql = """
-INSERT INTO stardict (word, sw, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange, detail, audio)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO stardict (word, sw, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange, audio)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 print("读取 stardict.csv 并导入...")
@@ -190,7 +189,6 @@ with open(STARDICT_CSV, 'r', encoding='utf-8', newline='') as f:
             safe_int(row.get('bnc', '')),
             safe_int(row.get('frq', '')),
             safe_str(row.get('exchange', '')),
-            safe_str(row.get('detail', '')),
             safe_str(row.get('audio', ''))
         ))
         

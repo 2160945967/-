@@ -20,7 +20,7 @@ const RESEMBLE_PATH = resolveAssetPath('resemble.txt');
 const FIELDS = [
   'id', 'word', 'sw', 'phonetic', 'definition',
   'translation', 'pos', 'collins', 'oxford', 'tag', 'bnc', 'frq',
-  'exchange', 'detail', 'audio'
+  'exchange', 'audio'
 ] as const;
 
 // 字段名到索引的映射
@@ -54,13 +54,6 @@ function recordToObj(record: any): any {
   if (word['phonetic']) {
     word['phonetic'] = cleanPhonetic(word['phonetic']);
   }
-  if (word['detail']) {
-    try {
-      word['detail'] = JSON.parse(word['detail']);
-    } catch {
-      word['detail'] = null;
-    }
-  }
   return word;
 }
 
@@ -92,7 +85,6 @@ class StarDict {
         "bnc" INTEGER DEFAULT(NULL),
         "frq" INTEGER DEFAULT(NULL),
         "exchange" TEXT,
-        "detail" TEXT,
         "audio" TEXT
       );
       CREATE UNIQUE INDEX IF NOT EXISTS "stardict_1" ON stardict (id);
@@ -649,7 +641,6 @@ function buildStardictDbFromCsvs(outputPath: string): Promise<void> {
         "bnc" INTEGER DEFAULT(NULL),
         "frq" INTEGER DEFAULT(NULL),
         "exchange" TEXT,
-        "detail" TEXT,
         "audio" TEXT
       );
       CREATE UNIQUE INDEX IF NOT EXISTS "stardict_1" ON stardict (id);
@@ -659,8 +650,8 @@ function buildStardictDbFromCsvs(outputPath: string): Promise<void> {
     `);
 
     const insert = db.prepare(`
-      INSERT INTO stardict (word, sw, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange, detail, audio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO stardict (word, sw, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange, audio)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertBatch = db.transaction((rows: any[][]) => {
@@ -733,7 +724,6 @@ function buildStardictDbFromCsvs(outputPath: string): Promise<void> {
             row.bnc ? parseInt(row.bnc) : null,
             row.frq ? parseInt(row.frq) : null,
             row.exchange || '',
-            row.detail || '',
             row.audio || ''
           ]);
 
