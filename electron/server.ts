@@ -8,6 +8,7 @@ import { setupRoutes, warmSystemWordbooksCache } from './api/routes';
 import { ROOT_DIR, APP_ROOT_DIR, CACHE_DIR, USER_DATA_DIR, ASSETS_DIR, resolveAssetPath } from './utils/helpers';
 import { downloadRequiredAssets } from './services/asset-manager';
 import { autoResumePronunciationDownloads } from './services/pronunciation-downloader';
+import { preloadModel as preloadSemanticModel } from './services/semanticSimilarity';
 
 // 将子进程 stdout/stderr 重定向到日志文件，避免 GUI 模式下无 stdout 导致 EPIPE 弹窗
 const SERVER_LOG_PATH = path.join(USER_DATA_DIR, 'server.log');
@@ -72,6 +73,11 @@ async function start() {
   setTimeout(() => {
     autoResumePronunciationDownloads().catch(e => console.error('启动时恢复发音下载失败:', e));
   }, 0);
+
+  // 预加载语义相似度模型（在后台异步加载，不阻塞启动）
+  setTimeout(() => {
+    preloadSemanticModel().catch(e => console.error('预加载语义模型失败:', e));
+  }, 1000);
 
   const app = express();
 
