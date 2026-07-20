@@ -68,3 +68,6 @@ gitee-assets/
 # Package lock optional
 # package-lock.json
 测试.docx
+
+# I+1 Quest application (local build artifacts)
+I+1/
