@@ -572,6 +572,7 @@ body.dark-mode .example-sentence {
 /* 按考试类别着色 */
 .tag-cat-default { background-color: #3498db; }
 .tag-cat-cet { background-color: #27ae60; }
+.tag-cat-tem { background-color: #e67e22; }
 .tag-cat-ky { background-color: #e74c3c; }
 .tag-cat-zk { background-color: #9b59b6; }
 .tag-cat-toefl { background-color: #f39c12; }

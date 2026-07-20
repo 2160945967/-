@@ -1,11 +1,97 @@
 import csv
+import json
 import os
+import re
 import sqlite3
 import time
 
 ROOT_DIR = r"d:\学习\英语\程序\拾词 - electron"
 STARDICT_CSV = os.path.join(ROOT_DIR, "stardict.csv")
 STARDICT_DB = os.path.join(ROOT_DIR, "stardict.db")
+
+# 专四/专八词库路径（KyleBing 词库中的 Level4/Level8）
+KYLEBING_DIR = os.path.join(
+    ROOT_DIR,
+    "question_banks",
+    "github_KyleBing_english-vocabulary",
+    "english-vocabulary-master",
+    "json_original",
+    "json-simple",
+)
+
+def extract_words_from_json(filepath):
+    """从 KyleBing json-simple 文件提取单词列表"""
+    words = set()
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    word = str(item.get("word", item.get("headWord", ""))).strip()
+                    if word:
+                        words.add(word.lower())
+    except Exception as e:
+        print(f"  读取失败 {filepath}: {e}")
+    return words
+
+def load_tem_words():
+    """加载专四/专八单词集合"""
+    tem4_words = set()
+    tem8_words = set()
+    if not os.path.exists(KYLEBING_DIR):
+        return tem4_words, tem8_words
+
+    for filename in os.listdir(KYLEBING_DIR):
+        if not filename.endswith(".json"):
+            continue
+        upper = filename.upper()
+        filepath = os.path.join(KYLEBING_DIR, filename)
+        if "LEVEL4" in upper:
+            tem4_words.update(extract_words_from_json(filepath))
+        elif "LEVEL8" in upper:
+            tem8_words.update(extract_words_from_json(filepath))
+
+    return tem4_words, tem8_words
+
+def append_tem_tags(cursor):
+    """为数据库中的 Level4/Level8 单词追加 tem4/tem8 标签"""
+    print("\n[后处理] 为专四/专八单词添加标签...")
+    tem4_words, tem8_words = load_tem_words()
+    print(f"  Level4(专四) 单词数: {len(tem4_words)}")
+    print(f"  Level8(专八) 单词数: {len(tem8_words)}")
+
+    cursor.execute("SELECT word, tag FROM stardict")
+    updated_tem4 = 0
+    updated_tem8 = 0
+
+    for word, tag in cursor.fetchall():
+        if not word:
+            continue
+        lower = word.lower()
+        new_tag = tag or ""
+        changed = False
+
+        if lower in tem4_words:
+            parts = new_tag.split()
+            if "tem4" not in parts:
+                parts.append("tem4")
+                new_tag = " ".join(parts)
+                changed = True
+                updated_tem4 += 1
+
+        if lower in tem8_words:
+            parts = new_tag.split()
+            if "tem8" not in parts:
+                parts.append("tem8")
+                new_tag = " ".join(parts)
+                changed = True
+                updated_tem8 += 1
+
+        if changed:
+            cursor.execute("UPDATE stardict SET tag = ? WHERE word = ?", (new_tag, word))
+
+    print(f"  新增 tem4: {updated_tem4}, tem8: {updated_tem8}")
 
 def stripword(word):
     """只保留字母和数字，转小写"""
@@ -119,6 +205,10 @@ if batch:
     cursor.executemany(insert_sql, batch)
     total += len(batch)
 
+conn.commit()
+
+# 后处理：为 Level4/Level8 单词追加 tem4/tem8 标签
+append_tem_tags(cursor)
 conn.commit()
 
 # 统计

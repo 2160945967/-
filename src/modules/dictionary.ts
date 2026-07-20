@@ -819,11 +819,14 @@ export function displayResult(data: WordData): void {
 
     // 构建标签HTML
     const tagMap: Record<string, string> = {
-        'cet4': '四级',
-        'cet6': '六级',
-        'ky': '考研',
+        'xx': '小学',
         'zk': '中考',
         'gk': '高考',
+        'cet4': '四级',
+        'cet6': '六级',
+        'tem4': '专四',
+        'tem8': '专八',
+        'ky': '考研',
         'toefl': '托福',
         'ielts': '雅思',
         'gre': 'GRE',
@@ -838,8 +841,9 @@ export function displayResult(data: WordData): void {
                 const displayName = tagMap[tag] || tag;
                 let bgClass = 'tag-cat-default';
                 if (tag === 'cet4' || tag === 'cet6') bgClass = 'tag-cat-cet';
+                else if (tag === 'tem4' || tag === 'tem8') bgClass = 'tag-cat-tem';
                 else if (tag === 'ky') bgClass = 'tag-cat-ky';
-                else if (tag === 'zk' || tag === 'gk') bgClass = 'tag-cat-zk';
+                else if (tag === 'zk' || tag === 'gk' || tag === 'xx') bgClass = 'tag-cat-zk';
                 else if (tag === 'toefl' || tag === 'ielts') bgClass = 'tag-cat-toefl';
                 else if (tag === 'gre') bgClass = 'tag-cat-gre';
 

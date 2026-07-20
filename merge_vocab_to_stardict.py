@@ -35,15 +35,21 @@ def extract_tag_from_filename(filename):
     name = os.path.splitext(filename)[0].upper()
     tags = []
     
-    # CET
-    if re.search(r'CET[_-]?4|4-?CET|四级|Level4', name):
+    # CET（Level4/Level8 属于 TEM 专四/专八，不在此处匹配）
+    if re.search(r'CET[_-]?4|4-?CET|四级', name) and not re.search(r'Level4', name):
         tags.append('cet4')
-    if re.search(r'CET[_-]?6|6-?CET|六级|Level6|Level8', name):
+    if re.search(r'CET[_-]?6|6-?CET|六级|Level6', name) and not re.search(r'Level8', name):
         tags.append('cet6')
     if re.search(r'大学四级', name):
         tags.append('cet4')
     if re.search(r'大学六级', name):
         tags.append('cet6')
+    
+    # 专四/专八（TEM4/TEM8）
+    if re.search(r'专四|TEM4|TEMP4|Level4', name):
+        tags.append('tem4')
+    if re.search(r'专八|TEM8|TEMP8|Level8', name):
+        tags.append('tem8')
     
     # 考研
     if re.search(r'考研|KAOYAN|NPEE|研究生', name):
@@ -57,7 +63,7 @@ def extract_tag_from_filename(filename):
     
     # 小学
     if re.search(r'小学|PEPXIAOXUE', name):
-        tags.append('primary')
+        tags.append('xx')
     
     # 出国留学
     if re.search(r'TOEFL|托福', name):
@@ -74,10 +80,6 @@ def extract_tag_from_filename(filename):
     # 其他
     if re.search(r'BEC', name):
         tags.append('bec')
-    if re.search(r'专四|专八|TEM', name):
-        tags.append('tem')
-    if re.search(r'COCA', name):
-        tags.append('coca')
     if re.search(r'OALD', name):
         tags.append('oald')
     

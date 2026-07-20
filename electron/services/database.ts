@@ -169,8 +169,8 @@ class StarDict {
     }>;
 
     const examTags: Record<string, number> = {
-      'cet4': 1, 'cet6': 2, 'ky': 3, 'zk': 4, 'gk': 5,
-      'toefl': 6, 'ielts': 7, 'gre': 8
+      'xx': 1, 'zk': 2, 'gk': 3, 'cet4': 4, 'cet6': 5,
+      'tem4': 6, 'tem8': 7, 'ky': 8, 'toefl': 9, 'ielts': 10, 'gre': 11
     };
 
     const hasSpaceOrHyphen = prefix.includes(' ') || prefix.includes('-');
