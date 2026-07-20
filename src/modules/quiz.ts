@@ -156,7 +156,7 @@ export function initQuiz(): void {
         checkAnswerTimeout = setTimeout(() => {
             checkAnswerTimeout = null;
         }, 500);
-        checkAnswer();
+        checkAnswer().catch(() => {});
     }
 
     // 答案输入框事件处理
@@ -1060,7 +1060,7 @@ function updateSpellingFeedback(): void {
         spellingAutoSubmitTimer = setTimeout(() => {
             spellingAutoSubmitTimer = null;
             if (!appState.isProcessingAnswer && appState.currentQuizMode === QuizMode.Spelling) {
-                checkAnswer();
+                checkAnswer().catch(() => {});
             }
         }, 250);
     }
@@ -1075,7 +1075,7 @@ function updateQuizProgress(): void {
     if (text) text.textContent = `${quizAnsweredCount}/${quizTotalCount}`;
 }
 
-export function checkAnswer(): void {
+export async function checkAnswer(): Promise<void> {
     // 如果正在处理答案中，直接返回
     if (appState.isProcessingAnswer) {
         return;
@@ -1107,7 +1107,7 @@ export function checkAnswer(): void {
             result.isCorrect = ratio >= 0.5;
         }
     } else {
-        result = checkQuizAnswer(
+        result = await checkQuizAnswer(
             answer,
             appState.currentQuizWord.word,
             appState.currentQuizWord.meanings || [],

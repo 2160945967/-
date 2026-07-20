@@ -248,13 +248,14 @@ export function buildMeaningDisplayHtml(
 }
 
 // 核心答案检查：不涉及 UI 更新、错题本、发音等，只判断对错
-export function checkQuizAnswer(
+// EnToZh 模式下，字符串匹配失败后会调用语义相似度 API 做兜底判断
+export async function checkQuizAnswer(
   userAnswer: string,
   word: string,
   meanings: MeaningItem[],
   mode: QuizMode,
   isSentence: boolean
-): CheckAnswerResult {
+): Promise<CheckAnswerResult> {
   let isCorrect = false;
   let isPartial = false;
 
@@ -301,6 +302,21 @@ export function checkQuizAnswer(
         isCorrect = true;
       } else if (correctUserAnswers.length > 0 && wrongUserAnswers.length > 0) {
         isPartial = true;
+      } else {
+        // 字符串匹配全部失败，尝试语义相似度兜底
+        try {
+          const response = await fetch('/api/semantic-similarity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text1: userAnswer, text2: allCorrectMeanings.join('，') }),
+          });
+          const result = await response.json();
+          if (result.success && result.data?.isSimilar) {
+            isCorrect = true;
+          }
+        } catch {
+          // 模型不可用，保持原有判断
+        }
       }
     }
   }

@@ -11,6 +11,7 @@ import { getTTS } from '../services/tts';
 import { recognizeWithSherpa, isSherpaModelReady } from '../services/sherpa_asr';
 import { translateText, getCachedTranslation, putCachedTranslation, getTranslationCacheData, clearTranslationCache } from '../services/translate';
 import { classifyText, normalizeCaseByType } from '../services/nlp';
+import { checkSemanticSimilarity } from '../services/semanticSimilarity';
 import {
   successResponse, errorResponse, ensureDirExists,
   getRequestParam, normalizeWordForFilename, ROOT_DIR, APP_ROOT_DIR, CACHE_DIR, ASSETS_DIR, resolveAssetPath,
@@ -1911,6 +1912,25 @@ export function setupRoutes(app: any) {
       }
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '删除失败', 500));
+    }
+  });
+
+  // ---- 30. 语义相似度判断 ----
+  app.post('/api/semantic-similarity', async (req: Request, res: Response) => {
+    try {
+      const text1 = (getRequestParam(req, 'text1', '') as string).trim();
+      const text2 = (getRequestParam(req, 'text2', '') as string).trim();
+      const threshold = parseFloat(getRequestParam(req, 'threshold', '0.85') as string) || 0.85;
+
+      if (!text1 || !text2) {
+        res.status(400).json(errorResponse('请提供 text1 和 text2'));
+        return;
+      }
+
+      const isSimilar = await checkSemanticSimilarity(text1, text2, threshold);
+      res.json(successResponse({ isSimilar, threshold }));
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '语义相似度判断失败', 500));
     }
   });
 }

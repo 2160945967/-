@@ -103,7 +103,7 @@ export function initReviewQuiz(): void {
                 if (reviewShowAnswerCalled) {
                     reviewNextQuestion();
                 } else {
-                    reviewCheckAnswer();
+                    reviewCheckAnswer().catch(() => {});
                 }
             });
         }
@@ -526,7 +526,7 @@ async function renderReviewQuestion(): Promise<void> {
     updateReviewProgress();
 }
 
-function reviewCheckAnswer(): void {
+async function reviewCheckAnswer(): Promise<void> {
     if (!reviewActive) return;
     const answer = (document.getElementById('review-answer') as HTMLInputElement).value.trim();
     const feedback = document.getElementById('review-feedback') as HTMLElement;
@@ -574,6 +574,21 @@ function reviewCheckAnswer(): void {
                 isCorrect = true;
             } else if (correctUserAnswers.length > 0) {
                 isPartial = true;
+            } else {
+                // 字符串匹配全部失败，尝试语义相似度兜底
+                try {
+                    const response = await fetch('/api/semantic-similarity', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text1: answer, text2: allCorrect.join('，') }),
+                    });
+                    const result = await response.json();
+                    if (result.success && result.data?.isSimilar) {
+                        isCorrect = true;
+                    }
+                } catch {
+                    // 模型不可用，保持原有判断
+                }
             }
         }
     }
