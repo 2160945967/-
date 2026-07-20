@@ -4,7 +4,7 @@
 import { pipeline, env, cos_sim } from '@huggingface/transformers';
 import * as path from 'path';
 import * as fs from 'fs';
-import { CACHE_DIR } from '../utils/helpers';
+import { CACHE_DIR, resolveAssetPath } from '../utils/helpers';
 
 // 模型缓存目录
 const MODEL_CACHE_DIR = path.join(CACHE_DIR, 'transformers_models');
@@ -16,8 +16,8 @@ if (!fs.existsSync(MODEL_CACHE_DIR)) {
 env.cacheDir = MODEL_CACHE_DIR;
 env.allowLocalModels = true;
 
-// 使用 ONNX 格式的中文句子嵌入模型
-const MODEL_ID = 'shibing624/text2vec-base-chinese';
+// 使用本地模型路径(通过assets系统下载或打包在应用内)
+const MODEL_PATH = resolveAssetPath('semantic-model-files');
 
 let featureExtractor: any = null;
 let modelLoadingPromise: Promise<any> | null = null;
@@ -32,11 +32,19 @@ async function loadModel() {
   if (modelLoadingPromise) return modelLoadingPromise;
 
   modelLoadingPromise = (async () => {
-    console.log('[SemanticSimilarity] 开始加载模型:', MODEL_ID);
+    // 检查本地模型目录是否存在
+    if (!fs.existsSync(MODEL_PATH)) {
+      console.warn('[SemanticSimilarity] 本地模型目录不存在:', MODEL_PATH);
+      console.warn('[SemanticSimilarity] 请在设置中下载「语义相似度模型」');
+      modelLoadFailed = true;
+      return null;
+    }
+
+    console.log('[SemanticSimilarity] 开始加载本地模型:', MODEL_PATH);
     const start = Date.now();
 
     try {
-      featureExtractor = await pipeline('feature-extraction', MODEL_ID, {
+      featureExtractor = await pipeline('feature-extraction', MODEL_PATH, {
         dtype: 'q8', // 量化版本，更小更快
       });
       console.log(`[SemanticSimilarity] 模型加载完成，耗时 ${Date.now() - start}ms`);

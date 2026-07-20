@@ -27,6 +27,7 @@
       "stardict.db",
       "examples.db",
       "sherpa-onnx-sense-voice-zh-en-ja-ko-yue/**/*",
+      "semantic-model-files/**/*",
       "resemble.txt",
       "lemma.en.txt",
       "wordroot.txt"

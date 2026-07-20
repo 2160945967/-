@@ -110,6 +110,26 @@ export const ASSET_GROUPS: AssetGroup[] = [
       },
     ],
   },
+  {
+    id: 'semantic',
+    name: '语义相似度模型',
+    description: '英译中测验模式的中文同义词模糊判断模型（text2vec-base-chinese）',
+    items: [
+      {
+        id: 'semantic-model',
+        name: '语义相似度模型',
+        localPath: 'semantic-model-files',
+        required: false,
+        size: 407_613_994,
+        parts: [
+          { filename: 'semantic-model.7z.001', url: url('semantic-model.7z.001'), size: 104_857_600 },
+          { filename: 'semantic-model.7z.002', url: url('semantic-model.7z.002'), size: 104_857_600 },
+          { filename: 'semantic-model.7z.003', url: url('semantic-model.7z.003'), size: 104_857_600 },
+          { filename: 'semantic-model.7z.004', url: url('semantic-model.7z.004'), size: 59_997_980 },
+        ],
+      },
+    ],
+  },
 ];
 
 export function getAllAssets(): AssetItem[] {
