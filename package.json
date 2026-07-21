@@ -11,10 +11,10 @@
     "preview": "vite preview",
     "electron:compile": "tsc -p tsconfig.electron.json",
     "electron:dev": "npm run electron:compile && chcp 65001 >nul && electron .",
-    "electron:start": "npm run build && node scripts/copy-static.cjs && npm run electron:compile && chcp 65001 >nul && electron .",
+    "electron:start": "npm run build && node -e \"require('fs').cpSync('dist','static',{recursive:true});require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && chcp 65001 >nul && electron .",
     "postinstall": "electron-builder install-app-deps",
-    "package:win": "npm run build && node scripts/copy-static.cjs && npm run electron:compile && electron-builder --win --x64",
-    "package:dir": "npm run build && node scripts/copy-static.cjs && npm run electron:compile && electron-builder --win --x64 --dir"
+    "package:win": "npm run build && node -e \"require('fs').cpSync('dist','static',{recursive:true});require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64",
+    "package:dir": "npm run build && node -e \"require('fs').cpSync('dist','static',{recursive:true});require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64 --dir"
   },
   "build": {
     "appId": "com.shici.app",
