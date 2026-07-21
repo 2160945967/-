@@ -11,6 +11,7 @@ import { loadWordbooks, updateWordSourceSelect, getSourceProgress, getSourceWord
 import { setupImeHandling, setupEnterSubmission, setupGlobalShortcuts, setupInputCooldown, getRandomMeanings } from '../utils/quizCommon';
 import { updateFavoritesDisplay } from './favorites';
 import { animateCorrectFeedback, animateErrorShake, showToast } from '../utils/gsap';
+import { playCorrectSound, playWrongSound, playCompleteSound, playClickSound } from '../utils/audio';
 import { apiTranslate } from '../utils/api';
 import { selectMeaningsForQuestion, buildMeaningDisplayHtml, checkQuizAnswer } from '../utils/quizHelper';
 import {
@@ -83,6 +84,7 @@ export function initQuiz(): void {
 
     if (startQuizBtn) {
         startQuizBtn.addEventListener('click', function() {
+            playClickSound();
             startQuiz();
         });
     }
@@ -90,19 +92,20 @@ export function initQuiz(): void {
     // 继续上一轮答题
     const continueQuizBtn = document.getElementById('continue-quiz');
     if (continueQuizBtn) {
-        continueQuizBtn.addEventListener('click', () => continueQuiz());
+        continueQuizBtn.addEventListener('click', () => { playClickSound(); continueQuiz(); });
     }
 
     // 重新开始上一轮答题
     const redoQuizBtn = document.getElementById('redo-quiz');
     if (redoQuizBtn) {
-        redoQuizBtn.addEventListener('click', () => redoQuiz());
+        redoQuizBtn.addEventListener('click', () => { playClickSound(); redoQuiz(); });
     }
 
     // 重新测验整个单词本（设置区入口）
     const restartWordbookBtn = document.getElementById('restart-wordbook');
     if (restartWordbookBtn) {
         restartWordbookBtn.addEventListener('click', () => {
+            playClickSound();
             showConfirm('重新测验该单词本将会清除已练习和未练习的数据，是否继续？', '重新测验确认').then(ok => {
                 if (ok) void restartWordbookFromSettings();
             });
@@ -112,11 +115,12 @@ export function initQuiz(): void {
     // 结束测验
     const endQuizBtn = document.getElementById('end-quiz');
     if (endQuizBtn) {
-        endQuizBtn.addEventListener('click', () => endQuiz());
+        endQuizBtn.addEventListener('click', () => { playClickSound(); endQuiz(); });
     }
 
     if (showAnswerBtn) {
         showAnswerBtn.addEventListener('click', function() {
+            playClickSound();
             showAnswer(true);
         });
     }
@@ -143,6 +147,7 @@ export function initQuiz(): void {
     // 下一题
     if (nextQuestionBtn) {
         nextQuestionBtn.addEventListener('click', function() {
+            playClickSound();
             nextQuestion();
         });
     }
@@ -1121,6 +1126,7 @@ export async function checkAnswer(): Promise<void> {
         feedback.textContent = '回答正确！';
         feedback.className = 'quiz-feedback-success';
         animateCorrectFeedback(feedback);
+        playCorrectSound();
 
         quizAnswerSubmitted = true;
         quizLastAnswerCorrect = true;
@@ -1236,6 +1242,7 @@ export async function checkAnswer(): Promise<void> {
         }
         feedback.className = 'quiz-feedback-error';
         animateErrorShake(feedback);
+        playWrongSound();
 
         appState.isProcessingAnswer = false;
     }
@@ -1500,6 +1507,7 @@ function showQuizResult(): void {
     const result = document.getElementById('quiz-result');
     if (!result) return;
     result.style.display = 'block';
+    playCompleteSound();
     // words 可能被意外清空，用 answeredInThisRound 兜底统计
     const total = quizSession.words.length || quizSession.answeredInThisRound.length;
     const correct = quizSession.correctCount;

@@ -2,7 +2,7 @@
 
 import { appState, showConfirm, showAlert, escapeForJsString, escapeHtml } from '../global';
 import { PronunciationType, QuizMode } from '../types/enums';
-import { playPronunciation } from '../utils/audio';
+import { playPronunciation, playCorrectSound, playWrongSound, playCompleteSound, playClickSound } from '../utils/audio';
 import { formatDefinitionHtml, normalizeNewlines } from '../utils/translation';
 import { initErrorbookVue } from './errorbook';
 import { updateStudyStats } from './stats';
@@ -79,22 +79,22 @@ export function initReviewQuiz(): void {
 
     if (!reviewQuizInitialized) {
         if (startBtn) {
-            startBtn.addEventListener('click', () => startReview());
+            startBtn.addEventListener('click', () => { playClickSound(); startReview(); });
         }
         if (showAnswerBtn) {
-            showAnswerBtn.addEventListener('click', () => reviewShowAnswer());
+            showAnswerBtn.addEventListener('click', () => { playClickSound(); reviewShowAnswer(); });
         }
         if (nextBtn) {
-            nextBtn.addEventListener('click', () => reviewNextQuestion());
+            nextBtn.addEventListener('click', () => { playClickSound(); reviewNextQuestion(); });
         }
 
         // 继续/重开/结束按钮
         const continueBtn = document.getElementById('continue-review');
         const redoBtn = document.getElementById('redo-review');
         const endBtn = document.getElementById('end-review');
-        if (continueBtn) continueBtn.addEventListener('click', () => continueReview());
-        if (redoBtn) redoBtn.addEventListener('click', () => redoReview());
-        if (endBtn) endBtn.addEventListener('click', () => void endReview());
+        if (continueBtn) continueBtn.addEventListener('click', () => { playClickSound(); continueReview(); });
+        if (redoBtn) redoBtn.addEventListener('click', () => { playClickSound(); redoReview(); });
+        if (endBtn) endBtn.addEventListener('click', () => { playClickSound(); void endReview(); });
 
         if (answerInput) {
             const imeState = setupImeHandling(answerInput);
@@ -597,7 +597,7 @@ async function reviewCheckAnswer(): Promise<void> {
 
     if (isCorrect) {
         reviewCorrect++;
-        if (feedback) { feedback.textContent = '回答正确！'; feedback.className = 'quiz-feedback-success'; animateCorrectFeedback(feedback); }
+        if (feedback) { feedback.textContent = '回答正确！'; feedback.className = 'quiz-feedback-success'; animateCorrectFeedback(feedback); playCorrectSound(); }
         if (!isSentence) playPronunciation(appState.settings.pronunciationType, word.word);
 
         // 错题本 + 释义权重更新（与测验模式相同）
@@ -632,7 +632,7 @@ async function reviewCheckAnswer(): Promise<void> {
     } else {
         reviewWrong++;
         reviewCurrentErrorCount++;
-        if (feedback) { feedback.textContent = '拼写错误，请检查拼写'; feedback.className = 'quiz-feedback-error'; animateErrorShake(feedback); }
+        if (feedback) { feedback.textContent = '拼写错误，请检查拼写'; feedback.className = 'quiz-feedback-error'; animateErrorShake(feedback); playWrongSound(); }
 
         if (!appState.errorbook[word.word]) {
             appState.errorbook[word.word] = { errorCount: 1, correctCount: 0, addedTime: Date.now(), meaningWeights: {} };
@@ -729,6 +729,7 @@ function finishReview(): void {
     const result = document.getElementById('review-result');
     if (!result) return;
     result.style.display = 'block';
+    playCompleteSound();
     const total = reviewSession ? reviewSession.words.length : reviewTotal;
     const correct = reviewSession ? reviewSession.correctCount : reviewCorrect;
     const wrong = reviewSession ? reviewSession.wrongCount : reviewWrong;

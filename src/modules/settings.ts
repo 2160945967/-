@@ -273,6 +273,7 @@ export function loadSettings(): void {
             wordSource: WordSource.Favorites,
             quizCount: 10,
             dailyWordCount: 20,
+            soundEnabled: true,
             ...parsed
         });
     }
@@ -288,6 +289,7 @@ export function loadSettings(): void {
     const autoPlayPronunciationAfterErrors = document.getElementById('auto-play-pronunciation-after-errors') as HTMLInputElement;
     const addToFavoritesKeyInQuiz = document.getElementById('add-to-favorites-key-in-quiz') as HTMLInputElement;
     const autoAddErrorbook = document.getElementById('auto-add-errorbook') as HTMLInputElement;
+    const soundEnabled = document.getElementById('sound-enabled') as HTMLInputElement;
 
     if (pronunciationType) pronunciationType.value = appState.settings.pronunciationType;
     if (chineseCount) chineseCount.value = String(appState.settings.chineseCount);
@@ -298,6 +300,7 @@ export function loadSettings(): void {
     if (addToFavoritesKey) addToFavoritesKey.value = appState.settings.addToFavoritesKey || '2';
     if (addToFavoritesKeyInQuiz) addToFavoritesKeyInQuiz.value = appState.settings.addToFavoritesKeyInQuiz || '3';
     if (autoAddErrorbook) autoAddErrorbook.checked = appState.settings.addToErrorbookAfterShowAnswer || false;
+    if (soundEnabled) soundEnabled.checked = appState.settings.soundEnabled !== false;
     if (errorCorrectCount) errorCorrectCount.value = String(appState.settings.errorCorrectCount || 3);
     if (autoPlayPronunciationAfterErrors) autoPlayPronunciationAfterErrors.value = String(appState.settings.autoPlayPronunciationAfterErrors ?? 2);
 
@@ -362,6 +365,7 @@ export function saveSettings(): void {
     const autoPlayPronunciationAfterErrors = document.getElementById('auto-play-pronunciation-after-errors') as HTMLInputElement;
     const searchHistoryCount = document.getElementById('search-history-count') as HTMLInputElement;
     const enableEbbinghaus = document.getElementById('enable-ebbinghaus') as HTMLInputElement;
+    const soundEnabled = document.getElementById('sound-enabled') as HTMLInputElement;
     const multiPartProb = document.getElementById('quiz-multi-part-probability') as HTMLInputElement;
     const singlePartProb = document.getElementById('quiz-single-part-probability') as HTMLInputElement;
 
@@ -395,6 +399,7 @@ export function saveSettings(): void {
     if (autoPlayPronunciationAfterErrors) appState.settings.autoPlayPronunciationAfterErrors = parseInt(autoPlayPronunciationAfterErrors.value) || 0;
     if (searchHistoryCount) appState.settings.searchHistoryCount = parseInt(searchHistoryCount.value);
     if (enableEbbinghaus) appState.settings.enableEbbinghaus = enableEbbinghaus.checked;
+    if (soundEnabled) appState.settings.soundEnabled = soundEnabled.checked;
     if (multiPartProb) appState.settings.quizMultiPartProbability = parseInt(multiPartProb.value);
     if (singlePartProb) appState.settings.quizSinglePartProbability = parseInt(singlePartProb.value);
 
@@ -496,7 +501,8 @@ export async function clearAllData(): Promise<void> {
             searchHistoryCount: 20,
             enableEbbinghaus: true,
             quizMultiPartProbability: 50,
-            quizSinglePartProbability: 50
+            quizSinglePartProbability: 50,
+            soundEnabled: true
         });
 
         loadSettings();

@@ -15,12 +15,14 @@ function resolvePaths() {
   const { app } = require('electron');
   // __dirname 在 dev 为 project-root/electron-dist，打包后为 app.asar/electron-dist
   const candidateRoot = path.resolve(__dirname, '..', '..');
-  // app.isPackaged 在 dev 环境下可能误判，用源码文件判断更稳
-  const isDev = fs.existsSync(path.join(candidateRoot, 'package.json')) &&
-                fs.existsSync(path.join(candidateRoot, 'electron', 'main.ts'));
+  // 使用 Electron 原生的 app.isPackaged 判断，避免 electron-dist 在项目目录内导致的误判
+  const isDev = !app.isPackaged;
   const rootDir = isDev ? candidateRoot : process.resourcesPath;
   const appRootDir = candidateRoot;
-  const userDataDir = app.getPath('userData');
+  // 开发版和打包版使用不同的 userData 目录，避免数据互相污染
+  const userDataDir = isDev
+    ? path.join(app.getPath('appData'), '拾词-dev')
+    : path.join(app.getPath('appData'), '拾词');
   return {
     ROOT_DIR: rootDir,
     APP_ROOT_DIR: appRootDir,

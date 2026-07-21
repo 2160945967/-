@@ -200,3 +200,138 @@ export function getAudioQueueStatus(): { active: number; queued: number; cached:
         cached: audioCache.size
     };
 }
+
+// ==================== Web Audio API 合成提示音 ====================
+
+let audioContext: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    if (!audioContext) {
+        try {
+            audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } catch {
+            return null;
+        }
+    }
+    // 若之前被 suspend，尝试恢复
+    if (audioContext && audioContext.state === 'suspended') {
+        void audioContext.resume();
+    }
+    return audioContext;
+}
+
+function isSoundEnabled(): boolean {
+    // 默认开启；如果用户未保存过设置，返回 true
+    if (!appState) return true;
+    return appState.settings.soundEnabled !== false;
+}
+
+/**
+ * 播放一个简单的蜂鸣音（内部基础函数）
+ */
+function playTone(frequency: number, duration: number, type: OscillatorType = 'sine', volume = 0.15): void {
+    const ctx = getAudioContext();
+    if (!ctx || !isSoundEnabled()) return;
+
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + duration);
+}
+
+/**
+ * 播放答对提示音：清脆上扬双音
+ */
+export function playCorrectSound(): void {
+    const ctx = getAudioContext();
+    if (!ctx || !isSoundEnabled()) return;
+
+    const now = ctx.currentTime;
+    [523.25, 659.25, 783.99].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+        gain.gain.setValueAtTime(0, now + idx * 0.06);
+        gain.gain.linearRampToValueAtTime(0.12, now + idx * 0.06 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.06);
+        osc.stop(now + idx * 0.06 + 0.18);
+    });
+}
+
+/**
+ * 播放答错提示音：低沉下降音
+ */
+export function playWrongSound(): void {
+    const ctx = getAudioContext();
+    if (!ctx || !isSoundEnabled()) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.25);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.28);
+}
+
+/**
+ * 播放按钮点击音：极短高频轻击
+ */
+export function playClickSound(): void {
+    playTone(880, 0.05, 'triangle', 0.08);
+}
+
+/**
+ * 播放完成/通关提示音：轻快乐句
+ */
+export function playCompleteSound(): void {
+    const ctx = getAudioContext();
+    if (!ctx || !isSoundEnabled()) return;
+
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+        gain.gain.setValueAtTime(0, now + idx * 0.1);
+        gain.gain.linearRampToValueAtTime(0.12, now + idx * 0.1 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.1);
+        osc.stop(now + idx * 0.1 + 0.25);
+    });
+}
+
+/**
+ * 设置音效开关
+ */
+export function setSoundEnabled(enabled: boolean): void {
+    if (appState) {
+        appState.settings.soundEnabled = enabled;
+    }
+}

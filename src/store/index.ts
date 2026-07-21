@@ -78,6 +78,7 @@ export interface AppState {
         quizMultiPartProbability: number;
         quizSinglePartProbability: number;
         dailyWordCount: number;
+        soundEnabled: boolean;
         quizMode?: QuizMode;
         wordSource?: WordSource;
         quizCount?: number;
@@ -156,6 +157,7 @@ function getDefaultState(): AppState {
             quizMultiPartProbability: 50,
             quizSinglePartProbability: 50,
             dailyWordCount: 20,
+            soundEnabled: true,
         },
         quizWords: [],
         currentQuizWord: null,
