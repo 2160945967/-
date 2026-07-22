@@ -681,9 +681,9 @@ export async function startQuiz(): Promise<void> {
             return;
         }
     } else if (wordSource.startsWith('system:')) {
-        const tag = wordSource.replace('system:', '');
+        const tags = wordSource.replace('system:', '');
         try {
-            const response = await fetch('/api/system-wordbook/words?tag=' + tag + '&limit=10000');
+            const response = await fetch('/api/system-wordbook/words?tags=' + encodeURIComponent(tags) + '&limit=10000');
             const data = await response.json();
             if (data.success && data.data && data.data.words) {
                 appState.quizWords.length = 0;

@@ -124,6 +124,15 @@ class StarDict {
     return row?.cnt || 0;
   }
 
+  /** 按多个标签统计单词数量（OR 条件，空格分隔的 tag 字段精确匹配） */
+  countByTags(tags: string[]): number {
+    const db = this.getDb();
+    const conditions = tags.map(() => "' ' || tag || ' ' LIKE ?").join(' OR ');
+    const params = tags.map(t => `% ${t} %`);
+    const row = db.prepare(`SELECT COUNT(*) as cnt FROM stardict WHERE ${conditions}`).get(...params) as any;
+    return row?.cnt || 0;
+  }
+
   /** 前缀匹配，返回 [id, word] 数组 */
   match(word: string, limit: number = 10): Array<[number, string]> {
     const db = this.getDb();

@@ -698,7 +698,7 @@ export async function updateWordSourceSelect(): Promise<void> {
     wordSourceSelect.appendChild(createOption(WordSource.Errorbook, '错题本', errWords.length, errWords.filter(w => practiced.has(w)).length));
 
     systemWordbooks.forEach(wb => {
-        const value = 'system:' + wb.tag;
+        const value = 'system:' + wb.tags.join(',');
         const total = systemWordbookCounts[wb.id] ?? 0;
         const sysWords = getSourceWordList(value);
         const practicedCount = sysWords.filter(w => practiced.has(w)).length;
@@ -1185,7 +1185,7 @@ export async function updateSelectedWordbookDisplay(): Promise<void> {
                     while (hasMore) {
                         if (currentSection !== PageSection.Wordbook) break;
                         const response = await fetch(
-                            `/api/system-wordbook/words?tag=${sysWb.tag}&limit=${PAGE_SIZE}&offset=${offset}`,
+                            `/api/system-wordbook/words?tags=${encodeURIComponent(sysWb.tags.join(','))}&limit=${PAGE_SIZE}&offset=${offset}`,
                             { signal: abortSignal }
                         );
                         const data = await response.json();

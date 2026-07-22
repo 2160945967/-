@@ -9,8 +9,7 @@ export const SYSTEM_WORDBOOKS = [
     { id: 'sys_cet6', name: '六级', tag: 'cet6' },
     { id: 'sys_cet46', name: '四六级合并', tag: 'cet46' },
     { id: 'sys_cet6_star', name: '六级星标', tag: 'cet6_star' },
-    { id: 'sys_tem4', name: '专四', tag: 'tem4' },
-    { id: 'sys_tem8', name: '专八', tag: 'tem8' },
+    { id: 'sys_tem48', name: '专四专八', tags: ['tem4', 'tem8'] },
     { id: 'sys_tem8_star', name: '专八星标', tag: 'tem8_star' },
     { id: 'sys_ky', name: '考研', tag: 'ky' },
     { id: 'sys_toefl', name: '托福', tag: 'toefl' },
@@ -31,7 +30,7 @@ export const SYSTEM_WORDBOOKS = [
 // tag → 中文名映射
 export const SYSTEM_TAGS: Record<string, string> = {
     xx: '小学', zk: '中考', gk: '高考', cet4: '四级', cet6: '六级',
-    cet46: '四六级合并', cet6_star: '六级星标', tem4: '专四', tem8: '专八', tem8_star: '专八星标',
+    cet46: '四六级合并', cet6_star: '六级星标', tem48: '专四专八', tem8_star: '专八星标',
     ky: '考研', toefl: '托福', toefl_abridged: '托福精简', toefl_del: '托福去重',
     ielts: '雅思', gre: 'GRE', gre_hongbao: 'GRE红宝书', gre_abridged: 'GRE精简', gre_del: 'GRE去重',
     sum_all: '汇总词汇', coca20000: 'COCA 20000', coca_abridged: 'COCA精简', oald8: '牛津高阶', tw_hs: '台湾高中',
