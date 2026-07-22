@@ -117,10 +117,10 @@ class StarDict {
     return recordToObj(record);
   }
 
-  /** 按标签统计单词数量 */
+  /** 按标签统计单词数量（空格分隔的 tag 字段精确匹配） */
   countByTag(tag: string): number {
     const db = this.getDb();
-    const row = db.prepare('SELECT COUNT(*) as cnt FROM stardict WHERE tag LIKE ?').get(`%${tag}%`) as any;
+    const row = db.prepare("SELECT COUNT(*) as cnt FROM stardict WHERE ' ' || tag || ' ' LIKE ?").get(`% ${tag} %`) as any;
     return row?.cnt || 0;
   }
 
@@ -174,14 +174,15 @@ class StarDict {
       // 1. 用户输入词组时，优先展示词组
       const phrasePriority = (hasSpaceOrHyphen && isPhrase) ? 0 : 1;
 
-      // 2. 用户选择的考试类型
-      const userMatch = (userCategory && tagLower.includes(userCategory)) ? 0 : 1;
+      // 2. 用户选择的考试类型（空格分隔精确匹配）
+      const paddedTag = ' ' + tagLower + ' ';
+      const userMatch = (userCategory && paddedTag.includes(' ' + userCategory + ' ')) ? 0 : 1;
 
-      // 3. 其他考试标签优先级
+      // 3. 其他考试标签优先级（空格分隔精确匹配）
       let tagPriority = 0;
       if (tagLower) {
         for (const [etag, pri] of Object.entries(examTags)) {
-          if (tagLower.includes(etag)) {
+          if (paddedTag.includes(' ' + etag + ' ')) {
             tagPriority = 10 - pri;
             break;
           }
