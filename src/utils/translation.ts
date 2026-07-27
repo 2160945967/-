@@ -46,7 +46,10 @@ function cleanTailBackslash(text: string): string {
 // 也处理 "沸腾炉)床上方燃烧器" -> "(沸腾炉)床上方燃烧器"
 function fixUnbalancedParentheses(text: string): string {
     const fixSide = (s: string, openCh: string, closeCh: string): string => {
-        const pattern = new RegExp(`(?<![${openCh}])([\\u4e00-\\u9fa5]+)(${closeCh})`, 'g');
+        // 对正则元字符进行转义，避免 closeCh 为 )/） 等时构造失败
+        const escapedClose = closeCh.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedOpen = openCh.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`(?<![${openCh}])([\\u4e00-\\u9fa5]+)(${escapedClose})`, 'g');
         const result = Array.from(s);
         const matches: Array<{ start: number; end: number }> = [];
         let m: RegExpExecArray | null;
@@ -55,8 +58,8 @@ function fixUnbalancedParentheses(text: string): string {
         }
         for (const match of matches.reverse()) {
             const before = result.slice(0, match.end).join('');
-            const openCount = (before.match(new RegExp(openCh, 'g')) || []).length;
-            const closeCount = (before.match(new RegExp(closeCh, 'g')) || []).length;
+            const openCount = (before.match(new RegExp(escapedOpen, 'g')) || []).length;
+            const closeCount = (before.match(new RegExp(escapedClose, 'g')) || []).length;
             if (closeCount > openCount) {
                 result.splice(match.start, 0, openCh);
             }
