@@ -31,9 +31,11 @@ export function normalizeNewlines(text?: string): string {
 
 // 常见词性标签；非标准标记（如 na.）不识别为词性
 const VALID_POS_TAGS = new Set([
-    'n', 'v', 'adj', 'adv', 'vt', 'vi', 'prep', 'conj', 'pron', 'art', 'num', 'int', 'aux',
+    'n', 'v', 'adj', 'adv', 'vt', 'vi', 'prep', 'conj', 'pron', 'art', 'num', 'int', 'interj', 'aux',
     'a', 's', 'r', 'c', 'u',
-    'pl', 'sing', 'abbr'
+    'pl', 'sing', 'abbr',
+    'ad', 'vbl', 'verb', 'auxv', 'linkv', 'modalv', 'det', 'quant', 'ordnumber',
+    'pref', 'suf', 'suff', 'comb', 'phr', 'pn', 'pp', 'exclam'
 ]);
 
 function cleanTailBackslash(text: string): string {
@@ -61,6 +63,33 @@ function extractPos(line: string): { part: string; rest: string } | null {
     return { part: m[1], rest: cleanTailBackslash(m[2]) };
 }
 
+// 把一行中文释义按行内词性标签拆成多行，例如 "废物vt. 废弃" -> ["废物", "vt. 废弃"]
+// 也处理 & / 、 , 连接多个词性的情况，如 "a. & n. xxx" -> ["a.", "n. xxx"]
+function splitInlinePos(line: string): string[] {
+    const parts: string[] = [];
+    let lastIndex = 0;
+    // 匹配出现在非字母/空白后的词性标签，或在 & / 、 , 等连接符后的词性标签
+    const regex = /([^a-zA-Z\s]|(?:&|\/|、|,))(\s*)([a-zA-Z]+\.)\s*/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(line)) !== null) {
+        const tag = match[3].replace('.', '');
+        if (!VALID_POS_TAGS.has(tag.toLowerCase())) continue;
+
+        const connector = match[1];
+        if (/[&\\/、,]/.test(connector)) {
+            // 连接符后的词性标签属于新义项，上一段到连接符前
+            parts.push(line.slice(lastIndex, match.index).trim());
+            lastIndex = match.index + connector.length + match[2].length;
+        } else {
+            // 普通内联标签：前置字符仍保留在上一段，新义项从词性标签开始
+            parts.push(line.slice(lastIndex, match.index + connector.length).trim());
+            lastIndex = match.index + connector.length + match[2].length;
+        }
+    }
+    parts.push(line.slice(lastIndex).trim());
+    return parts.filter(Boolean);
+}
+
 // 把 translation 按行拆成 {词性, 释义}
 // 如果某行中文释义没有词性，尝试从对应行的英文 definition 里补
 export function parseMeanings(translation?: string, definition?: string): ParsedMeaning[] {
@@ -71,24 +100,29 @@ export function parseMeanings(translation?: string, definition?: string): Parsed
     const defLines = normalizeNewlines(definition).split('\n').map(s => s.trim()).filter(Boolean);
 
     transLines.forEach((line, index) => {
-        const posMatch = extractPos(line);
-        if (posMatch) {
-            meanings.push({ part: posMatch.part, definition: posMatch.rest });
-            return;
-        }
+        // 先把行内词性标签拆开，如 "废物vt. 废弃" -> ["废物", "vt. 废弃"]
+        const segments = splitInlinePos(line);
 
-        // 非标准词性标记（如 na.）直接去掉前缀，当作无词性释义
-        const nonStandardPosMatch = line.match(/^([a-zA-Z]+\.)\s*(.*)$/);
-        if (nonStandardPosMatch && !VALID_POS_TAGS.has(nonStandardPosMatch[1].replace('.', '').toLowerCase())) {
-            meanings.push({ part: '', definition: cleanTailBackslash(nonStandardPosMatch[2]) });
-            return;
-        }
+        segments.forEach((segment, segIndex) => {
+            const posMatch = extractPos(segment);
+            if (posMatch) {
+                meanings.push({ part: posMatch.part, definition: posMatch.rest });
+                return;
+            }
 
-        // 中文行没词性，看英文释义同行
-        const defPosMatch = extractPos(defLines[index] || '');
-        meanings.push({
-            part: defPosMatch ? defPosMatch.part : '词组',
-            definition: cleanTailBackslash(line)
+            // 非标准词性标记（如 na.）直接去掉前缀，当作无词性释义
+            const nonStandardPosMatch = segment.match(/^([a-zA-Z]+\.)\s*(.*)$/);
+            if (nonStandardPosMatch && !VALID_POS_TAGS.has(nonStandardPosMatch[1].replace('.', '').toLowerCase())) {
+                meanings.push({ part: '', definition: cleanTailBackslash(nonStandardPosMatch[2]) });
+                return;
+            }
+
+            // 中文行没词性，看英文释义同行；多段时只第一段使用英文词性兜底
+            const defPosMatch = segIndex === 0 ? extractPos(defLines[index] || '') : null;
+            meanings.push({
+                part: defPosMatch ? defPosMatch.part : '词组',
+                definition: cleanTailBackslash(segment)
+            });
         });
     });
 

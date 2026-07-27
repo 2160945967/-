@@ -13,6 +13,37 @@ import { showToast, animateResultShow } from '../utils/gsap';
 
 let _dictDocClickHandler: ((e: Event) => void) | null = null;
 
+/**
+ * 规范化标签显示：
+ * - cet46 拆分为 cet4、cet6
+ * - 同时存在 coca 和 coca20000 时只保留 coca
+ * - 不显示 sum_all 汇总标记
+ */
+function normalizeDisplayTags(rawTags: string): string[] {
+    const rawList = rawTags.split(/\s+/).map(t => t.trim()).filter(Boolean);
+    const result: string[] = [];
+    const hasCoca = rawList.includes('coca');
+    const seen = new Set<string>();
+    rawList.forEach(tag => {
+        if (tag === 'sum_all') return;
+        if (tag === 'cet46') {
+            ['cet4', 'cet6'].forEach(t => {
+                if (!seen.has(t)) {
+                    seen.add(t);
+                    result.push(t);
+                }
+            });
+            return;
+        }
+        if (tag === 'coca20000' && hasCoca) return;
+        if (!seen.has(tag)) {
+            seen.add(tag);
+            result.push(tag);
+        }
+    });
+    return result;
+}
+
 /** 资源下载状态缓存 */
 let assetStatusCache: Record<string, boolean> = {};
 
@@ -834,7 +865,7 @@ export function displayResult(data: WordData): void {
     };
     let tagsHtml = '';
     if (data.tags) {
-        const tags = data.tags.split(/\s+/).filter((tag: string) => tag.trim() !== '');
+        const tags = normalizeDisplayTags(data.tags);
         if (tags.length > 0) {
             tagsHtml = '<div class="tag-container">';
             tags.forEach((tag: string) => {
