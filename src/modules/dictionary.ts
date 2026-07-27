@@ -1709,6 +1709,7 @@ export async function translateText(text: string): Promise<void> {
 
         if (data.success) {
             const displayText = normalizeCaseByType(text);
+            const isSentence = text.trim().split(/\s+/).filter(w => w.length > 0).length > 1;
             // 中译英时，发音用英文译文；英译中时，发音用原文英文
             const pronounceText = hasChinese(text) ? (data.translation || displayText) : displayText;
 
@@ -1742,7 +1743,22 @@ export async function translateText(text: string): Promise<void> {
                     </button>
                 </div>
             </div>`;
-            resultHtml += `<p><strong>翻译：</strong>${data.translation}</p>`;
+
+            // 单个单词 fallback 到翻译时，也走释义解析，修复括号和行内词性
+            let translationHtml = '';
+            if (!isSentence && data.translation) {
+                const meanings = parseMeanings(data.translation, '');
+                if (meanings.length > 0) {
+                    translationHtml = meanings.map((m: any) => {
+                        const part = m.part && m.part !== '词组' ? `<strong>${m.part}</strong> ` : '';
+                        return `${part}${m.definition}`;
+                    }).join('<br>');
+                }
+            }
+            if (!translationHtml) {
+                translationHtml = formatDefinitionHtml(data.translation);
+            }
+            resultHtml += `<p><strong>翻译：</strong>${translationHtml}</p>`;
             if (data.cached) {
                 resultHtml += '<p class="translation-cached">（来自缓存）</p>';
             }
