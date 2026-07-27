@@ -577,6 +577,7 @@ body.dark-mode .example-sentence {
 .tag-cat-zk { background-color: #9b59b6; }
 .tag-cat-toefl { background-color: #f39c12; }
 .tag-cat-gre { background-color: #1abc9c; }
+.tag-cat-coca { background-color: #2980b9; }
 
 /* 释义区域行（词性+领域标签） */
 .meaning-tag-row {

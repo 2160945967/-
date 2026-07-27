@@ -18,9 +18,20 @@ let _dictDocClickHandler: ((e: Event) => void) | null = null;
  * - cet46 拆分为 cet4、cet6
  * - 同时存在 coca 和 coca20000 时只保留 coca
  * - 不显示 sum_all 汇总标记
+ * - 仅显示白名单内的标签（小学/中考/高考/四六级/专四专八/考研/托福/雅思/GRE/COCA）
  */
 function normalizeDisplayTags(rawTags: string): string[] {
     const rawList = rawTags.split(/\s+/).map(t => t.trim()).filter(Boolean);
+    // 允许显示的标签白名单
+    const allowedTags = new Set([
+        'xx', 'zk', 'gk',
+        'cet4', 'cet6',
+        'tem4', 'tem8',
+        'ky',
+        'toefl', 'ielts',
+        'gre',
+        'coca', 'coca20000',
+    ]);
     const result: string[] = [];
     const hasCoca = rawList.includes('coca');
     const seen = new Set<string>();
@@ -36,6 +47,8 @@ function normalizeDisplayTags(rawTags: string): string[] {
             return;
         }
         if (tag === 'coca20000' && hasCoca) return;
+        // 不在白名单中的标签不显示
+        if (!allowedTags.has(tag)) return;
         if (!seen.has(tag)) {
             seen.add(tag);
             result.push(tag);
@@ -861,6 +874,8 @@ export function displayResult(data: WordData): void {
         'toefl': '托福',
         'ielts': '雅思',
         'gre': 'GRE',
+        'coca': 'COCA',
+        'coca20000': 'COCA',
         'a-level': 'A-Level'
     };
     let tagsHtml = '';
@@ -877,6 +892,7 @@ export function displayResult(data: WordData): void {
                 else if (tag === 'zk' || tag === 'gk' || tag === 'xx') bgClass = 'tag-cat-zk';
                 else if (tag === 'toefl' || tag === 'ielts') bgClass = 'tag-cat-toefl';
                 else if (tag === 'gre') bgClass = 'tag-cat-gre';
+                else if (tag === 'coca' || tag === 'coca20000') bgClass = 'tag-cat-coca';
 
                 tagsHtml += '<span class="tag-badge ' + bgClass + '">' + displayName + '</span>';
             });
