@@ -21,7 +21,7 @@ export const SYSTEM_WORDBOOKS = [
     { id: 'sys_gre_abridged', name: 'GRE精简', tag: 'gre_abridged' },
     { id: 'sys_gre_del', name: 'GRE去重', tag: 'gre_del' },
     { id: 'sys_sum_all', name: '汇总词汇', tag: 'sum_all' },
-    { id: 'sys_coca20000', name: 'COCA 20000', tag: 'coca20000' },
+    { id: 'sys_coca20000', name: 'COCA', tag: 'coca20000' },
     { id: 'sys_coca_abridged', name: 'COCA精简', tag: 'coca_abridged' },
     { id: 'sys_oald8', name: '牛津高阶', tag: 'oald8' },
     { id: 'sys_tw_hs', name: '台湾高中', tag: 'tw_hs' },
@@ -33,7 +33,7 @@ export const SYSTEM_TAGS: Record<string, string> = {
     cet46: '四六级合并', cet6_star: '六级星标', tem48: '专四专八', tem8_star: '专八星标',
     ky: '考研', toefl: '托福', toefl_abridged: '托福精简', toefl_del: '托福去重',
     ielts: '雅思', gre: 'GRE', gre_hongbao: 'GRE红宝书', gre_abridged: 'GRE精简', gre_del: 'GRE去重',
-    sum_all: '汇总词汇', coca20000: 'COCA 20000', coca_abridged: 'COCA精简', oald8: '牛津高阶', tw_hs: '台湾高中',
+    sum_all: '汇总词汇', coca20000: 'COCA', coca_abridged: 'COCA精简', oald8: '牛津高阶', tw_hs: '台湾高中',
 };
 
 // ==================== 虚拟滚动 ====================

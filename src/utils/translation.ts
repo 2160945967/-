@@ -42,6 +42,33 @@ function cleanTailBackslash(text: string): string {
     return text.replace(/\\+\s*$/, '').trim();
 }
 
+// 修复部分词典数据里缺失半个括号的情况，如 "使)循环" -> "(使)循环"
+// 也处理 "沸腾炉)床上方燃烧器" -> "(沸腾炉)床上方燃烧器"
+function fixUnbalancedParentheses(text: string): string {
+    const fixSide = (s: string, openCh: string, closeCh: string): string => {
+        const pattern = new RegExp(`(?<![${openCh}])([\\u4e00-\\u9fa5]+)(${closeCh})`, 'g');
+        const result = Array.from(s);
+        const matches: Array<{ start: number; end: number }> = [];
+        let m: RegExpExecArray | null;
+        while ((m = pattern.exec(s)) !== null) {
+            matches.push({ start: m.index, end: m.index + m[0].length });
+        }
+        for (const match of matches.reverse()) {
+            const before = result.slice(0, match.end).join('');
+            const openCount = (before.match(new RegExp(openCh, 'g')) || []).length;
+            const closeCount = (before.match(new RegExp(closeCh, 'g')) || []).length;
+            if (closeCount > openCount) {
+                result.splice(match.start, 0, openCh);
+            }
+        }
+        return result.join('');
+    };
+
+    text = fixSide(text, '(', ')');
+    text = fixSide(text, '（', '）');
+    return text;
+}
+
 // 把释义文本转成可安全插入 HTML 的字符串，\n 等换行渲染为 <br>
 export function formatDefinitionHtml(text?: string): string {
     if (!text) return '';
@@ -96,7 +123,7 @@ export function parseMeanings(translation?: string, definition?: string): Parsed
     const meanings: ParsedMeaning[] = [];
     if (!translation) return meanings;
 
-    const transLines = normalizeNewlines(translation).split('\n').map(s => s.trim()).filter(Boolean);
+    const transLines = normalizeNewlines(fixUnbalancedParentheses(translation)).split('\n').map(s => s.trim()).filter(Boolean);
     const defLines = normalizeNewlines(definition).split('\n').map(s => s.trim()).filter(Boolean);
 
     transLines.forEach((line, index) => {
