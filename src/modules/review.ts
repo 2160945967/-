@@ -10,6 +10,7 @@ import { loadSettings } from './settings';
 import { loadWordbooks, updateWordSourceSelect, normalizeCaseByType } from './wordbook';
 import { recordLearningHistory, showLearningHistory, calculateEbbinghausWeight } from './quiz';
 import { setupImeHandling, setupEnterSubmission, setupGlobalShortcuts } from '../utils/quizCommon';
+import { checkQuizAnswer } from '../utils/quizHelper';
 import { animateCorrectFeedback, animateErrorShake } from '../utils/gsap';
 import {
     SessionState,
@@ -42,6 +43,10 @@ let reviewCurrentMode = QuizMode.EnToZh;
 let reviewCurrentMeanings: { part: string; definition: string }[] = [];
 let reviewCurrentErrorCount = 0;
 let reviewShowAnswerCalled = false;
+// 标记当前题是否已提交最终结果（对/错），防止同一题多次统计
+let reviewAnswerSubmitted = false;
+// 防止 checkQuizAnswer 异步期间用户重复按 Enter 触发并发判定
+let reviewIsChecking = false;
 let reviewQuizInitialized = false;
 let reviewShortcutsRemove: (() => void) | null = null;
 let reviewEscHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -299,6 +304,8 @@ async function renderReviewQuestion(): Promise<void> {
     }
 
     reviewShowAnswerCalled = false;
+    reviewAnswerSubmitted = false;
+    reviewIsChecking = false;
     reviewCurrentMeanings = [];
     reviewCurrentErrorCount = 0;
     const word = reviewWords[reviewIndex];
@@ -527,7 +534,7 @@ async function renderReviewQuestion(): Promise<void> {
 }
 
 async function reviewCheckAnswer(): Promise<void> {
-    if (!reviewActive) return;
+    if (!reviewActive || reviewAnswerSubmitted || reviewIsChecking) return;
     const answer = (document.getElementById('review-answer') as HTMLInputElement).value.trim();
     const feedback = document.getElementById('review-feedback') as HTMLElement;
     const word = reviewWords[reviewIndex];
@@ -538,64 +545,23 @@ async function reviewCheckAnswer(): Promise<void> {
         return;
     }
 
-    let isCorrect = false;
-    let isPartial = false;
-
-    if (reviewCurrentMode === QuizMode.ZhToEn || reviewCurrentMode === QuizMode.Dictation) {
-        if (isSentence) {
-            const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'"]/g, '').trim();
-            isCorrect = normalize(answer) === normalize(word.word);
-        } else {
-            isCorrect = answer.toLowerCase() === word.word.toLowerCase();
-        }
-    } else {
-        if (isSentence) {
-            if (word.meanings && word.meanings.length > 0 && word.meanings[0].definition) {
-                const checkText = word.meanings[0].definition.substring(0, Math.min(5, word.meanings[0].definition.length));
-                isCorrect = answer.includes(checkText);
-            }
-        } else {
-            const allCorrect: string[] = [];
-            word.meanings.forEach(m => {
-                const parts = m.definition.split(/[；;，,]/).map(p => p.trim()).filter(p => p.length > 0);
-                parts.forEach(p => allCorrect.push(p));
-            });
-            const userAnswers = answer.split(/[，,；;\s]+/).map(a => a.trim()).filter(a => a.length > 0);
-            if (userAnswers.length === 0) {
-                if (feedback) { feedback.textContent = '请输入答案'; feedback.className = 'quiz-feedback-partial'; }
-                return;
-            }
-            const correctUserAnswers: string[] = [];
-            userAnswers.forEach(ua => {
-                const match = allCorrect.some(cm => cm.includes(ua) || ua.includes(cm));
-                if (match) correctUserAnswers.push(ua);
-            });
-            if (correctUserAnswers.length === userAnswers.length) {
-                isCorrect = true;
-            } else if (correctUserAnswers.length > 0) {
-                isPartial = true;
-            } else {
-                // 字符串匹配全部失败，尝试语义相似度兜底
-                try {
-                    const response = await fetch('/api/semantic-similarity', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text1: answer, text2: allCorrect.join('，') }),
-                    });
-                    const result = await response.json();
-                    if (result.success && result.data?.isSimilar) {
-                        isCorrect = true;
-                    }
-                } catch {
-                    // 模型不可用，保持原有判断
-                }
-            }
-        }
-    }
+    // 统一调用 checkQuizAnswer 处理所有模式的答案检查
+    // 含句子字符重叠度判断、中文标点去除、语义相似度兜底（受设置开关控制）
+    // 与测验模式逻辑完全一致，避免两处实现分化导致判定结果不同
+    reviewIsChecking = true;
+    const { isCorrect, isPartial } = await checkQuizAnswer(
+        answer,
+        word.word,
+        word.meanings || [],
+        reviewCurrentMode,
+        isSentence
+    );
+    reviewIsChecking = false;
 
     const answerInput = document.getElementById('review-answer') as HTMLInputElement;
 
     if (isCorrect) {
+        reviewAnswerSubmitted = true;
         reviewCorrect++;
         if (feedback) { feedback.textContent = '回答正确！'; feedback.className = 'quiz-feedback-success'; animateCorrectFeedback(feedback); playCorrectSound(); }
         if (!isSentence) playPronunciation(appState.settings.pronunciationType, word.word);
@@ -630,9 +596,10 @@ async function reviewCheckAnswer(): Promise<void> {
     } else if (isPartial) {
         if (feedback) { feedback.textContent = '对了一部分哦，再检查检查'; feedback.className = 'quiz-feedback-partial'; }
     } else {
+        reviewAnswerSubmitted = true;
         reviewWrong++;
         reviewCurrentErrorCount++;
-        if (feedback) { feedback.textContent = '拼写错误，请检查拼写'; feedback.className = 'quiz-feedback-error'; animateErrorShake(feedback); playWrongSound(); }
+        if (feedback) { feedback.textContent = '回答错误，按Enter进入下一题'; feedback.className = 'quiz-feedback-error'; animateErrorShake(feedback); playWrongSound(); }
 
         if (!appState.errorbook[word.word]) {
             appState.errorbook[word.word] = { errorCount: 1, correctCount: 0, addedTime: Date.now(), meaningWeights: {} };
@@ -662,6 +629,9 @@ async function reviewCheckAnswer(): Promise<void> {
         if (autoPlayThreshold > 0 && reviewCurrentErrorCount >= autoPlayThreshold && !isSentence) {
             playPronunciation(appState.settings.pronunciationType, word.word);
         }
+
+        // 答错后立即显示正确答案（与测验模式一致），避免同一题被重复判定和重复计数
+        reviewShowAnswer();
     }
 }
 

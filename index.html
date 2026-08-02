@@ -617,6 +617,15 @@
                         <span class="setting-desc">调整单词发音的播放速度 (0.5x ~ 2.0x)</span>
                     </div>
 
+                    <!-- 语义相似度模型开关：仅在「看英文写中文」(EnToZh) 模式下字符串匹配失败时启用本地模型兜底判断 -->
+                    <div class="setting-item setting-item-toggle" draggable="true" data-setting-key="semantic-similarity-enabled">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="semantic-similarity-enabled">
+                            <input type="checkbox" id="semantic-similarity-enabled" checked> 启用语义相似度模型
+                        </label>
+                        <span class="setting-desc">「看英文写中文」模式下，当字符串匹配失败时调用本地模型做兜底判断（关闭后可减少 CPU 占用）</span>
+                    </div>
+
                     <div class="setting-item" draggable="true" data-setting-key="api-settings">
                         <span class="drag-handle" title="拖动排序">⋮⋮</span>
                         <label>API设置：</label>

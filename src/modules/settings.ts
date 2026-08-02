@@ -293,6 +293,7 @@ export function loadSettings(): void {
             quizCount: 10,
             dailyWordCount: 20,
             soundEnabled: true,
+            semanticSimilarityEnabled: true,
             ...parsed
         });
     }
@@ -309,6 +310,7 @@ export function loadSettings(): void {
     const addToFavoritesKeyInQuiz = document.getElementById('add-to-favorites-key-in-quiz') as HTMLInputElement;
     const autoAddErrorbook = document.getElementById('auto-add-errorbook') as HTMLInputElement;
     const soundEnabled = document.getElementById('sound-enabled') as HTMLInputElement;
+    const semanticSimilarityEnabled = document.getElementById('semantic-similarity-enabled') as HTMLInputElement;
 
     if (pronunciationType) pronunciationType.value = appState.settings.pronunciationType;
     if (chineseCount) chineseCount.value = String(appState.settings.chineseCount);
@@ -320,6 +322,7 @@ export function loadSettings(): void {
     if (addToFavoritesKeyInQuiz) addToFavoritesKeyInQuiz.value = appState.settings.addToFavoritesKeyInQuiz || '3';
     if (autoAddErrorbook) autoAddErrorbook.checked = appState.settings.addToErrorbookAfterShowAnswer || false;
     if (soundEnabled) soundEnabled.checked = appState.settings.soundEnabled !== false;
+    if (semanticSimilarityEnabled) semanticSimilarityEnabled.checked = appState.settings.semanticSimilarityEnabled !== false;
     const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
     const playbackRateValue = document.getElementById('playback-rate-value');
     if (playbackRateSlider) {
@@ -392,6 +395,7 @@ export function saveSettings(): void {
     const searchHistoryCount = document.getElementById('search-history-count') as HTMLInputElement;
     const enableEbbinghaus = document.getElementById('enable-ebbinghaus') as HTMLInputElement;
     const soundEnabled = document.getElementById('sound-enabled') as HTMLInputElement;
+    const semanticSimilarityEnabled = document.getElementById('semantic-similarity-enabled') as HTMLInputElement;
     const multiPartProb = document.getElementById('quiz-multi-part-probability') as HTMLInputElement;
     const singlePartProb = document.getElementById('quiz-single-part-probability') as HTMLInputElement;
 
@@ -426,6 +430,7 @@ export function saveSettings(): void {
     if (searchHistoryCount) appState.settings.searchHistoryCount = parseInt(searchHistoryCount.value);
     if (enableEbbinghaus) appState.settings.enableEbbinghaus = enableEbbinghaus.checked;
     if (soundEnabled) appState.settings.soundEnabled = soundEnabled.checked;
+    if (semanticSimilarityEnabled) appState.settings.semanticSimilarityEnabled = semanticSimilarityEnabled.checked;
     const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
     if (playbackRateSlider) {
         appState.settings.playbackRate = parseFloat(playbackRateSlider.value) || 1.0;
@@ -532,7 +537,14 @@ export async function clearAllData(): Promise<void> {
             enableEbbinghaus: true,
             quizMultiPartProbability: 50,
             quizSinglePartProbability: 50,
-            soundEnabled: true
+            soundEnabled: true,
+            semanticSimilarityEnabled: true,
+            // 补齐此前漏重置的字段，与 store/getDefaultState 保持一致
+            playbackRate: 1.0,
+            dailyWordCount: 20,
+            quizMode: QuizMode.ZhToEn,
+            wordSource: WordSource.Favorites,
+            quizCount: 10
         });
 
         loadSettings();

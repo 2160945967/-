@@ -2,6 +2,7 @@
 
 import { QuizMode } from '../types/enums';
 import { normalizeNewlines } from './translation';
+import { appState } from '../store';
 
 export interface MeaningItem {
   part: string;
@@ -261,7 +262,8 @@ export async function checkQuizAnswer(
 
   if (mode === QuizMode.ZhToEn || mode === QuizMode.Dictation || mode === QuizMode.Spelling || mode === QuizMode.ListeningStuck) {
     if (isSentence) {
-      const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'"]/g, '').trim();
+      // 同时去除英文和中文标点，避免因标点差异误判
+      const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'""。，！？；：""'']/g, '').trim();
       isCorrect = normalize(userAnswer) === normalize(word);
     } else {
       isCorrect = userAnswer.toLowerCase() === word.toLowerCase();
@@ -269,9 +271,15 @@ export async function checkQuizAnswer(
   } else {
     // EnToZh 模式
     if (isSentence) {
+      // 句子模式：使用字符重叠度判断（比重叠子串更可靠）
+      // 当用户答案覆盖正确翻译 50% 以上字符时判定为正确
       if (meanings && meanings.length > 0 && meanings[0].definition) {
-        const checkText = meanings[0].definition.substring(0, Math.min(5, meanings[0].definition.length));
-        isCorrect = userAnswer.includes(checkText);
+        const correctTranslation = meanings[0].definition;
+        // 用 Set 去重，避免正确翻译中的重复字符被重复计数（如"啊啊啊啊"用户只输入"啊"会被误判为全覆盖）
+        const correctChars = new Set([...correctTranslation]);
+        const overlap = [...correctChars].filter((ch: string) => userAnswer.includes(ch)).length;
+        const ratio = overlap / Math.max(correctChars.size, 1);
+        isCorrect = ratio >= 0.5;
       }
     } else {
       const allCorrectMeanings: string[] = [];
@@ -304,18 +312,21 @@ export async function checkQuizAnswer(
         isPartial = true;
       } else {
         // 字符串匹配全部失败，尝试语义相似度兜底
-        try {
-          const response = await fetch('/api/semantic-similarity', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text1: userAnswer, text2: allCorrectMeanings.join('，') }),
-          });
-          const result = await response.json();
-          if (result.success && result.data?.isSimilar) {
-            isCorrect = true;
+        // 仅在用户开启「语义相似度模型」开关时调用，避免不必要的 CPU 占用
+        if (appState.settings.semanticSimilarityEnabled !== false) {
+          try {
+            const response = await fetch('/api/semantic-similarity', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text1: userAnswer, text2: allCorrectMeanings.join('，') }),
+            });
+            const result = await response.json();
+            if (result.success && result.data?.isSimilar) {
+              isCorrect = true;
+            }
+          } catch {
+            // 模型不可用，保持原有判断
           }
-        } catch {
-          // 模型不可用，保持原有判断
         }
       }
     }

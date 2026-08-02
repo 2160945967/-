@@ -250,6 +250,8 @@ export function recordLearningHistory(word: string, isCorrect: boolean): void {
         learningHistory[word].correctCount++;
     } else {
         learningHistory[word].errorCount++;
+        // 答错时重置正确计数，下次复习回到初始间隔（1天），符合艾宾浩斯遗忘曲线的复习逻辑
+        learningHistory[word].correctCount = 0;
     }
 
     // 计算下一次复习时间（基于艾宾浩斯遗忘曲线）
@@ -1105,23 +1107,14 @@ export async function checkAnswer(): Promise<void> {
 
     let result = { isCorrect: false, isPartial: false };
 
-    if (appState.currentQuizMode === QuizMode.EnToZh && isSentence) {
-        // 句子模式：检查是否匹配翻译（quiz 特有逻辑：字符重叠度）
-        if (appState.currentQuizWord.meanings && appState.currentQuizWord.meanings.length > 0 && appState.currentQuizWord.meanings[0].definition) {
-            const correctTranslation = appState.currentQuizWord.meanings[0].definition;
-            const overlap = [...correctTranslation].filter((ch: string) => answer.includes(ch)).length;
-            const ratio = overlap / Math.max(correctTranslation.length, 1);
-            result.isCorrect = ratio >= 0.5;
-        }
-    } else {
-        result = await checkQuizAnswer(
-            answer,
-            appState.currentQuizWord.word,
-            appState.currentQuizWord.meanings || [],
-            appState.currentQuizMode,
-            isSentence
-        );
-    }
+    // 统一调用 checkQuizAnswer 处理所有模式的答案检查（含 EnToZh 句子的字符重叠度判断 + 语义相似度兜底）
+    result = await checkQuizAnswer(
+        answer,
+        appState.currentQuizWord.word,
+        appState.currentQuizWord.meanings || [],
+        appState.currentQuizMode,
+        isSentence
+    );
 
     if (result.isCorrect) {
         // 完全正确
@@ -1641,6 +1634,8 @@ async function retryQuiz(): Promise<void> {
     quizTotalCount = state.words.length;
     quizAnsweredCount = 0;
     quizAnsweredWords = new Set();
+    // 同步清空 localStorage 中的已答集，避免重测后刷新页面恢复旧数据导致已答词被跳过
+    saveAnsweredWords();
     hideQuizResult();
     const quizContainer = document.getElementById('quiz-container');
     if (quizContainer) quizContainer.classList.add('quiz-container-visible');

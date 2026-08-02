@@ -80,6 +80,8 @@ export interface AppState {
         dailyWordCount: number;
         soundEnabled: boolean;
         playbackRate: number;
+        // 语义相似度模型开关：仅在「看英文写中文」(EnToZh) 模式下字符串匹配失败时启用本地模型兜底
+        semanticSimilarityEnabled: boolean;
         quizMode?: QuizMode;
         wordSource?: WordSource;
         quizCount?: number;
@@ -160,6 +162,7 @@ function getDefaultState(): AppState {
             dailyWordCount: 20,
             soundEnabled: true,
             playbackRate: 1.0,
+            semanticSimilarityEnabled: true,
         },
         quizWords: [],
         currentQuizWord: null,

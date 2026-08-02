@@ -1944,11 +1944,13 @@ export function setupRoutes(app: any) {
   });
 
   // ---- 30. 语义相似度判断 ----
+  // 阈值默认 0.58，与服务层 checkSemanticSimilarity 默认值保持一致
+  // （text2vec-base-chinese 模型的余弦相似度分布偏低，0.85 过严会导致同义不同表述被误判为错误）
   app.post('/api/semantic-similarity', async (req: Request, res: Response) => {
     try {
       const text1 = (getRequestParam(req, 'text1', '') as string).trim();
       const text2 = (getRequestParam(req, 'text2', '') as string).trim();
-      const threshold = parseFloat(getRequestParam(req, 'threshold', '0.85') as string) || 0.85;
+      const threshold = parseFloat(getRequestParam(req, 'threshold', '0.58') as string) || 0.58;
 
       if (!text1 || !text2) {
         res.status(400).json(errorResponse('请提供 text1 和 text2'));
