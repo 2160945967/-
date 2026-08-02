@@ -77,7 +77,25 @@ export function animateCardExit(el: HTMLElement, onDone?: () => void): void {
 }
 
 // 全局轻提示 Toast（弹幕式，不阻塞交互）
-export function showToast(message: string, type: 'success' | 'error' | 'info' = 'info'): HTMLElement {
+const TOAST_ICONS: Record<string, string> = {
+    success: '✓',
+    error: '✕',
+    warning: '⚠',
+    info: 'ℹ',
+};
+
+const TOAST_COLORS: Record<string, string> = {
+    success: '#10b981',
+    error: '#ef4444',
+    warning: '#f59e0b',
+    info: '#3b82f6',
+};
+
+export function showToast(
+    message: string,
+    type: 'success' | 'error' | 'warning' | 'info' = 'info',
+    duration: number = 2800
+): HTMLElement {
     let container = document.getElementById('shici-toast-container');
     if (!container) {
         container = document.createElement('div');
@@ -87,19 +105,21 @@ export function showToast(message: string, type: 'success' | 'error' | 'info' = 
 
     const el = document.createElement('div');
     el.className = `shici-toast shici-toast-${type}`;
-    el.textContent = message;
+
+    const icon = TOAST_ICONS[type] || TOAST_ICONS.info;
+    const color = TOAST_COLORS[type] || TOAST_COLORS.info;
+
+    el.innerHTML = `
+        <span class="shici-toast-icon" style="color:${color}">${icon}</span>
+        <span class="shici-toast-msg"></span>
+        <button class="shici-toast-close" aria-label="关闭">✕</button>
+    `;
+    (el.querySelector('.shici-toast-msg') as HTMLElement).textContent = message;
     container.appendChild(el);
 
-    if (gsapCore) {
-        gsapCore.fromTo(el,
-            { opacity: 0, y: -20, scale: 0.92 },
-            { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: 'back.out(1.5)' }
-        );
-    } else {
-        el.style.opacity = '1';
-    }
-
-    setTimeout(() => {
+    const dismiss = () => {
+        if (el.dataset.closed === '1') return;
+        el.dataset.closed = '1';
         if (gsapCore) {
             gsapCore.to(el, {
                 opacity: 0,
@@ -112,7 +132,26 @@ export function showToast(message: string, type: 'success' | 'error' | 'info' = 
         } else {
             el.remove();
         }
-    }, 2500);
+    };
+
+    const closeBtn = el.querySelector('.shici-toast-close') as HTMLButtonElement;
+    if (closeBtn) {
+        closeBtn.addEventListener('click', dismiss);
+    }
+
+    if (gsapCore) {
+        gsapCore.fromTo(el,
+            { opacity: 0, y: -20, scale: 0.92 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: 'back.out(1.5)' }
+        );
+    } else {
+        el.style.opacity = '1';
+    }
+
+    const timer = setTimeout(dismiss, duration);
+    // 鼠标悬停时暂停自动关闭
+    el.addEventListener('mouseenter', () => clearTimeout(timer));
+    el.addEventListener('mouseleave', () => setTimeout(dismiss, Math.max(1000, duration / 2)));
 
     return el;
 }

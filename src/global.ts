@@ -359,6 +359,8 @@ export async function switchPage(section: string): Promise<void> {
             if (renderedOrder.length > MAX_RENDERED_PAGES) {
                 releaseRenderedPages({ count: renderedOrder.length - MAX_RENDERED_PAGES });
             }
+            // 触发页面离开回调
+            pageHandlers.onPageLeave?.(prevSection);
             await new Promise(r => requestAnimationFrame(r));
         }
 
@@ -373,6 +375,9 @@ export async function switchPage(section: string): Promise<void> {
         appState.lastVisitedPage = section;
         localStorage.setItem('lastVisitedPage', section);
         animatePageEnter(targetPage);
+
+        // 触发页面进入/离开回调
+        pageHandlers.onPageEnter?.(section);
 
         if (section === PageSection.Favorites) {
             pageHandlers.updateFavoritesDisplay?.();
@@ -995,6 +1000,8 @@ export const pageHandlers: {
     cleanupShowAnswerEnterHandler?: () => void;
     saveWordbookScroll?: () => void;
     restoreWordbookScroll?: () => void;
+    onPageEnter?: (page: string) => void;
+    onPageLeave?: (page: string) => void;
 } = {};
 
 // 侧边栏折叠/展开

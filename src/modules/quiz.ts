@@ -5,7 +5,7 @@ import { QuizMode, QuizOrder } from '../types/enums';
 import { playPronunciation } from '../utils/audio';
 import { formatDefinitionHtml } from '../utils/translation';
 import { initErrorbookVue } from './errorbook';
-import { updateStudyStats } from './stats';
+import { updateStudyStats, incrementStudyDay } from './stats';
 import { loadSettings, saveQuizSettings } from './settings';
 import { loadWordbooks, updateWordSourceSelect, getSourceProgress, getSourceWordList, normalizeCaseByType } from './wordbook';
 import { setupImeHandling, setupEnterSubmission, setupGlobalShortcuts, setupInputCooldown, getRandomMeanings } from '../utils/quizCommon';
@@ -838,9 +838,11 @@ export async function generateQuestion(): Promise<void> {
     if (appState.currentQuizWord && quizAnswerSubmitted) {
         quizAnsweredWords.add(appState.currentQuizWord.word);
         recordLearningHistory(appState.currentQuizWord.word, quizLastAnswerCorrect);
+        incrementStudyDay();
         appState.studyStats.todayWords++;
         appState.studyStats.learnedCount++;
         updateStudyStats();
+        localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
         await updateWordSourceSelect();
         saveAnsweredWords();
         if (quizSession) {

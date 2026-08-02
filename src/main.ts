@@ -21,6 +21,7 @@ import { initQuiz, showLearningHistory, toggleHistoryDay, toggleDueWords, showDu
 import { initWordbookManagement, loadWordbooks, abortLoadWordbooks, abortWordbookRendering, saveWordbookScroll, restoreWordbookScroll, renameWordbook, updateSelectedWordbookDisplay, updateWordbookSelect } from './modules/wordbook';
 import { initSettings } from './modules/settings';
 import { initStudyStats } from './modules/stats';
+import { initStudyTimer, startStudyTimer, stopStudyTimer, recordActivity } from './modules/timer';
 import { initReviewQuiz } from './modules/review';
 import { updateFavoritesDisplay, removeFromFavorites, setFavoritesFilter, setFavoritesSort } from './modules/favorites';
 import { updateErrorbookDisplay, removeFromErrorbook, setErrorbookFilter, setErrorbookSort } from './modules/errorbook';
@@ -103,6 +104,19 @@ document.addEventListener('DOMContentLoaded', () => {
     pageHandlers.showLearningHistory = showLearningHistory;
     pageHandlers.initReviewQuiz = initReviewQuiz;
     pageHandlers.cleanupShowAnswerEnterHandler = cleanupShowAnswerEnterHandler;
+    pageHandlers.onPageEnter = (page: string) => {
+        // 进入学习相关页面时启动计时器
+        if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(page)) {
+            startStudyTimer();
+        }
+        recordActivity();
+    };
+    pageHandlers.onPageLeave = (page: string) => {
+        // 离开学习相关页面时停止计时器
+        if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(page)) {
+            stopStudyTimer();
+        }
+    };
 
     // 0.5 注入 appState 到音频模块（供预加载使用）
     setAppState(appState);
@@ -148,6 +162,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 10. 初始化学习统计
     initStudyStats();
+
+    // 10.5 初始化学习计时器
+    initStudyTimer();
 
     // 11. 初始化单词本和错题本搜索
     initWordbookAndErrorbookSearch();

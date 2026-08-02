@@ -24,23 +24,20 @@ export function clearStudyStats(): void {
     appState.studyStats.studyDays = 0;
     appState.studyStats.todayWords = 0;
     appState.studyStats.errorWords = 0;
+    appState.studyStats.todaySeconds = 0;
+    appState.studyStats.totalSeconds = 0;
     appState.studyStats.lastStudyDate = new Date().toDateString();
-    localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
 
-    for (const key of Object.keys(appState.favorites)) {
-        delete appState.favorites[key];
-    }
-    appState.favorites.length = 0;
+    // 清空收藏（数组直接置空）
+    appState.favorites.splice(0, appState.favorites.length);
+    // 清空自建单词本
     for (const key of Object.keys(appState.wordbooks)) {
         delete appState.wordbooks[key];
     }
+    // 清空错题本
     for (const key of Object.keys(appState.errorbook)) {
         delete appState.errorbook[key];
     }
-    localStorage.removeItem('wordlist');
-    localStorage.setItem('favorites', JSON.stringify(appState.favorites));
-    localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
-    localStorage.setItem('errorbook', JSON.stringify(appState.errorbook));
 
     void showAlert('学习数据已清空！');
 
@@ -52,8 +49,10 @@ export function clearStudyStats(): void {
 export function updateStudyStats(): void {
     const today = new Date().toDateString();
     if (appState.studyStats.lastStudyDate !== today) {
+        // 新的一天：重置今日数据，但不立即递增学习天数
+        // 学习天数在用户第一次答题/学习时递增（由 incrementStudyDay 调用）
         appState.studyStats.todayWords = 0;
-        appState.studyStats.studyDays++;
+        appState.studyStats.todaySeconds = 0;
         appState.studyStats.lastStudyDate = today;
     }
 
@@ -83,6 +82,8 @@ export function updateStudyStats(): void {
     const todayWordsEl = document.getElementById('today-words');
     const errorWordsEl = document.getElementById('error-words');
     const tomorrowWordsEl = document.getElementById('tomorrow-words');
+    const todayTimeEl = document.getElementById('today-time');
+    const totalTimeEl = document.getElementById('total-time');
 
     const total = Number(appState.studyStats.learnedCount) || 0;
     const searchCnt = Number(appState.studyStats.searchCount) || 0;
@@ -90,6 +91,8 @@ export function updateStudyStats(): void {
     const todayWords = Number(appState.studyStats.todayWords) || 0;
     const err = Number(appState.studyStats.errorWords) || 0;
     const tomorrow = Number(appState.studyStats.tomorrowWords) || 0;
+    const todaySecs = Number(appState.studyStats.todaySeconds) || 0;
+    const totalSecs = Number(appState.studyStats.totalSeconds) || 0;
 
     animateStatNumber(totalWordsEl as HTMLElement, total);
     animateStatNumber(searchCountEl as HTMLElement, searchCnt);
@@ -97,6 +100,8 @@ export function updateStudyStats(): void {
     animateStatNumber(todayWordsEl as HTMLElement, todayWords);
     animateStatNumber(errorWordsEl as HTMLElement, err);
     animateStatNumber(tomorrowWordsEl as HTMLElement, tomorrow);
+    if (todayTimeEl) todayTimeEl.textContent = formatDuration(todaySecs);
+    if (totalTimeEl) totalTimeEl.textContent = formatDuration(totalSecs);
 
     const progressFill = document.getElementById('study-progress-fill') as HTMLElement;
     if (progressFill && appState.studyStats.todayWords > 0) {
@@ -105,6 +110,27 @@ export function updateStudyStats(): void {
     }
 
     localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
+}
+
+/** 当用户第一次在新的一天开始学习时，递增学习天数 */
+export function incrementStudyDay(): void {
+    const today = new Date().toDateString();
+    if (appState.studyStats.lastStudyDate !== today) {
+        appState.studyStats.todayWords = 0;
+        appState.studyStats.todaySeconds = 0;
+        appState.studyStats.studyDays++;
+        appState.studyStats.lastStudyDate = today;
+    }
+}
+
+/** 格式化秒数为可读时长 */
+export function formatDuration(seconds: number): string {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}小时${m}分`;
+    if (m > 0) return `${m}分${s}秒`;
+    return `${s}秒`;
 }
 
 export function updateTomorrowWords(): void {

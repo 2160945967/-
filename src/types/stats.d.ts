@@ -9,4 +9,6 @@ interface StudyStatsData {
   errorWords: number;
   lastStudyDate: string;
   tomorrowWords?: number;
+  todaySeconds: number;
+  totalSeconds: number;
 }

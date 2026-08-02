@@ -60,6 +60,25 @@ export function initSettings(): void {
         });
     }
 
+    // 发音语速滑块
+    const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
+    const playbackRateValue = document.getElementById('playback-rate-value');
+    const playbackRateTest = document.getElementById('playback-rate-test');
+    if (playbackRateSlider) {
+        playbackRateSlider.addEventListener('input', function() {
+            const rate = parseFloat(this.value) || 1.0;
+            appState.settings.playbackRate = rate;
+            if (playbackRateValue) playbackRateValue.textContent = rate.toFixed(1) + 'x';
+        });
+    }
+    if (playbackRateTest) {
+        playbackRateTest.addEventListener('click', (e: Event) => {
+            e.preventDefault();
+            const type = appState.settings.pronunciationType || 'us';
+            void playPronunciation(type, 'hello');
+        });
+    }
+
     if (saveSettingsBtn) {
         saveSettingsBtn.addEventListener('click', function() {
             saveSettings();
@@ -301,6 +320,13 @@ export function loadSettings(): void {
     if (addToFavoritesKeyInQuiz) addToFavoritesKeyInQuiz.value = appState.settings.addToFavoritesKeyInQuiz || '3';
     if (autoAddErrorbook) autoAddErrorbook.checked = appState.settings.addToErrorbookAfterShowAnswer || false;
     if (soundEnabled) soundEnabled.checked = appState.settings.soundEnabled !== false;
+    const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
+    const playbackRateValue = document.getElementById('playback-rate-value');
+    if (playbackRateSlider) {
+        const rate = appState.settings.playbackRate ?? 1.0;
+        playbackRateSlider.value = String(rate);
+        if (playbackRateValue) playbackRateValue.textContent = rate.toFixed(1) + 'x';
+    }
     if (errorCorrectCount) errorCorrectCount.value = String(appState.settings.errorCorrectCount || 3);
     if (autoPlayPronunciationAfterErrors) autoPlayPronunciationAfterErrors.value = String(appState.settings.autoPlayPronunciationAfterErrors ?? 2);
 
@@ -400,6 +426,10 @@ export function saveSettings(): void {
     if (searchHistoryCount) appState.settings.searchHistoryCount = parseInt(searchHistoryCount.value);
     if (enableEbbinghaus) appState.settings.enableEbbinghaus = enableEbbinghaus.checked;
     if (soundEnabled) appState.settings.soundEnabled = soundEnabled.checked;
+    const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
+    if (playbackRateSlider) {
+        appState.settings.playbackRate = parseFloat(playbackRateSlider.value) || 1.0;
+    }
     if (multiPartProb) appState.settings.quizMultiPartProbability = parseInt(multiPartProb.value);
     if (singlePartProb) appState.settings.quizSinglePartProbability = parseInt(singlePartProb.value);
 
@@ -718,7 +748,8 @@ async function pausePronunciationDownload(): Promise<void> {
 }
 
 async function clearPronunciationCacheUI(): Promise<void> {
-    if (!confirm('确定要清空离线发音包缓存吗？清空后需要重新下载。')) return;
+    const ok = await showConfirm('确定要清空离线发音包缓存吗？清空后需要重新下载。');
+    if (!ok) return;
     try {
         const response = await fetch('/api/pronunciations/clear', { method: 'POST' });
         const result = await response.json();
@@ -954,8 +985,8 @@ function updateAssetProgress(progressMap: Record<string, AssetProgressItem>): vo
                 // 可选资源下载完成后提示用户重启生效
                 const cachedAsset = assetStatusCache.find(a => a.id === assetId);
                 if (!cachedAsset?.required) {
-                    setTimeout(() => {
-                        const shouldRestart = window.confirm(
+                    setTimeout(async () => {
+                        const shouldRestart = await showConfirm(
                             `${getAssetNameById(assetId)} 下载完成，需要重启应用后才能生效。\n\n是否立即重启？`
                         );
                         if (shouldRestart) {
@@ -1046,9 +1077,8 @@ async function deleteAssetUI(assetId: string): Promise<void> {
         showToast('必需资源不能删除', 'error');
         return;
     }
-    if (!confirm(`确定要删除「${asset.name}」吗？删除后该功能将无法使用，可重新下载。`)) {
-        return;
-    }
+    const ok = await showConfirm(`确定要删除「${asset.name}」吗？删除后该功能将无法使用，可重新下载。`);
+    if (!ok) return;
     try {
         const response = await fetch('/api/assets/delete', {
             method: 'POST',

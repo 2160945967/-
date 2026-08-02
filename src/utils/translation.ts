@@ -72,6 +72,16 @@ function fixUnbalancedParentheses(text: string): string {
     return text;
 }
 
+// 把释义文本转成可安全插入 HTML 的字符串（不转换换行，换行由调用方决定）
+function escapeHtmlText(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // 把释义文本转成可安全插入 HTML 的字符串，\n 等换行渲染为 <br>
 export function formatDefinitionHtml(text?: string): string {
     if (!text) return '';
@@ -167,7 +177,7 @@ export function buildTranslationHtml(translation?: string, phonetic?: string, de
     let html = '';
 
     if (phonetic) {
-        html += `<div class="def-phonetic" style="margin-bottom: 10px; color: var(--text-gray); font-size: 16px;">/${phonetic}/</div>`;
+        html += `<div class="def-phonetic" style="margin-bottom: 10px; color: var(--text-gray); font-size: 16px;">/${escapeHtmlText(phonetic)}/</div>`;
     }
 
     const meanings = parseMeanings(translation, definition);
@@ -184,7 +194,7 @@ export function buildTranslationHtml(translation?: string, phonetic?: string, de
                 if (m) {
                     const color = DOMAIN_COLORS[m[1]] || '#3498db';
                     text = m[2];
-                    return `<div class="part-of-speech" style="background:${color}20;color:${color}">[${m[1]}]</div>`;
+                    return `<div class="part-of-speech" style="background:${color}20;color:${color}">[${escapeHtmlText(m[1])}]</div>`;
                 }
                 return '';
             };
@@ -193,7 +203,7 @@ export function buildTranslationHtml(translation?: string, phonetic?: string, de
             tagHtml += extractDomain(text);
 
             if (meaning.part && meaning.part !== '词组') {
-                tagHtml += `<div class="part-of-speech">${meaning.part}</div>`;
+                tagHtml += `<div class="part-of-speech">${escapeHtmlText(meaning.part)}</div>`;
                 // 词性后面还可能跟着领域标签，如 art. [计]
                 tagHtml += extractDomain(text);
             }
@@ -203,7 +213,7 @@ export function buildTranslationHtml(translation?: string, phonetic?: string, de
             }
 
             html += '<div class="meaning-tag-row">' + tagHtml + '</div>';
-            html += '<div class="definition">' + text + '</div>';
+            html += '<div class="definition">' + escapeHtmlText(text) + '</div>';
         });
 
         html += `</div>`;

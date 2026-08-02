@@ -13,7 +13,8 @@ interface AudioTask {
 
 let activeCount = 0;
 const queue: AudioTask[] = [];
-const audioCache = new Map<string, HTMLAudioElement>();
+// 缓存 blob URL，避免重复网络请求；存储的是 objectURL 字符串而非 Audio 实例
+const audioCache = new Map<string, string>();
 
 /**
  * 执行队列中的下一个任务
@@ -25,9 +26,10 @@ function processQueue(): void {
     activeCount++;
 
     loadWithFetch(task)
-        .then((audio) => {
+        .then((url) => {
             activeCount--;
-            audioCache.set(task.src, audio);
+            audioCache.set(task.src, url);
+            const audio = new Audio(url);
             task.resolve(audio);
             processQueue();
         })
@@ -46,7 +48,7 @@ function processQueue(): void {
         });
 }
 
-async function loadWithFetch(task: AudioTask): Promise<HTMLAudioElement> {
+async function loadWithFetch(task: AudioTask): Promise<string> {
     try {
         const response = await fetch(task.src);
         if (!response.ok) {
@@ -54,17 +56,7 @@ async function loadWithFetch(task: AudioTask): Promise<HTMLAudioElement> {
         }
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-
-        return new Promise((resolve, reject) => {
-            const audio = new Audio();
-            audio.oncanplay = () => resolve(audio);
-            audio.onerror = () => {
-                URL.revokeObjectURL(url);
-                reject(new Error('Audio play failed'));
-            };
-            audio.src = url;
-            audio.load();
-        });
+        return url;
     } catch (err) {
         throw err;
     }
@@ -74,16 +66,25 @@ async function loadWithFetch(task: AudioTask): Promise<HTMLAudioElement> {
  * 加载音频（受队列控制）
  */
 function loadAudio(src: string): Promise<HTMLAudioElement> {
-    // 缓存命中直接返回
-    const cached = audioCache.get(src);
-    if (cached) {
-        // 克隆新实例以便独立播放
-        const clone = new Audio(src);
-        return Promise.resolve(clone);
+    // 缓存命中：直接从 blob URL 创建新 Audio 实例，不发网络请求
+    const cachedUrl = audioCache.get(src);
+    if (cachedUrl) {
+        const audio = new Audio(cachedUrl);
+        audio.playbackRate = getPlaybackRate();
+        return Promise.resolve(audio);
     }
 
     return new Promise((resolve, reject) => {
-        queue.push({ src, resolve, reject, retries: 0 });
+        queue.push({
+            src,
+            resolve: (url: any) => {
+                const audio = new Audio(url);
+                audio.playbackRate = getPlaybackRate();
+                resolve(audio);
+            },
+            reject,
+            retries: 0
+        });
         processQueue();
     });
 }
@@ -108,10 +109,27 @@ export function preloadAudio(items: Array<{ word: string; accent?: string }>, st
 }
 
 // 需要从 global 导入 appState，使用延迟导入避免循环依赖
-let appState: { settings: { pronunciationType: string } };
+let appState: { settings: { pronunciationType: string; soundEnabled: boolean; playbackRate: number } };
 
-export function setAppState(state: { settings: { pronunciationType: string } }): void {
+export function setAppState(state: { settings: { pronunciationType: string; soundEnabled: boolean; playbackRate: number } }): void {
     appState = state;
+}
+
+function getPlaybackRate(): number {
+    if (!appState) return 1.0;
+    const rate = appState.settings.playbackRate;
+    return (typeof rate === 'number' && rate >= 0.5 && rate <= 2.0) ? rate : 1.0;
+}
+
+/**
+ * 停止所有正在播放的音频
+ */
+export function stopAllAudio(): void {
+    // 遍历缓存中的 blob URL 停止
+    audioCache.forEach(url => {
+        const audio = new Audio(url);
+        audio.pause();
+    });
 }
 
 /**

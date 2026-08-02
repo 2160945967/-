@@ -79,6 +79,7 @@ export interface AppState {
         quizSinglePartProbability: number;
         dailyWordCount: number;
         soundEnabled: boolean;
+        playbackRate: number;
         quizMode?: QuizMode;
         wordSource?: WordSource;
         quizCount?: number;
@@ -158,6 +159,7 @@ function getDefaultState(): AppState {
             quizSinglePartProbability: 50,
             dailyWordCount: 20,
             soundEnabled: true,
+            playbackRate: 1.0,
         },
         quizWords: [],
         currentQuizWord: null,
@@ -387,7 +389,17 @@ function hydrate(): void {
             errorWords: 0,
             lastStudyDate: new Date().toDateString(),
             tomorrowWords: 20,
+            todaySeconds: 0,
+            totalSeconds: 0,
         };
+    } else {
+        // 兼容旧数据：补全新字段
+        if (typeof (rawState.studyStats as any).todaySeconds !== 'number') {
+            (rawState.studyStats as any).todaySeconds = 0;
+        }
+        if (typeof (rawState.studyStats as any).totalSeconds !== 'number') {
+            (rawState.studyStats as any).totalSeconds = 0;
+        }
     }
     const savedSettings = readFromStorage<Partial<AppState['settings']>>('quizSettings', {});
     rawState.settings = { ...rawState.settings, ...savedSettings };
