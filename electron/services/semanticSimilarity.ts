@@ -92,13 +92,13 @@ export async function calculateSimilarity(text1: string, text2: string): Promise
  * 判断两段文本是否语义相似
  * @param userInput 用户输入
  * @param correctAnswer 正确答案
- * @param threshold 相似度阈值（默认0.60）
+ * @param threshold 相似度阈值（默认0.58）
  * @returns 是否相似，模型不可用时返回 false
  */
 export async function checkSemanticSimilarity(
   userInput: string,
   correctAnswer: string,
-  threshold: number = 0.60
+  threshold: number = 0.58
 ): Promise<boolean> {
   const similarity = await calculateSimilarity(userInput, correctAnswer);
   if (similarity === null) return false;
