@@ -786,6 +786,13 @@ function startPollingPronunciationDownloadStatus(): void {
     }, 1000);
 }
 
+function stopPollingPronunciationDownloadStatus(): void {
+    if (pronunciationDownloadPollTimer) {
+        clearInterval(pronunciationDownloadPollTimer);
+        pronunciationDownloadPollTimer = null;
+    }
+}
+
 function initPronunciationBulkDownload(): void {
     const container = document.getElementById('asset-downloads-list');
     if (!container) {
@@ -795,7 +802,6 @@ function initPronunciationBulkDownload(): void {
 
     getOrCreatePronunciationItemEl(container);
     void fetchPronunciationDownloadStatus();
-    startPollingPronunciationDownloadStatus();
 }
 
 // ==================== 数据资源下载 ====================
@@ -1108,6 +1114,13 @@ function startPollingAssetStatus(): void {
     }, 1000);
 }
 
+function stopPollingAssetStatus(): void {
+    if (assetDownloadPollTimer) {
+        clearInterval(assetDownloadPollTimer);
+        assetDownloadPollTimer = null;
+    }
+}
+
 function initAssetDownloads(): void {
     const container = document.getElementById('asset-downloads-list');
     if (!container) {
@@ -1115,7 +1128,18 @@ function initAssetDownloads(): void {
         return;
     }
     void fetchAssetStatus();
+}
+
+/** 进入设置页面时启动轮询（资源下载状态需要实时更新） */
+export function startSettingsPolling(): void {
     startPollingAssetStatus();
+    startPollingPronunciationDownloadStatus();
+}
+
+/** 离开设置页面时停止轮询，避免不必要的网络请求 */
+export function stopSettingsPolling(): void {
+    stopPollingAssetStatus();
+    stopPollingPronunciationDownloadStatus();
 }
 
 // 设置项拖拽排序：基于 pointer 事件 + 浮动 ghost + transform 挤压动画

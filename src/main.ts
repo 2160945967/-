@@ -19,7 +19,7 @@ import {
 import { initSearch, searchWord, initKeyboardShortcuts, translateText, showSearchHistory, removeFromSearchHistory, refreshResultWordbookSelector } from './modules/dictionary';
 import { initQuiz, showLearningHistory, toggleHistoryDay, toggleDueWords, showDueWordsCondition, removeDueWord, toggleHistoryPanel, cleanupShowAnswerEnterHandler } from './modules/quiz';
 import { initWordbookManagement, loadWordbooks, abortLoadWordbooks, abortWordbookRendering, saveWordbookScroll, restoreWordbookScroll, renameWordbook, updateSelectedWordbookDisplay, updateWordbookSelect } from './modules/wordbook';
-import { initSettings } from './modules/settings';
+import { initSettings, startSettingsPolling, stopSettingsPolling } from './modules/settings';
 import { initStudyStats } from './modules/stats';
 import { initStudyTimer, startStudyTimer, stopStudyTimer, recordActivity } from './modules/timer';
 import { initReviewQuiz } from './modules/review';
@@ -109,12 +109,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(page)) {
             startStudyTimer();
         }
+        // 进入设置页面时启动资源状态轮询
+        if (page === 'settings') {
+            startSettingsPolling();
+        }
         recordActivity();
     };
     pageHandlers.onPageLeave = (page: string) => {
         // 离开学习相关页面时停止计时器
         if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(page)) {
             stopStudyTimer();
+        }
+        // 离开设置页面时停止资源状态轮询
+        if (page === 'settings') {
+            stopSettingsPolling();
         }
     };
 

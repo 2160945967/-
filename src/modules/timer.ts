@@ -70,6 +70,16 @@ function onUserActivity(): void {
 function onVisibilityChange(): void {
     if (document.hidden) {
         stopStudyTimer();
+    } else {
+        // 页面恢复可见时，检查是否在学习页面，是则重启计时器
+        recordActivity();
+        const activePage = document.querySelector('.content-page.active');
+        if (activePage) {
+            const pageId = activePage.id.replace('-page', '');
+            if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(pageId)) {
+                startStudyTimer();
+            }
+        }
     }
 }
 
