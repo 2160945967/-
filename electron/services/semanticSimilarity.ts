@@ -45,7 +45,7 @@ async function loadModel() {
 
     try {
       featureExtractor = await pipeline('feature-extraction', MODEL_PATH, {
-        dtype: 'q8', // 量化版本，更小更快
+        dtype: 'fp32',
       });
       console.log(`[SemanticSimilarity] 模型加载完成，耗时 ${Date.now() - start}ms`);
       return featureExtractor;
@@ -98,7 +98,7 @@ export async function calculateSimilarity(text1: string, text2: string): Promise
 export async function checkSemanticSimilarity(
   userInput: string,
   correctAnswer: string,
-  threshold: number = 0.85
+  threshold: number = 0.58
 ): Promise<boolean> {
   const similarity = await calculateSimilarity(userInput, correctAnswer);
   if (similarity === null) return false;
