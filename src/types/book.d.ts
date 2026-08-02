@@ -9,5 +9,5 @@ interface WordbookData {
 interface SystemWordbook {
   id: string;
   name: string;
-  tag: string;
+  tags: string[];
 }

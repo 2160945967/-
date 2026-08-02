@@ -16,5 +16,6 @@ interface Window {
     sendMemoryReleased?: (count: number) => void;
     getServerPort?: () => Promise<number | null>;
     getApiBase?: () => Promise<string>;
+    restartApp?: () => void;
   };
 }

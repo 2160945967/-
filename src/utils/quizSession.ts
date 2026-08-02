@@ -192,9 +192,9 @@ export function endSessionComplete(session: SessionState): void {
 export function updateSettingsButtons(
     type: 'quiz' | 'review',
 ): void {
-    const startBtn = document.getElementById(type === 'quiz' ? 'start-quiz' : 'start-review');
-    const continueBtn = document.getElementById(type === 'quiz' ? 'continue-quiz' : 'continue-review');
-    const redoBtn = document.getElementById(type === 'quiz' ? 'redo-quiz' : 'redo-review');
+    const startBtn = document.getElementById(type === 'quiz' ? 'start-quiz' : 'start-review') as HTMLButtonElement;
+    const continueBtn = document.getElementById(type === 'quiz' ? 'continue-quiz' : 'continue-review') as HTMLButtonElement;
+    const redoBtn = document.getElementById(type === 'quiz' ? 'redo-quiz' : 'redo-review') as HTMLButtonElement;
 
     const state = loadSessionState();
 

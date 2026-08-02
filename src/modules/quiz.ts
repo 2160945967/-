@@ -131,7 +131,7 @@ export function initQuiz(): void {
         quizFavBtn.addEventListener('click', function() {
             const word = appState.currentQuizWord?.word;
             if (!word) return;
-            const isInFavorites = appState.favorites.some((item: { word: string }) => item.word === word);
+            const isInFavorites = appState.favorites.some((item: any) => item.word === word || item === word);
             if (isInFavorites) {
                 void showAlert('该单词已在收藏中');
                 return;
@@ -699,7 +699,7 @@ export async function startQuiz(): Promise<void> {
                 // 缓存系统词库单词列表，供统计使用
                 try {
                     const cache = JSON.parse(localStorage.getItem('systemWordbookWordsCache') || '{}');
-                    cache[tag] = data.data.words.map((w: { word: string }) => w.word);
+                    cache[tags] = data.data.words.map((w: { word: string }) => w.word);
                     localStorage.setItem('systemWordbookWordsCache', JSON.stringify(cache));
                 } catch {}
             } else {

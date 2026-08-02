@@ -3,7 +3,6 @@ import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
 import * as crypto from 'crypto';
-import { LRUCache } from '../utils/cache';
 import {
   normalizeWordForFilename, preprocessWordForTTS, ROOT_DIR, CACHE_DIR
 } from '../utils/helpers';
@@ -207,7 +206,6 @@ export class TencentTTS {
   private secretId: string;
   private secretKey: string;
   private currentVoiceIdx: Record<string, number>;
-  private translationCache: LRUCache<string>;
   private _edgeTtsChecked = false;
   private _edgeTtsAvailable = false;
 
@@ -223,7 +221,6 @@ export class TencentTTS {
     if(DEBUG)console.log('腾讯云密钥已设置');
 
     this.currentVoiceIdx = { 'us': 0, 'uk': 0 };
-    this.translationCache = new LRUCache<string>(500);
 
     this.ensureDirs();
   }
@@ -640,171 +637,11 @@ export class TencentTTS {
     }
     return false;
   }
-
-  // 网络测试
-
-  testNetwork(): boolean {
-    return true;
-  }
-
-  //  翻译 
-
-  translate(text: string): string {
-    if (!text) return text;
-
-    // 检查 LRU 缓存
-    const cacheKey = `translate:${text}`;
-    const cached = this.translationCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-
-    let translation = text;
-
-    try {
-      // 优先使用腾讯云翻译
-      translation = this.tencentTranslate(text);
-      if (translation && translation !== text) {
-        this.translationCache.put(cacheKey, translation);
-        return translation;
-      }
-
-      // 备选：有道网页翻译
-      translation = this.youdaoTranslate(text);
-      if (translation && translation !== text) {
-        this.translationCache.put(cacheKey, translation);
-        return translation;
-      }
-    } catch (e) {
-      if(DEBUG)console.log(`翻译出错: ${e}`);
-    }
-
-    this.translationCache.put(cacheKey, text);
-    return text;
-  }
-
-  private tencentTranslate(text: string): string | null {
-    if (!this.secretId || !this.secretKey) {
-      if(DEBUG)console.log('腾讯云客户端未初始化，跳过腾讯云翻译');
-      return null;
-    }
-
-    if(DEBUG)console.log(`使用腾讯云翻译: ${text}`);
-
-    const action = 'TextTranslate';
-    const version = '2018-03-21';
-    const region = 'ap-guangzhou';
-    const service = 'tmt';
-    const timestamp = Math.floor(Date.now() / 1000);
-
-    const params = {
-      Source: 'en',
-      Target: 'zh',
-      SourceText: text,
-      ProjectId: 0
-    };
-    const payload = JSON.stringify(params);
-
-    const signResult = tencentCloudSign(
-      this.secretId,
-      this.secretKey,
-      service,
-      action,
-      version,
-      region,
-      payload,
-      timestamp
-    );
-
-    const url = `https://${signResult.host}/`;
-
-    try {
-      const response = httpPostSync(url, payload, signResult.headers);
-
-      if (response && response.statusCode === 200) {
-        const responseData = JSON.parse(response.data.toString('utf8'));
-        if (responseData.Response && responseData.Response.TargetText) {
-          if(DEBUG)console.log(`腾讯云翻译结果: ${responseData.Response.TargetText}`);
-          return responseData.Response.TargetText;
-        }
-        if (responseData.Response && responseData.Response.Error) {
-          if(DEBUG)console.log(`腾讯云翻译API错误: ${JSON.stringify(responseData.Response.Error)}`);
-        }
-      }
-    } catch (e) {
-      if(DEBUG)console.log(`腾讯云翻译出错: ${e}`);
-    }
-
-    return null;
-  }
-
-  private youdaoTranslate(text: string): string | null {
-    try {
-      const url = 'https://fanyi.youdao.com/translate';
-      const body = new URLSearchParams({
-        'i': text,
-        'from': 'en',
-        'to': 'zh-CHS',
-        'smartresult': 'dict',
-        'client': 'fanyideskweb',
-        'doctype': 'json',
-        'version': '2.1',
-        'keyfrom': 'fanyi.web',
-        'action': 'FY_BY_CLICKBUTTON'
-      }).toString();
-
-      const response = httpPostSync(url, body, {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      });
-
-      if (response && response.statusCode === 200) {
-        const result = JSON.parse(response.data.toString('utf8'));
-        if (result.translateResult && result.translateResult[0] && result.translateResult[0][0]) {
-          const translation = result.translateResult[0][0].tgt;
-          if (translation && translation !== text) {
-            return translation;
-          }
-        }
-      }
-    } catch (e) {
-      if(DEBUG)console.log(`有道翻译备用方案出错: ${e}`);
-    }
-
-    return null;
-  }
 }
 
-//  同步 HTTP 辅助函数 
+//  同步 HTTP 辅助函数
 //  使用 child_process.execFileSync + curl 参数数组，避免命令注入
 //  curl 在 Windows 10+ 和所有主流平台均可用
-
-function httpGetSync(url: string, timeout: number = 10000): HttpResponse | null {
-  const tmpFile = path.join(CACHE_DIR, `_http_tmp_${Date.now()}_${Math.random().toString(36).slice(2)}.dat`);
-  const timeoutSec = Math.ceil(timeout / 1000);
-
-  try {
-    const { execFileSync } = require('child_process');
-    const args = [
-      '-s', '-L', '-o', tmpFile, '-w', '%{http_code}',
-      '--connect-timeout', String(timeoutSec),
-      '--max-time', String(timeoutSec),
-      '-A', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      url,
-    ];
-    const statusCode = execFileSync('curl', args, {
-      timeout: timeout + 5000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
-
-    const code = parseInt(statusCode, 10);
-    let data = Buffer.alloc(0);
-    if (fs.existsSync(tmpFile)) {
-      data = fs.readFileSync(tmpFile);
-    }
-    return { statusCode: code, data, headers: {} };
-  } catch (e) {
-    return null;
-  } finally {
-    try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); } catch {}
-  }
-}
 
 function httpPostSync(url: string, body: string, headers: Record<string, string> = {}, timeout: number = 10000): HttpResponse | null {
   const tmpOutput = path.join(CACHE_DIR, `_http_tmp_out_${Date.now()}_${Math.random().toString(36).slice(2)}.dat`);

@@ -276,12 +276,12 @@ export function escapeForJsString(text: string): string {
         .replace(/\r/g, '\\r');
 }
 
-// 系统单词本常量（从共享常量导入，统一为 tags 数组）
+// 系统单词本常量（从共享常量导入，tags 已统一为数组）
 export const systemWordbooks = SYSTEM_WORDBOOKS.map(wb => ({
     id: wb.id,
     name: wb.name,
-    tags: 'tags' in wb ? wb.tags : [wb.tag],
-})) as { id: string; name: string; tags: string[] }[];
+    tags: wb.tags,
+}));
 
 export function setupNavbar(): void {
     const navbarToggle = document.getElementById('navbar-toggle');

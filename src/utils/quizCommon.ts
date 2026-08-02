@@ -6,8 +6,8 @@ import { QuizMode } from '../types/enums';
 
 // 为输入框绑定中文输入法处理
 export function setupImeHandling(input: HTMLInputElement): {
-    isComposing: boolean;
-    justComposed: boolean;
+    isComposing: () => boolean;
+    justComposed: () => boolean;
 } {
     let isComposing = false;
     let justComposed = false;

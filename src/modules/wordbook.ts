@@ -76,8 +76,8 @@ export function restoreWordbookScroll(): void {
     requestAnimationFrame(() => {
         scrollEl.scrollTop = targetTop;
         if (appState.wordbookVueInstance) {
-            appState.wordbookVueInstance.scrollTop = targetTop;
-            appState.wordbookVueInstance._pendingScrollTop = targetTop;
+            (appState.wordbookVueInstance as any).scrollTop = targetTop;
+            (appState.wordbookVueInstance as any)._pendingScrollTop = targetTop;
         }
     });
 }

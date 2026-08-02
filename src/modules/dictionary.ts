@@ -8,7 +8,7 @@ import { updateAllWordbookSelectors, normalizeCaseByType } from './wordbook';
 import { updateFavoritesDisplay } from './favorites';
 import { getRegistry } from '../global-registry';
 import { apiGet, apiPost, apiTranslate } from '../utils/api';
-import { parseMeanings, normalizeNewlines } from '../utils/translation';
+import { parseMeanings, normalizeNewlines, formatDefinitionHtml } from '../utils/translation';
 import { showToast, animateResultShow } from '../utils/gsap';
 
 let _dictDocClickHandler: ((e: Event) => void) | null = null;
@@ -1837,7 +1837,7 @@ export async function translateText(text: string): Promise<void> {
                 }
             }, 150);
         } else {
-            translationResult.innerHTML = `<p class="translation-error">翻译失败：${(data.error && data.error.message) || '未知错误'}</p>`;
+            translationResult.innerHTML = `<p class="translation-error">翻译失败：${data.error || '未知错误'}</p>`;
         }
     } catch (error: unknown) {
         translationResult.innerHTML = `<p class="translation-error">翻译失败：${(error as any).message || '未知错误'}</p>`;

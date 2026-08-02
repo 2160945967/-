@@ -64,17 +64,9 @@ export function findPronunciationFile(filename: string): string | null {
  */
 export function normalizeWordForFilename(word: string): string {
   if (!word) return word;
-  let normalized = word;
-  normalized = normalized.replace(/\//g, '_');
-  normalized = normalized.replace(/\\/g, '_');
-  normalized = normalized.replace(/:/g, '_');
-  normalized = normalized.replace(/\*/g, '_');
-  normalized = normalized.replace(/\?/g, '_');
-  normalized = normalized.replace(/</g, '_');
-  normalized = normalized.replace(/>/g, '_');
-  normalized = normalized.replace(/\|/g, '_');
-  normalized = normalized.replace(/&/g, '_and_');
-  return normalized;
+  return word
+    .replace(/[\\/:*?<>|]/g, '_')
+    .replace(/&/g, '_and_');
 }
 
 /**
