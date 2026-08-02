@@ -21,6 +21,7 @@ stardict/
 # Audio / model files
 pronunciations/
 sherpa-onnx-sense-voice-zh-en-ja-ko-yue/
+semantic-model-files/
 
 # Logs
 logs/
