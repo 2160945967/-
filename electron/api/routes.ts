@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 import {
   getMainDb, getExamplesDb, getExamplesDbPath, getLemmaDB,
   getWordRootDB, getResembleDB, getWordEnhancedInfo,
-  findExamplesForWord
+  findExamplesForWord, cleanTranslation, cleanPhonetic
 } from '../services/database';
 import { getTTS } from '../services/tts';
 import { recognizeWithSherpa, isSherpaModelReady } from '../services/sherpa_asr';
@@ -227,11 +227,14 @@ const SYSTEM_TAGS: Record<string, string> = {
 function querySystemWordbook(dbPath: string, tags: string[]): string[] {
   const Database = require('better-sqlite3');
   const conn = new Database(dbPath, { readonly: true });
-  const conditions = tags.map(() => "' ' || tag || ' ' LIKE ?").join(' OR ');
-  const params = tags.map(t => `% ${t} %`);
-  const rows = conn.prepare(`SELECT word FROM stardict WHERE ${conditions} ORDER BY word COLLATE NOCASE`).all(...params) as any[];
-  conn.close();
-  return rows.map((r: any) => r.word);
+  try {
+    const conditions = tags.map(() => "' ' || tag || ' ' LIKE ?").join(' OR ');
+    const params = tags.map(t => `% ${t} %`);
+    const rows = conn.prepare(`SELECT word FROM stardict WHERE ${conditions} ORDER BY word COLLATE NOCASE`).all(...params) as any[];
+    return rows.map((r: any) => r.word);
+  } finally {
+    conn.close();
+  }
 }
 
 // 导出前把 translation 字段里的字面量 \n 还原成真实换行，再统一用分号拼接
@@ -506,7 +509,7 @@ export function setupRoutes(app: any) {
   // ---- 4. 模糊匹配 ----
   app.get('/api/match', (req: Request, res: Response) => {
     try {
-      const prefix = (req.query.prefix as string || '').trim();
+      const prefix = (req.query.prefix as string || '');
       const limit = Math.min(Math.max(parseInt(req.query.limit as string || '10', 10) || 10, 1), 100);
       const category = (req.query.category as string || '').trim().toLowerCase();
 
@@ -565,6 +568,10 @@ export function setupRoutes(app: any) {
         res.status(400).json(errorResponse('请提供单词列表'));
         return;
       }
+      if (words.length > 500) {
+        res.status(400).json(errorResponse(`单次批量查询最多支持 500 个单词，当前传入 ${words.length} 个，请分批请求`, 400));
+        return;
+      }
 
       const wordDataList = [];
       for (const word of words) {
@@ -580,6 +587,55 @@ export function setupRoutes(app: any) {
       res.json(successResponse(wordDataList));
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '批量查询失败', 500));
+    }
+  });
+
+  // ---- 8. 缓存音频 ----
+  app.get('/api/audio/cache/:accent/*', async (req: Request, res: Response) => {
+    try {
+      const accent = req.params.accent;
+      if (!validateAccent(accent)) {
+        res.status(400).json(errorResponse('口音类型必须是 uk 或 us', 400));
+        return;
+      }
+
+      const basePath = `/api/audio/cache/${accent}/`;
+      let word = req.path.substring(req.path.indexOf(basePath) + basePath.length);
+      if (word.endsWith('.mp3')) word = word.slice(0, -4);
+      word = decodeURIComponent(word);
+
+      const filename = `${normalizeWordForFilename(word)}_${accent}.mp3`;
+
+      // 先查缓存目录
+      const cachePath = path.join(AUDIO_CACHE_DIR, filename);
+      if (fs.existsSync(cachePath)) {
+        res.set('Content-Type', 'audio/mpeg');
+        res.sendFile(cachePath);
+        return;
+      }
+
+      // 回退到永久目录（用户目录优先，再回退安装目录）
+      const permPath = findPronunciationFile(filename);
+      if (permPath) {
+        res.set('Content-Type', 'audio/mpeg');
+        res.sendFile(permPath);
+        return;
+      }
+
+      // 都没有：在线生成
+      const tts = getTTS();
+      if (tts) {
+        const generated = await tts.getPronunciation(word, accent, false);
+        if (generated && fs.existsSync(generated)) {
+          res.set('Content-Type', 'audio/mpeg');
+          res.sendFile(generated);
+          return;
+        }
+      }
+
+      res.status(404).json(errorResponse('未找到发音文件', 404));
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '获取音频失败', 500));
     }
   });
 
@@ -637,55 +693,6 @@ export function setupRoutes(app: any) {
       res.status(404).json(errorResponse(`未找到发音文件: ${filename}`, 404));
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '获取发音文件失败', 500));
-    }
-  });
-
-  // ---- 8. 缓存音频 ----
-  app.get('/api/audio/cache/:accent/*', async (req: Request, res: Response) => {
-    try {
-      const accent = req.params.accent;
-      if (!validateAccent(accent)) {
-        res.status(400).json(errorResponse('口音类型必须是 uk 或 us', 400));
-        return;
-      }
-
-      const basePath = `/api/audio/cache/${accent}/`;
-      let word = req.path.substring(req.path.indexOf(basePath) + basePath.length);
-      if (word.endsWith('.mp3')) word = word.slice(0, -4);
-      word = decodeURIComponent(word);
-
-      const filename = `${normalizeWordForFilename(word)}_${accent}.mp3`;
-
-      // 先查缓存目录
-      const cachePath = path.join(AUDIO_CACHE_DIR, filename);
-      if (fs.existsSync(cachePath)) {
-        res.set('Content-Type', 'audio/mpeg');
-        res.sendFile(cachePath);
-        return;
-      }
-
-      // 回退到永久目录（用户目录优先，再回退安装目录）
-      const permPath = findPronunciationFile(filename);
-      if (permPath) {
-        res.set('Content-Type', 'audio/mpeg');
-        res.sendFile(permPath);
-        return;
-      }
-
-      // 都没有：在线生成
-      const tts = getTTS();
-      if (tts) {
-        const generated = await tts.getPronunciation(word, accent, false);
-        if (generated && fs.existsSync(generated)) {
-          res.set('Content-Type', 'audio/mpeg');
-          res.sendFile(generated);
-          return;
-        }
-      }
-
-      res.status(404).json(errorResponse('未找到发音文件', 404));
-    } catch (e: any) {
-      res.status(500).json(errorResponse(e.message || '获取音频失败', 500));
     }
   });
 
@@ -1695,25 +1702,28 @@ export function setupRoutes(app: any) {
       const Database = require('better-sqlite3');
       const dbPath = resolveAssetPath('stardict.db');
       const conn = new Database(dbPath, { readonly: true });
+      let words: any[];
+      let total = 0;
+      try {
+        const conditions = tags.map(() => "' ' || tag || ' ' LIKE ?").join(' OR ');
+        const params = tags.map(t => `% ${t} %`);
 
-      const conditions = tags.map(() => "' ' || tag || ' ' LIKE ?").join(' OR ');
-      const params = tags.map(t => `% ${t} %`);
+        const countRow = conn.prepare(`SELECT COUNT(*) as cnt FROM stardict WHERE ${conditions}`).get(...params) as any;
+        total = countRow.cnt;
 
-      const countRow = conn.prepare(`SELECT COUNT(*) as cnt FROM stardict WHERE ${conditions}`).get(...params) as any;
-      const total = countRow.cnt;
+        const rows = conn.prepare(
+          `SELECT word, phonetic, translation, tag FROM stardict WHERE ${conditions} ORDER BY word COLLATE NOCASE LIMIT ? OFFSET ?`
+        ).all(...params, limit, offset) as any[];
 
-      const rows = conn.prepare(
-        `SELECT word, phonetic, translation, tag FROM stardict WHERE ${conditions} ORDER BY word COLLATE NOCASE LIMIT ? OFFSET ?`
-      ).all(...params, limit, offset) as any[];
-
-      const words = rows.map((r: any) => ({
-        word: r.word,
-        phonetic: r.phonetic || '',
-        translation: r.translation || '',
-        tag: r.tag || '',
-      }));
-
-      conn.close();
+        words = rows.map((r: any) => ({
+          word: r.word,
+          phonetic: cleanPhonetic(r.phonetic),
+          translation: cleanTranslation(r.translation),
+          tag: r.tag || '',
+        }));
+      } finally {
+        conn.close();
+      }
 
       res.json(successResponse({
         words,
@@ -1752,7 +1762,7 @@ export function setupRoutes(app: any) {
       const params = tags.map(t => `% ${t} %`);
 
       let words: any[] = [];
-
+      try {
       if (keyword) {
         const rows = conn.prepare(
           `SELECT word, phonetic, translation, tag FROM stardict WHERE ${conditions} AND LOWER(word) LIKE ?`
@@ -1760,8 +1770,8 @@ export function setupRoutes(app: any) {
 
         const allMatches = rows.map((r: any) => ({
           word: r.word,
-          phonetic: r.phonetic || '',
-          translation: r.translation || '',
+          phonetic: cleanPhonetic(r.phonetic),
+          translation: cleanTranslation(r.translation),
           tag: r.tag || '',
         }));
 
@@ -1784,13 +1794,14 @@ export function setupRoutes(app: any) {
         ).all(...params, limit) as any[];
         words = rows.map((r: any) => ({
           word: r.word,
-          phonetic: r.phonetic || '',
-          translation: r.translation || '',
+          phonetic: cleanPhonetic(r.phonetic),
+          translation: cleanTranslation(r.translation),
           tag: r.tag || '',
         }));
       }
-
-      conn.close();
+      } finally {
+        conn.close();
+      }
 
       res.json(successResponse({
         words,

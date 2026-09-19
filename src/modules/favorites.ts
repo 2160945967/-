@@ -3,7 +3,7 @@
 import { appState, jumpToWord } from '../global';
 import { updateStudyStats } from './stats';
 import { getErrorbookItemType } from './errorbook';
-import { normalizeCaseByType } from './wordbook';
+import { normalizeCaseByType, updateWordbookSelect } from './wordbook';
 import { SortBy, FilterType } from '../types/enums';
 import { playPronunciation } from '../utils/audio';
 import { virtualScrollMixin } from '../utils/virtualScroll';
@@ -136,14 +136,15 @@ export function setFavoritesSort(sortBy: string): void {
 
 // 从收藏移除单词
 export function removeFromFavorites(word: string): void {
-    const filtered = appState.favorites.filter(item => {
-        const itemWord = typeof item === 'string' ? item : (item as any).word || '';
-        return itemWord !== word;
-    });
+    // 按展示文本匹配：单词项用 word，句子项用 text（getItemText 统一处理），
+    // 否则句子型收藏（仅存 text 字段）无法通过卡片移除按钮真正删除
+    const filtered = appState.favorites.filter(item => getItemText(item) !== word);
     appState.favorites.length = 0;
     appState.favorites.push(...filtered);
     localStorage.setItem('favorites', JSON.stringify(appState.favorites));
     updateFavoritesDisplay();
+    // 刷新单词本选择器下拉框，更新收藏词数
+    void updateWordbookSelect();
 
     // 如果当前显示的是该单词，更新收藏按钮状态
     const currentWord = document.getElementById('word')?.textContent;
@@ -166,6 +167,7 @@ export function removeFromFavoritesSentence(text: string): void {
     appState.favorites.push(...filtered);
     localStorage.setItem('favorites', JSON.stringify(appState.favorites));
     updateFavoritesDisplay();
+    void updateWordbookSelect();
 }
 
 // 收藏页面Vue组件
@@ -220,6 +222,8 @@ export function initFavoritesVue(): void {
                 Object.keys(this.loadingExamples).forEach(k => { if (!wordSet.has(k)) delete this.loadingExamples[k]; });
                 Object.keys(this.itemHeights).forEach(k => { if (!wordSet.has(k)) delete this.itemHeights[k]; });
                 Object.keys(this.cachedHeights).forEach(k => { if (!wordSet.has(k)) delete this.cachedHeights[k]; });
+                Object.keys(this.collapsedHeights).forEach(k => { if (!wordSet.has(k)) delete this.collapsedHeights[k]; });
+                Object.keys(this.backMountMap).forEach(k => { if (!wordSet.has(k)) delete this.backMountMap[k]; });
                 this.clearCache();
 
                 // 切页返回后恢复翻转卡片的释义与高度

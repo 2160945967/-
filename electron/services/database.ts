@@ -45,6 +45,88 @@ function cleanPhonetic(phonetic: string | null | undefined): string {
   return phonetic.replace(/\\\\\\\\:/g, 'ɜː');
 }
 
+/**
+ * 清洗 translation 字段中混入的音标碎片。
+ * 数据源中部分词条把音标/变形信息拼进了释义字段：
+ *   A:  "ˈmʌndɪ] n. 星期一"            → "n. 星期一"
+ *   B:  "brought) [brɪŋ] vt.拿来"      → "vt.拿来"
+ *   B2: "be come) [bɪˈkʌm] v.变得"    → "v.变得"
+ *   A2: "jəu, 弱jə] pron.你的"        → "pron.你的"
+ *   M:  "prep.…的；əv ˈɔf] prep.…的"  → "prep.…的；prep.…的"（全角；后的中段碎片）
+ */
+function cleanTranslation(translation: string | null | undefined): string {
+  if (!translation) return '';
+  const original = translation;
+  let result = translation;
+
+  // 个别词条叠了多层碎片（如 "音标] n.释义；音标] n.释义"），循环清洗到稳定，
+  // 每轮都重新执行 B、A、M 三类规则，最多 4 轮防止异常数据死循环。
+  for (let pass = 0; pass < 4; pass++) {
+    const before = result;
+
+    // B 类：开头是 "...变形) [音标] " 形态，括号前允许中文/空格/标点。
+    // 方括号内容必须不含中文、数字、=、·、：（后几类是化学式/年份标记，
+    // 如 "硫腙(…)[C6H5…]"、"[=ABC soil]"），长度 ≤40。
+    // ] 后除空白外还可能夹私用区控制字符（数据源编码残留，如 \ue009）。
+    result = result.replace(
+      /^.{1,60}?\)\s*\[[^\[\]\u4e00-\u9fff0-9=·：]{1,40}\][\s\u0000-\u001f\ue000-\uefff]*/,
+      ''
+    );
+
+    // A 类：开头是音标碎片 + "]"，"]" 后必须紧跟词性标签（英文单词+句点，
+    // 允许 "modal v." 这类带空格的形式），避免误伤 "用]吸收…" 之类的中文残缺数据。
+    // 允许碎片中出现极少量中文（如 "jəu, 弱jə]" 中的"弱"、"nei丁" 中的"丁"）。
+    const m = result.match(/^([^\[\n]{1,40}?\])[\s\u0000-\u001f\ue000-\uefff]*(?=[a-zA-Z][a-zA-Z\s]{0,20}\.)/);
+    if (m) {
+      const prefix = m[1];
+      const chineseCount = (prefix.match(/[\u4e00-\u9fff]/g) || []).length;
+      if (chineseCount <= 2) {
+        result = result.slice(m[0].length);
+      }
+    }
+
+    // M 类：全角"；"之后混入的音标碎片（如 "prep.…的；əv; (US) ˈɔf] prep.…的"）。
+    // 只认全角"；"作为起点（ASCII ";" 会出现在音标内部，如 "[kɔst; (US) kɔːst]"），
+    // 碎片中不得含 "["（保护 "[医]" 等领域标签与含半角分音标的音标）。
+    result = result.replace(
+      /；([^\[\]\u4e00-\u9fff\n]{1,40}?\])[\s\u0000-\u001f\ue000-\uefff]*(?=[a-zA-Z][a-zA-Z\s]{0,20}\.)/g,
+      '；'
+    );
+
+    if (result === before) break;
+  }
+
+  // 安全不变量：清洗不得把非空释义清空（遇到未覆盖的异常形态时保留原文）
+  // PUA 私用区字符（编码残留，如 \ue10b 代替空格/换行）直接删除
+  result = result.replace(/[\uE000-\uF8FF]/g, '');
+
+    // 尾部外语乱码（阿拉伯/希伯来/韩文/泰文/天城文等编码残留），
+    // 可能挂着 "/v." 空词性标签或单个拉丁字母，
+    // 如 "…担子, 负担；/v.ؓؓ춡"、"…专门机构；Cٽ"、"…阿戈；ڡǰ"
+    const tailGarbage =
+      '[\\u0590-\\u06FF\\u0750-\\u077F\\u1100-\\u11FF\\u3130-\\u318F' +
+      '\\uAC00-\\uD7AF\\u0900-\\u097F\\u0E00-\\u0E7F]';
+    result = result.replace(
+      new RegExp(
+        '[\\s；;，,、/]*[a-zA-Z]{0,8}[\\u02B0-\\u02FF]?\\.?[\\x00-\\x1F\\x7F-\\x9F]*' + tailGarbage + '[\\s\\S]{0,12}$'
+      ),
+      ''
+    );
+
+    // 尾部"空词性标签"碎片：斜杠/分号后是词性标签，但标签后没有任何中英数释义，
+    // 如 "…收受；/n."、"…/v.@"、"…/adv.һ"
+    result = result.replace(
+      /[\s；;，,、/]*[a-zA-Z]{1,8}\.\s*[^\u4e00-\u9fffa-zA-Z0-9]*$/,
+      ''
+    );
+
+    // 收掉清洗后悬空的分隔符和反斜杠
+    result = result.replace(/[\s；;，,、/\\]+$/, '').trim();
+
+    if (result.trim() === '') return original;
+  return result;
+}
+
 function recordToObj(record: any): any {
   if (!record) return null;
   const word: any = {};
@@ -53,6 +135,9 @@ function recordToObj(record: any): any {
   }
   if (word['phonetic']) {
     word['phonetic'] = cleanPhonetic(word['phonetic']);
+  }
+  if (word['translation']) {
+    word['translation'] = cleanTranslation(word['translation']);
   }
   return word;
 }
@@ -152,10 +237,18 @@ class StarDict {
   ): Array<{ id: number; word: string }> {
     const db = this.getDb();
 
+    // 排序优先级判断使用原始输入（保留空格/连字符信息）
+    const hasSpaceOrHyphen = prefix.includes(' ') || prefix.includes('-');
+
+    // SQL 前缀匹配使用 trim 后的前缀，避免 "test " 只匹配词组
+    const trimmedPrefix = prefix.trim();
+
     // 计算前缀上限（用于前缀范围查询）
-    const lastChar = prefix.charAt(prefix.length - 1);
-    const prefixUpper = prefix
-      ? prefix.slice(0, -1) + String.fromCharCode(lastChar.charCodeAt(0) + 1)
+    // 统一转小写，避免大写 Z 时上限字符 "[" 的 ASCII 码小于小写 z 导致漏词
+    const lowerPrefix = trimmedPrefix.toLowerCase();
+    const lastChar = lowerPrefix.charAt(lowerPrefix.length - 1);
+    const prefixUpper = lowerPrefix
+      ? lowerPrefix.slice(0, -1) + String.fromCharCode(lastChar.charCodeAt(0) + 1)
       : '';
 
     const sql = `
@@ -165,7 +258,7 @@ class StarDict {
       ORDER BY word COLLATE NOCASE
       LIMIT 500
     `;
-    const rows = db.prepare(sql).all(prefix, prefixUpper) as Array<{
+    const rows = db.prepare(sql).all(lowerPrefix, prefixUpper) as Array<{
       id: number; word: string; tag: string | null; collins: number | null; frq: number | null;
     }>;
 
@@ -174,14 +267,12 @@ class StarDict {
       'tem4': 6, 'tem8': 7, 'ky': 8, 'toefl': 9, 'ielts': 10, 'gre': 11
     };
 
-    const hasSpaceOrHyphen = prefix.includes(' ') || prefix.includes('-');
-
     const sortKey = (row: any): [number, number, number, number, number] => {
       const tagLower = (row.tag || '').toLowerCase();
       const isPhrase = row.word.includes(' ') || row.word.includes('-');
 
-      // 1. 用户输入词组时，优先展示词组
-      const phrasePriority = (hasSpaceOrHyphen && isPhrase) ? 0 : 1;
+      // 1. 词组优先级：用户输入普通单词时单词优先，输入带空格/连字符时词组优先
+      const phrasePriority = hasSpaceOrHyphen ? (isPhrase ? 0 : 1) : (isPhrase ? 1 : 0);
 
       // 2. 用户选择的考试类型（空格分隔精确匹配）
       const paddedTag = ' ' + tagLower + ' ';
@@ -238,7 +329,7 @@ class StarDict {
     return rows.map((r: any) => ({
       id: r.id,
       word: r.word,
-      translation: r.translation || ''
+      translation: cleanTranslation(r.translation)
     }));
   }
 
@@ -254,10 +345,11 @@ class StarDict {
     for (const key of keys) {
       if (typeof key === 'number') {
         queries.push('id = ?');
+        params.push(key);
       } else if (key !== null && key !== undefined) {
         queries.push('word = ?');
+        params.push(key);
       }
-      params.push(key);
     }
 
     const sql = 'SELECT * FROM stardict WHERE ' + queries.join(' OR ');
@@ -830,5 +922,7 @@ export {
   getMainDb,
   getExamplesDb,
   getExamplesDbPath,
-  buildStardictDbFromCsvs
+  buildStardictDbFromCsvs,
+  cleanTranslation,
+  cleanPhonetic
 };

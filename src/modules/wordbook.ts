@@ -23,6 +23,7 @@ import { removeFromErrorbook } from './errorbook';
 import { virtualScrollMixin } from '../utils/virtualScroll';
 import { cardMixin } from '../utils/cardMixin';
 import { showToast } from '../utils/gsap';
+import { safeParse } from '../utils/storage';
 
 let lastRenderSignature = '';
 
@@ -495,10 +496,8 @@ export async function updateWordbookSelect(): Promise<void> {
         wordbookSelect.appendChild(option);
     }
 
-    // 切出单词本页后没必要继续更新选择器
-    if (currentSection !== PageSection.Wordbook) return;
-
     // 添加自定义单词本（跳过保留名称和系统单词本ID）
+    // 注意：不能因不在单词本页就提前返回，否则下拉框会丢失自定义单词本选项
     const reservedNames = new Set(['wordlist', 'favorites', 'errorbook']);
     for (const name in appState.wordbooks) {
         if (reservedNames.has(name) || name.startsWith('sys_')) continue;
@@ -593,14 +592,10 @@ function refreshDictionaryInlineSelectors(): void {
 
 function getPracticedWords(): Set<string> {
     const practiced = new Set<string>();
-    try {
-        const answered = JSON.parse(localStorage.getItem('quizAnsweredWords') || '[]') as string[];
-        answered.forEach(w => practiced.add(w));
-    } catch {}
-    try {
-        const history = JSON.parse(localStorage.getItem('learningHistory') || '{}') as Record<string, any>;
-        Object.keys(history).forEach(w => practiced.add(w));
-    } catch {}
+    const answered = safeParse<string[]>('quizAnsweredWords', []);
+    answered.forEach(w => practiced.add(w));
+    const history = safeParse<Record<string, any>>('learningHistory', {});
+    Object.keys(history).forEach(w => practiced.add(w));
     return practiced;
 }
 
@@ -629,12 +624,8 @@ export function getSourceWordList(value: string): string[] {
     }
     if (value.startsWith('system:')) {
         const tag = value.replace('system:', '');
-        try {
-            const cache = JSON.parse(localStorage.getItem('systemWordbookWordsCache') || '{}') as Record<string, string[]>;
-            return cache[tag] || [];
-        } catch {
-            return [];
-        }
+        const cache = safeParse<Record<string, string[]>>('systemWordbookWordsCache', {});
+        return cache[tag] || [];
     }
     return [];
 }
@@ -951,6 +942,8 @@ export async function removeFromCustomWordbook(wordbookName: string, word: strin
             appState.wordbooks = { ...(data.data && data.data.wordbooks) || {} };
             localStorage.setItem('wordbooks', JSON.stringify(appState.wordbooks));
             updateSelectedWordbookDisplay();
+            // 刷新单词本选择器下拉框，更新词数显示
+            void updateWordbookSelect();
         }
     } catch (e: unknown) {
         console.error('从单词本移除单词失败:', e);
@@ -1372,6 +1365,8 @@ export function initWordbookVue(): void {
                     this.loadingExamples = {};
                     this.itemHeights = {};
                     this.cachedHeights = {};
+                    this.collapsedHeights = {};
+                    this.backMountMap = {};
                 } else {
                     // 同单词本内保留展开/翻转状态和已加载释义，清理已不在列表中的单词缓存
                     Object.keys(this.expandedMap).forEach(k => { if (!wordSet.has(k)) delete this.expandedMap[k]; });
@@ -1382,6 +1377,8 @@ export function initWordbookVue(): void {
                     Object.keys(this.loadingExamples).forEach(k => { if (!wordSet.has(k)) delete this.loadingExamples[k]; });
                     Object.keys(this.itemHeights).forEach(k => { if (!wordSet.has(k)) delete this.itemHeights[k]; });
                     Object.keys(this.cachedHeights).forEach(k => { if (!wordSet.has(k)) delete this.cachedHeights[k]; });
+                    Object.keys(this.collapsedHeights).forEach(k => { if (!wordSet.has(k)) delete this.collapsedHeights[k]; });
+                    Object.keys(this.backMountMap).forEach(k => { if (!wordSet.has(k)) delete this.backMountMap[k]; });
                 }
 
                 if (!keepScroll) {

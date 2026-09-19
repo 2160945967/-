@@ -8,8 +8,9 @@ import { updateAllWordbookSelectors, normalizeCaseByType } from './wordbook';
 import { updateFavoritesDisplay } from './favorites';
 import { getRegistry } from '../global-registry';
 import { apiGet, apiPost, apiTranslate } from '../utils/api';
-import { parseMeanings, normalizeNewlines, formatDefinitionHtml } from '../utils/translation';
+import { parseMeanings, normalizeNewlines, formatDefinitionHtml, fallbackPart } from '../utils/translation';
 import { showToast, animateResultShow } from '../utils/gsap';
+import { safeParse } from '../utils/storage';
 
 let _dictDocClickHandler: ((e: Event) => void) | null = null;
 
@@ -132,12 +133,14 @@ export function initSearch(): void {
 
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            const text = this.value.trim();
+            const text = this.value;
+            const trimmed = text.trim();
             if (debounceTimer) clearTimeout(debounceTimer);
-            if (text.length < 3) {
+            if (trimmed.length < 3) {
                 hideSuggestions();
                 return;
             }
+            // 传递原始输入（保留空格/连字符），用于词组优先级判断
             debounceTimer = setTimeout(() => fetchSuggestions(text), 300);
         });
 
@@ -683,16 +686,17 @@ export function convertApiDataToFrontendFormat(apiData: {
     phonetic?: string;
     definition?: string;
     translation?: string;
+    pos?: string;
     from_dicts?: unknown[];
     tag?: string;
     exchange?: string;
 }): WordData {
-    const meanings = parseMeanings(apiData.translation, apiData.definition);
+    const meanings = parseMeanings(apiData.translation, apiData.definition, { pos: apiData.pos, word: apiData.word });
 
     return {
         word: apiData.word || '',
         phonetic: apiData.phonetic || '',
-        meanings: meanings.length > 0 ? meanings : [{ part: '词组', definition: apiData.translation || '' }],
+        meanings: meanings.length > 0 ? meanings : [{ part: fallbackPart(apiData.pos, apiData.word), definition: apiData.translation || '' }],
         fromDicts: (apiData.from_dicts || []) as string[],
         tags: apiData.tag || '',
         exchange: apiData.exchange || ''
@@ -856,7 +860,9 @@ export function displayResult(data: WordData): void {
 
     wordElement.textContent = data.word;
     if (data.phonetic) {
-        phoneticElement.textContent = '/' + data.phonetic + '/';
+        // 去掉数据源自带的首尾斜杠，再统一包裹，避免出现 //xxx//
+        const ph = data.phonetic.replace(/^\/+|\/+$/g, '');
+        phoneticElement.textContent = '/' + ph + '/';
     } else {
         phoneticElement.textContent = '';
     }
@@ -1613,7 +1619,7 @@ export function recordSearchHistory(word: string): void {
         return;
     }
 
-    let searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+    let searchHistory = safeParse<string[]>('searchHistory', []);
 
     searchHistory = searchHistory.filter(item => item !== word);
 
@@ -1638,7 +1644,7 @@ export function showSearchHistory(): void {
         return;
     }
 
-    const searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+    const searchHistory = safeParse<string[]>('searchHistory', []);
 
     const signature = `${searchHistory.length}|${searchHistory.join(',')}`;
     if (signature === lastSearchHistorySignature) return;
@@ -1679,7 +1685,7 @@ export function showSearchHistory(): void {
 
 // 从查词历史中移除单词
 export function removeFromSearchHistory(word: string): void {
-    let searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+    let searchHistory = safeParse<string[]>('searchHistory', []);
     searchHistory = searchHistory.filter(item => item !== word);
     localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
     showSearchHistory();
@@ -1763,7 +1769,7 @@ export async function translateText(text: string): Promise<void> {
             // 单个单词 fallback 到翻译时，也走释义解析，修复括号和行内词性
             let translationHtml = '';
             if (!isSentence && data.translation) {
-                const meanings = parseMeanings(data.translation, '');
+                const meanings = parseMeanings(data.translation, '', { word: text });
                 if (meanings.length > 0) {
                     translationHtml = meanings.map((m: any) => {
                         const part = m.part && m.part !== '词组' ? `<strong>${m.part}</strong> ` : '';

@@ -3,10 +3,11 @@
 import { appState, jumpToWord } from '../global';
 import { updateStudyStats } from './stats';
 import { SortBy, FilterType, ContentType } from '../types/enums';
-import { normalizeCaseByType } from './wordbook';
+import { normalizeCaseByType, updateWordbookSelect } from './wordbook';
 import { playPronunciation } from '../utils/audio';
 import { virtualScrollMixin } from '../utils/virtualScroll';
 import { cardMixin } from '../utils/cardMixin';
+import { CARD_GAP } from '../constants';
 
 let lastRenderSignature = '';
 
@@ -176,6 +177,8 @@ export function removeFromErrorbook(word: string): void {
     localStorage.setItem('errorbook', JSON.stringify(appState.errorbook));
     updateErrorbookDisplay();
     updateStudyStats();
+    // 刷新单词本选择器下拉框，更新错题本词数
+    void updateWordbookSelect();
 }
 
 // 错题本Vue组件
@@ -245,20 +248,37 @@ export function initErrorbookVue(): void {
                     if (back) back.style.alignItems = '';
                 }
 
+                const isOpen = !!(this.expandedMap[word] || this.flippedMap[word]);
                 const updateHeight = () => {
-                    const h = el!.offsetHeight + 20;
-                    if (this.cachedHeights[word] !== h) {
-                        this.cachedHeights[word] = h;
-                        this.clearCache();
+                    if (isOpen) {
+                        const defPending = !!this.loadingDefinitions?.[word] || !this.definitions?.[word];
+                        const exPending = !!this.expandedMap[word] &&
+                            (!!this.loadingExamples?.[word] || !this.examples?.[word]);
+                        const h = el!.offsetHeight + ((defPending || exPending) ? 20 : CARD_GAP);
+                        if (this.cachedHeights[word] !== h) {
+                            this.cachedHeights[word] = h;
+                            this.clearCache();
+                        }
+                    } else {
+                        // 收起态：真实卡片高度 + 统一间距，替代固定 140 槽位
+                        this.setCollapsedHeight(word, el!.offsetHeight + CARD_GAP);
                     }
                 };
 
                 updateHeight();
 
-                if (this.expandedMap[word] || this.flippedMap[word]) {
+                if (isOpen) {
                     const observer = new ResizeObserver(() => updateHeight());
                     observer.observe(el);
                     this._resizeObservers[word] = observer;
+                } else {
+                    // 等字体/换行稳定后复测一次收起态高度
+                    setTimeout(() => {
+                        if (!this.expandedMap[word] && !this.flippedMap[word]) {
+                            const el2 = this.$el.querySelector(`[data-word="${CSS.escape(word)}"]`) as HTMLElement | null;
+                            if (el2) this.setCollapsedHeight(word, el2.offsetHeight + CARD_GAP);
+                        }
+                    }, 120);
                 }
             },
             playPron(type: string, word: string) {
@@ -290,6 +310,8 @@ export function initErrorbookVue(): void {
                 Object.keys(this.loadingExamples).forEach(k => { if (!wordSet.has(k)) delete this.loadingExamples[k]; });
                 Object.keys(this.itemHeights).forEach(k => { if (!wordSet.has(k)) delete this.itemHeights[k]; });
                 Object.keys(this.cachedHeights).forEach(k => { if (!wordSet.has(k)) delete this.cachedHeights[k]; });
+                Object.keys(this.collapsedHeights).forEach(k => { if (!wordSet.has(k)) delete this.collapsedHeights[k]; });
+                Object.keys(this.backMountMap).forEach(k => { if (!wordSet.has(k)) delete this.backMountMap[k]; });
                 this.clearCache();
 
                 // 切页返回后恢复翻转卡片的释义与高度

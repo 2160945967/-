@@ -5,6 +5,13 @@ let gsapCore: any = null;
 let gsapReady = false;
 const pressedState = new WeakMap<HTMLElement, boolean>();
 
+// 用户系统级"减少动态"偏好：JS 侧据此跳过波纹/大位移动画（CSS 侧 base.css 已有全局兜底）
+export function prefersReducedMotion(): boolean {
+    return typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 // 延迟加载 gsap，确保非阻塞
 async function ensureGsap(): Promise<boolean> {
     if (gsapReady) return true;
@@ -148,10 +155,16 @@ export function showToast(
         el.style.opacity = '1';
     }
 
+    let hoverTimer: ReturnType<typeof setTimeout> | null = null;
     const timer = setTimeout(dismiss, duration);
-    // 鼠标悬停时暂停自动关闭
-    el.addEventListener('mouseenter', () => clearTimeout(timer));
-    el.addEventListener('mouseleave', () => setTimeout(dismiss, Math.max(1000, duration / 2)));
+    // 鼠标悬停时暂停自动关闭；移出后再进必须同时取消移出时挂的新定时器
+    el.addEventListener('mouseenter', () => {
+        clearTimeout(timer);
+        if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+    });
+    el.addEventListener('mouseleave', () => {
+        hoverTimer = setTimeout(dismiss, Math.max(1000, duration / 2));
+    });
 
     return el;
 }
@@ -185,13 +198,7 @@ export function initScrollAnimations(): void {
                     gsapCore.fromTo(target,
                         { opacity: 0, y: 25 },
                         {
-                            opacity: 1, y: 0, duration: 0.42, ease: 'power2.out', clearProps: 'opacity, transform',
-                            onComplete: () => {
-                                const page = target.closest('.content-page.active') as HTMLElement | null;
-                                if (page) {
-                                    requestAnimationFrame(() => forceRepaint(target));
-                                }
-                            }
+                            opacity: 1, y: 0, duration: 0.42, ease: 'power2.out', clearProps: 'opacity, transform'
                         }
                     );
                     observer.unobserve(target);
@@ -824,15 +831,16 @@ export function animatePageEnter(page: HTMLElement | null): void {
             ease: 'power2.out',
             clearProps: 'opacity, transform',
             onComplete: () => {
-                requestAnimationFrame(() => {
-                    forceRepaintDeepMultiFrame(page, 3);
-                });
+                // 仅对页面本身做一次轻量重绘，避免对大量子元素逐帧 display 切换导致掉帧
+                requestAnimationFrame(() => forceRepaint(page));
             }
         }
     );
 }
 
 export function animateThemeSwitchContent(pages: NodeListOf<HTMLElement>): void {
+    // 用户开启"减少动态"：跳过 JS 内容亮度/位移动画（CSS 兜底已存在）
+    if (prefersReducedMotion()) return;
     if (!gsapCore) return;
     pages.forEach(page => {
         gsapCore.fromTo(page,
@@ -840,9 +848,7 @@ export function animateThemeSwitchContent(pages: NodeListOf<HTMLElement>): void 
             {
                 filter: 'brightness(1)', opacity: 1, duration: 0.55, ease: 'power2.out', clearProps: 'filter, opacity',
                 onComplete: () => {
-                    requestAnimationFrame(() => {
-                        forceRepaintDeepMultiFrame(page, 3);
-                    });
+                    requestAnimationFrame(() => forceRepaint(page));
                 }
             }
         );
@@ -851,6 +857,13 @@ export function animateThemeSwitchContent(pages: NodeListOf<HTMLElement>): void 
 
 // theme-mask 是旧主题色全屏遮罩，从新主题色点击位置反向揭示出去
 export function animateThemeSwitch(themeMask: HTMLElement, x: number, y: number, onDone: () => void): void {
+    // 用户开启"减少动态"：跳过 JS 波纹，直接落到终态（CSS 兜底已存在）
+    if (prefersReducedMotion()) {
+        themeMask.style.display = 'none';
+        themeMask.style.clipPath = '';
+        onDone();
+        return;
+    }
     // 如果 GSAP 未加载，用 CSS transition 兜底（移除时不依赖 theme-switching）
     if (!gsapCore) {
         themeMask.style.clipPath = `circle(200vmax at ${x}px ${y}px)`;
@@ -885,6 +898,13 @@ export function animateThemeSwitch(themeMask: HTMLElement, x: number, y: number,
             }
         }
     );
+}
+
+// 供外部同步获取已加载的 gsap 实例（未加载时返回 null，调用方走 CSS 兜底）。
+// 历史上 global.ts 读 (window as any).gsap，但 gsap 经动态 import('gsap') 存于本模块局部变量，
+// 从未挂到 window，该读值永远为 undefined —— 此 getter 才是真实可用的引用。
+export function getGsapCore(): any {
+    return gsapCore;
 }
 
 // 供外部同步确保 GSAP 已加载（主题切换等需要即时动画的场景）
