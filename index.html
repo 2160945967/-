@@ -17,6 +17,8 @@
     <link rel="stylesheet" href="/src/assets/css/settings.css">
     <link rel="stylesheet" href="/src/assets/css/responsive.css">
     <link rel="stylesheet" href="/src/assets/css/glass.css">
+    <link rel="stylesheet" href="/src/assets/css/bookpicker.css">
+    <link rel="stylesheet" href="/src/assets/css/exam.css">
 
     <!-- Vue 3 CDN (for global window.Vue compatibility) -->
     <script src="https://unpkg.com/vue@3.4.0/dist/vue.global.prod.js"></script>
@@ -32,12 +34,12 @@
     </script>
 </head>
 <body>
-    <div id="bg-under"></div>
-    <div id="bg-over"></div>
-    <div id="ripple-layer-1" class="theme-ripple"></div>
-    <div id="ripple-layer-2" class="theme-ripple"></div>
-    <div id="ripple-layer-3" class="theme-ripple"></div>
-    <div id="theme-mask"></div>
+    <div id="bg-under" aria-hidden="true"></div>
+    <div id="bg-over" aria-hidden="true"></div>
+    <div id="ripple-layer-1" class="theme-ripple" aria-hidden="true"></div>
+    <div id="ripple-layer-2" class="theme-ripple" aria-hidden="true"></div>
+    <div id="ripple-layer-3" class="theme-ripple" aria-hidden="true"></div>
+    <div id="theme-mask" aria-hidden="true"></div>
 
     <!-- 侧边栏 -->
     <div class="sidebar" id="sidebar">
@@ -120,9 +122,9 @@
                     </a>
                 </div>
                 <div class="navbar-left">
-                    <button id="theme-toggle" class="theme-toggle" title="切换主题">🌙</button>
+                    <button id="theme-toggle" class="theme-toggle" title="切换主题" aria-label="切换明暗主题">🌙</button>
                 </div>
-                <div class="navbar-toggle" id="navbar-toggle">☰</div>
+                <div class="navbar-toggle" id="navbar-toggle" role="button" tabindex="0" aria-label="打开导航菜单">☰</div>
                 <ul class="navbar-nav" id="navbar-nav">
                     <li class="nav-item">
                         <a href="#" class="nav-link active" data-section="dictionary">词典</a>
@@ -143,6 +145,9 @@
                         <a href="#" class="nav-link" data-section="review">复习模式</a>
                     </li>
                     <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="exam">模拟题</a>
+                    </li>
+                    <li class="nav-item">
                         <a href="#" class="nav-link" data-section="settings">设置</a>
                     </li>
                 </ul>
@@ -154,8 +159,8 @@
                 <h1>词典</h1>
 
                 <div class="search-container glass">
-                    <input type="text" id="search-input" placeholder="输入单词或句子..." autocomplete="off" autocapitalize="off" spellcheck="true">
-                    <button id="voice-button" class="voice-btn" type="button" title="语音输入">🎤</button>
+                    <input type="text" id="search-input" placeholder="输入单词或句子..." autocomplete="off" autocapitalize="off" spellcheck="true" aria-label="搜索单词或句子">
+                    <button id="voice-button" class="voice-btn" type="button" title="语音输入" aria-label="语音输入">🎤</button>
                     <button id="search-button">查询</button>
                 </div>
 
@@ -241,8 +246,19 @@
                             <span class="quiz-progress-text" id="quiz-progress-text">0/0</span>
                         </div>
                         <div id="quiz-question"></div>
-                        <input type="text" id="quiz-answer" placeholder="输入多个中文时用逗号分号或空格隔开，按Enter提交" autocomplete="off" autocapitalize="off" spellcheck="false">
-                        <div id="quiz-spelling-feedback" class="quiz-spelling-feedback"></div>
+                        <div id="quiz-quick-toggles" class="quiz-quick-toggles">
+                            <label class="qt-pill" title="答题时显示例句，目标单词挖空">
+                                <input type="checkbox" id="qt-example"><span class="qt-pill-label">例句填空</span>
+                            </label>
+                            <label class="qt-pill" title="输入英文时逐字符提示对错">
+                                <input type="checkbox" id="qt-assist"><span>辅助拼写</span>
+                            </label>
+                        </div>
+                        <div id="quiz-type-area" class="quiz-type-area">
+                            <div id="quiz-spelling-feedback" class="quiz-type-display"></div>
+                            <span id="quiz-type-placeholder" class="quiz-type-placeholder"></span>
+                            <input type="text" id="quiz-answer" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="测验答案输入框">
+                        </div>
                         <div id="quiz-feedback"></div>
                         <div class="quiz-buttons">
                             <button id="show-answer">显示答案</button>
@@ -451,7 +467,7 @@
                         <span class="quiz-progress-text" id="review-progress-text">0/0</span>
                     </div>
                     <div id="review-question"></div>
-                    <input type="text" id="review-answer" placeholder="输入多个中文时用逗号分号或空格隔开，按Enter提交" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <input type="text" id="review-answer" placeholder="输入多个中文时用逗号分号或空格隔开，按Enter提交" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="复习答案输入框">
                     <div id="review-feedback"></div>
                     <div class="quiz-buttons">
                         <button id="review-show-answer">显示答案</button>
@@ -464,7 +480,7 @@
 
                 <!-- 艾宾浩斯到期词折叠面板 -->
                 <div class="history-collapse" style="grid-column: span 2; margin-top: 30px;">
-                    <div class="history-collapse-header" onclick="g('toggleDueWords', this)">
+                    <div class="history-collapse-header" role="button" tabindex="0" aria-expanded="false" onclick="g('toggleDueWords', this)">
                         <span class="history-collapse-arrow history-day-arrow">▶</span>
                         <span>艾宾浩斯到期词</span>
                         <a href="javascript:void(0);" onclick="event.stopPropagation(); g('showDueWordsCondition')" title="查看加入条件" class="text-link" style="margin-left: 6px; font-size: 14px;">查看加入条件</a>
@@ -480,7 +496,7 @@
 
                 <!-- 历史记录折叠面板 -->
                 <div class="history-collapse" id="history-collapse">
-                    <div class="history-collapse-header" id="history-collapse-header" onclick="g('toggleHistoryPanel', this)">
+                    <div class="history-collapse-header" id="history-collapse-header" role="button" tabindex="0" aria-expanded="false" onclick="g('toggleHistoryPanel', this)">
                         <span class="history-collapse-arrow" id="history-collapse-arrow">▶</span>
                         <span>历史练习记录</span>
                         <span class="history-collapse-count" id="history-collapse-count"></span>
@@ -497,6 +513,8 @@
                     </div>
                 </div>
             </div>
+
+            <div id="exam-page" class="content-page"></div>
 
             <div id="settings-page" class="content-page">
                 <h1>设置</h1>
@@ -518,6 +536,18 @@
                         <label for="show-all-meanings">
                             <input type="checkbox" id="show-all-meanings"> 显示全部释义
                         </label>
+                    </div>
+
+                    <div class="setting-item setting-item-toggle" draggable="true" data-setting-key="quiz-assist">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="assist-spelling">
+                            <input type="checkbox" id="assist-spelling" checked> 中译英辅助拼写
+                        </label>
+                        <span class="setting-desc">输入英文时，正确前缀显示绿色、从第一个错误字母起显示红色</span>
+                        <label for="show-example-in-quiz" class="setting-sub-label">
+                            <input type="checkbox" id="show-example-in-quiz"> 答题时显示例句
+                        </label>
+                        <span class="setting-desc setting-sub-desc">题目附带例句：拼写/中译英模式把目标单词挖空为下划线，英译中模式完整展示；答对后展示完整例句与翻译</span>
                     </div>
 
                     <div class="setting-item" draggable="true" data-setting-key="answer-key">
@@ -718,7 +748,7 @@
           </div>
 
           <!-- 卡片背面 -->
-          <div class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+          <div v-if="backMountMap[item.word]" class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
             <div class="wordlist-definition expanded" v-html="definitions[item.word] || loadingHtml"></div>
             <div v-if="examples[item.word]" class="example-sentence" v-html="examples[item.word]"></div>
           </div>
@@ -769,7 +799,7 @@
           </div>
 
           <!-- 卡片背面 -->
-          <div class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+          <div v-if="backMountMap[item.word]" class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
             <div class="wordlist-definition expanded" v-html="definitions[item.word] || loadingHtml"></div>
             <div v-if="examples[item.word]" class="example-sentence" v-html="examples[item.word]"></div>
           </div>
@@ -822,7 +852,7 @@
           </div>
 
           <!-- 卡片背面 -->
-          <div class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
+          <div v-if="backMountMap[item.word]" class="flip-card-back" @click="handleLeftClick(item.word)" @contextmenu.prevent="handleRightClick(item.word)">
             <div class="wordlist-definition expanded" v-html="definitions[item.word] || loadingHtml"></div>
             <div v-if="examples[item.word]" class="example-sentence" v-html="examples[item.word]"></div>
           </div>
@@ -833,11 +863,11 @@
 </div>
 </script>
 
-    <div id="ebbinghaus-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+    <div id="ebbinghaus-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ebbinghaus-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
         <div class="modal-content glass" style="padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 class="modal-title">艾宾浩斯遗忘曲线</h2>
-                <button id="ebbinghaus-close" class="modal-close-btn">&times;</button>
+                <h2 class="modal-title" id="ebbinghaus-title">艾宾浩斯遗忘曲线</h2>
+                <button id="ebbinghaus-close" class="modal-close-btn" aria-label="关闭弹窗">&times;</button>
             </div>
             <div class="modal-body-text">
                 <p style="margin-bottom: 15px;"><strong>什么是遗忘曲线？</strong></p>
@@ -858,11 +888,37 @@
         </div>
     </div>
 
-    <div id="import-format-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+    <!-- 单词来源选择弹窗（我的词库 / 四级词书 树状多选） -->
+    <div id="book-picker-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bp-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="modal-content glass book-picker-content">
+            <div class="bp-header">
+                <h2 class="modal-title" id="bp-title">选择单词来源</h2>
+                <button id="bp-close" class="modal-close-btn" type="button" aria-label="关闭弹窗">&times;</button>
+            </div>
+            <div class="bp-tabs" role="tablist">
+                <button id="bp-tab-mine" class="bp-tab bp-tab-active" type="button" role="tab">我的词库</button>
+                <button id="bp-tab-cet4" class="bp-tab" type="button" role="tab">四级词书</button>
+            </div>
+            <div id="bp-body" class="bp-body"></div>
+            <div id="bp-footer" class="bp-footer" style="display:none;">
+                <span id="bp-footer-info" class="bp-footer-info">尚未选择课程</span>
+                <div class="bp-order-switch" id="bp-order-switch">
+                    <span class="bp-order-label">出题顺序</span>
+                    <button type="button" class="bp-order-opt" data-order="order">顺序</button>
+                    <button type="button" class="bp-order-opt" data-order="random">乱序</button>
+                </div>
+                <div class="bp-footer-actions">
+                    <button id="bp-cancel" class="bp-btn" type="button">取消</button>
+                    <button id="bp-confirm" class="btn-gradient btn-green" type="button" disabled>确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="import-format-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="import-format-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
         <div class="modal-content glass" style="padding: 30px; max-width: 650px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 class="modal-title">📋 导入格式说明</h2>
-                <button id="import-format-close" class="modal-close-btn">&times;</button>
+                <h2 class="modal-title" id="import-format-title">📋 导入格式说明</h2>
+                <button id="import-format-close" class="modal-close-btn" aria-label="关闭弹窗">&times;</button>
             </div>
             <div class="modal-body-text">
                 <p style="margin-bottom: 15px;"><strong>支持的文件格式：</strong></p>
@@ -898,11 +954,11 @@
     </div>
 
     <!-- 艾宾浩斯到期词加入条件说明弹窗 -->
-    <div id="due-words-condition-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+    <div id="due-words-condition-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="due-words-condition-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
         <div class="modal-content glass" style="padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 class="modal-title">艾宾浩斯到期词</h2>
-                <button id="due-words-condition-close" class="modal-close-btn">&times;</button>
+                <h2 class="modal-title" id="due-words-condition-title">艾宾浩斯到期词</h2>
+                <button id="due-words-condition-close" class="modal-close-btn" aria-label="关闭弹窗">&times;</button>
             </div>
             <div class="modal-body-text">
                 <p style="margin-bottom: 15px;"><strong>加入条件</strong></p>
@@ -923,11 +979,11 @@
     </div>
 
     <!-- API密钥设置弹窗 -->
-    <div id="api-settings-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+    <div id="api-settings-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="api-settings-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
         <div class="modal-content glass" style="padding: 30px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 class="modal-title">腾讯云翻译API设置</h2>
-                <button id="api-settings-close" class="modal-close-btn">&times;</button>
+                <h2 class="modal-title" id="api-settings-title">腾讯云翻译API设置</h2>
+                <button id="api-settings-close" class="modal-close-btn" aria-label="关闭弹窗">&times;</button>
             </div>
             <div class="modal-body-text">
                 <p style="margin-bottom: 15px; font-size: 14px; color: #666;">配置你自己的腾讯云翻译API密钥，留空则使用默认密钥。密钥仅保存在本地，不会上传到任何服务器。</p>
@@ -948,11 +1004,11 @@
     </div>
 
     <!-- 数据资源管理弹窗 -->
-    <div id="asset-manage-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+    <div id="asset-manage-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="asset-manage-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
         <div class="modal-content glass" style="padding: 30px; max-width: 620px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 80vh; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;">
-                <h2 class="modal-title">数据资源管理</h2>
-                <button id="asset-manage-close" class="modal-close-btn">&times;</button>
+                <h2 class="modal-title" id="asset-manage-title">数据资源管理</h2>
+                <button id="asset-manage-close" class="modal-close-btn" aria-label="关闭弹窗">&times;</button>
             </div>
             <p class="modal-desc" style="flex-shrink: 0;">词库为必需资源，缺失时无法查词；例句库、语音识别模型和离线发音包为可选资源。</p>
             <div id="asset-downloads-list" class="asset-downloads-inline" style="overflow-y: auto; flex: 1; min-height: 0; padding-right: 4px;">
@@ -965,14 +1021,14 @@
     </div>
 
     <!-- 使用说明弹窗 -->
-    <div id="usage-guide-modal" class="modal-overlay usage-guide-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.55); z-index: 10000; justify-content: center; align-items: center;">
+    <div id="usage-guide-modal" class="modal-overlay usage-guide-overlay" role="dialog" aria-modal="true" aria-labelledby="usage-guide-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.55); z-index: 10000; justify-content: center; align-items: center;">
         <div class="modal-content glass usage-guide-modal" style="padding: 0; max-width: 720px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.3); border-radius: 16px; overflow: hidden;">
             <div class="usage-guide-header" style="padding: 24px 28px 16px; flex-shrink: 0; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <h2 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; color: var(--text-dark);">📖 拾词使用说明</h2>
+                    <h2 style="margin: 0 0 6px; font-size: 22px; font-weight: 700; color: var(--text-dark);" id="usage-guide-title">📖 拾词使用说明</h2>
                     <p style="margin: 0; font-size: 13px; color: var(--text-gray);">欢迎使用拾词！下面是各页面功能介绍，点击左侧标签快速跳转。</p>
                 </div>
-                <button id="usage-guide-close" class="modal-close-btn" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-gray); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; line-height: 1; flex-shrink: 0;">&times;</button>
+                <button id="usage-guide-close" class="modal-close-btn" aria-label="关闭使用说明" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-gray); padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; line-height: 1; flex-shrink: 0;">&times;</button>
             </div>
             <div class="usage-guide-body" style="display: flex; flex: 1; min-height: 0; overflow: hidden;">
                 <div class="usage-guide-tabs" style="width: 130px; flex-shrink: 0; border-right: 1px solid var(--border-color); padding: 12px 0; overflow-y: auto;">
@@ -982,6 +1038,7 @@
                     <button class="usage-tab" data-tab="favorites">⭐ 我的收藏</button>
                     <button class="usage-tab" data-tab="errorbook">❌ 错题本</button>
                     <button class="usage-tab" data-tab="review">🔄 复习模式</button>
+                    <button class="usage-tab" data-tab="exam">🎧 模拟题</button>
                     <button class="usage-tab" data-tab="settings">⚙️ 设置</button>
                     <button class="usage-tab" data-tab="sidebar">📊 侧边栏</button>
                     <button class="usage-tab" data-tab="shortcuts">⌨️ 快捷键</button>
@@ -1019,7 +1076,7 @@
                             <li><strong>拼写模式：</strong>根据中文释义拼写英文单词，输入过程中会逐字符显示绿色（正确）或红色（错误）反馈，拼写完整且正确后自动进入下一题。</li>
                             <li><strong>听力卡壳词追踪：</strong>播放单词或句子发音，输入听到的内容。回答错误会自动标记为「听力卡壳词」，测验结束后展示本轮卡壳词列表，方便针对性练习听力薄弱点。</li>
                         </ul>
-                        <p><strong>单词来源：</strong>可选择从「我的收藏」或「错题本」中出题。</p>
+                        <p><strong>单词来源：</strong>点击「单词来源」可选择「我的收藏」「错题本」，或切换到「四级词书」标签，按单元 / 课程勾选《英语四级你还在背单词吗》词书（可整书全选，也可只选若干课）。</p>
                         <p><strong>答题操作：</strong></p>
                         <ul>
                             <li>在输入框输入答案后按 <strong>Enter</strong> 提交。</li>
@@ -1027,8 +1084,9 @@
                             <li>答对答错会显示不同颜色反馈。</li>
                             <li>答错的单词会自动加入错题本（可在设置中关闭）。</li>
                             <li>可点击「加入收藏」将当前单词收藏。</li>
+                            <li>右下角「例句填空」开关可在题目中附带例句：拼写 / 中文→英文模式把目标单词挖空为下划线；英文→中文模式下开关名为「显示例句」，完整展示例句。答对后会显示完整例句与中文翻译（可在设置中默认关闭）。</li>
                         </ul>
-                        <p><strong>测验设置：</strong>可设置测验个数（1-100）和出题顺序（随机/顺序），各设置项支持拖拽排序。</p>
+                        <p><strong>测验设置：</strong>可设置测验个数（1-100）和出题顺序（随机/顺序），各设置项支持拖拽排序。选择四级词书后，可在选书窗口底部切换「顺序 / 乱序」：顺序按单元、课程、词群的原始排列出题，乱序则随机打乱；该选择会自动记住。</p>
                         <p><strong>艾宾浩斯遗忘曲线：</strong>启用后系统根据遗忘规律安排复习，答错的单词会在特定时间点重复出现。</p>
                     </div>
                     <!-- 单词本 -->
@@ -1083,6 +1141,23 @@
                             <li>答错的单词缩短复习间隔，加强记忆。</li>
                             <li>可在侧边栏查看「明日学习单词数」。</li>
                         </ul>
+                    </div>
+                    <!-- 模拟题 -->
+                    <div class="usage-section" data-section="exam">
+                        <h3 style="margin-top: 0;">🎧 模拟题（四级听力 / 四六级阅读）</h3>
+                        <p><strong>题型与难度：</strong></p>
+                        <ul>
+                            <li><strong>听力（仅四级）：</strong>100 套完整模拟，每套含新闻、长对话、短文共 25 题，配原声音频（0.7–1.5 倍共九档调速；答题阶段只能顺序播放，不能拖动或回退进度，交卷后可自由回听）、听力原文、参考答案与四级核心词。</li>
+                            <li><strong>阅读理解：</strong>共 399 篇，已按难度分开——四级 199 篇、六级 200 篇；每篇 5 题，含全文翻译、题目翻译、答案解析与四级核心词。</li>
+                        </ul>
+                        <p><strong>做题流程：</strong></p>
+                        <ul>
+                            <li>先作答全部题目（交卷前可随时修改），全部答完后点击「交卷并判分」，系统自动判分，标出每道题的对错、正确答案并给出正确率。</li>
+                            <li>交卷后可按需展开「显示答案与解析」「显示中文翻译」（听力为「查看听力原文」），也可「重新做一遍」。</li>
+                            <li>下方列出本篇 / 本套的「四级核心词」，点击任意词可直接跳转词典，查看音标、释义、词根并发音。</li>
+                            <li>列表支持上一篇 / 下一篇（套）、随机一篇（套）以及按编号跳转。</li>
+                        </ul>
+                        <p><strong>资源提示：</strong>听力音频体积较大，默认不随安装包内置。若某套显示「未检测到音频」，将 <code>CET4_Listening_Bank</code> 放入 <code>resource/模拟题</code> 目录或安装听力资源包即可；音频缺失时题目与原文仍可正常练习。</p>
                     </div>
                     <!-- 设置 -->
                     <div class="usage-section" data-section="settings">
@@ -1148,6 +1223,205 @@
         </div>
     </div>
 
+
+    <!-- 模态框统一无障碍：焦点陷阱 / Esc 关闭 / 焦点回归（DOM 驱动，不改动 src 现有开关与动画时序） -->
+    <script>
+    (function () {
+        if (typeof document === 'undefined') return;
+
+        // 仅接管静态存在于 index.html 的 6 个说明/设置类弹窗。
+        // global.ts 动态创建的 custom-prompt-modal（confirm/alert/prompt）已自带 Esc/Enter 与聚焦，不接管其 Esc。
+        var STATIC_IDS = [
+            'ebbinghaus-modal', 'import-format-modal', 'due-words-condition-modal',
+            'api-settings-modal', 'asset-manage-modal', 'usage-guide-modal',
+            'book-picker-modal'
+        ];
+
+        // 所有弹窗显隐都通过 inline style.display 控制（flex/none），直接读取即可；
+        // 避免 getComputedStyle 在高频 DOM 变动（输入 / 动画 / 虚拟列表）下强制回流导致掉帧
+        function isVisible(el) {
+            return !!el && el.style && el.style.display !== 'none';
+        }
+
+        // 取当前最顶层可见的 .modal-overlay（按 z-index 最大者）
+        function getTopModal() {
+            var all = document.querySelectorAll('.modal-overlay');
+            var top = null, maxZ = -1;
+            for (var i = 0; i < all.length; i++) {
+                var el = all[i];
+                if (!isVisible(el)) continue;
+                var zRaw = el.style.zIndex || window.getComputedStyle(el).zIndex || '0';
+                var z = parseInt(zRaw, 10);
+                if (z > maxZ) { maxZ = z; top = el; }
+            }
+            return top;
+        }
+
+        function isStaticManaged(el) {
+            return el && el.id && STATIC_IDS.indexOf(el.id) !== -1;
+        }
+
+        var FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        function getFocusables(modal) {
+            var nodes = modal.querySelectorAll(FOCUSABLE);
+            var out = [];
+            for (var i = 0; i < nodes.length; i++) {
+                var n = nodes[i];
+                if (n.offsetParent === null) continue;
+                if (n.closest && n.closest('[aria-hidden="true"]')) continue;
+                out.push(n);
+            }
+            return out;
+        }
+
+        var currentModal = null;  // 当前接管的最顶层弹窗
+        var restoreEl = null;     // 打开前最后聚焦的元素
+
+        function focusFirst(modal) {
+            var closeBtn = modal.querySelector('.modal-close-btn');
+            if (closeBtn) { closeBtn.focus(); return; }
+            var f = getFocusables(modal);
+            if (f.length) f[0].focus();
+        }
+
+        // 状态同步：检测打开 / 关闭
+        function sync() {
+            var top = getTopModal();
+            if (top && top !== currentModal) {
+                // 新弹窗成为最顶层：记录打开前焦点
+                restoreEl = document.activeElement;
+                currentModal = top;
+                // 仅对静态接管弹窗自动聚焦；动态弹窗自管聚焦，不干预
+                if (isStaticManaged(top)) {
+                    (function (m) {
+                        requestAnimationFrame(function () { focusFirst(m); });
+                    })(top);
+                }
+                return;
+            }
+            if (!top && currentModal) {
+                // 全部关闭：焦点回归
+                var back = restoreEl;
+                currentModal = null;
+                restoreEl = null;
+                if (back && typeof back.focus === 'function' && back.isConnected) {
+                    try { back.focus(); } catch (e) {}
+                }
+            }
+        }
+
+        // Tab / Shift+Tab 焦点陷阱（捕获阶段，先于业务逻辑）
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Tab') return;
+            var top = getTopModal();
+            if (!top) return;
+            var list = getFocusables(top);
+            if (!list.length) { e.preventDefault(); return; }
+            var active = document.activeElement;
+            var idx = list.indexOf(active);
+            if (idx === -1) {
+                e.preventDefault();
+                list[0].focus();
+                return;
+            }
+            if (e.shiftKey && idx === 0) {
+                e.preventDefault();
+                list[list.length - 1].focus();
+            } else if (!e.shiftKey && idx === list.length - 1) {
+                e.preventDefault();
+                list[0].focus();
+            }
+        }, true);
+
+        // Esc 关闭：仅对静态接管弹窗，点击其已有的 .modal-close-btn
+        // （usage-guide 会走 closeGuide 缩放动画，其余走 closeModal 淡出）。
+        // stopImmediatePropagation 阻止 global.ts initModalEscKey 的通用 closeModal 重复触发。
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            var top = getTopModal();
+            if (!top) return;
+            if (top.classList.contains('custom-prompt-modal')) return; // 自带 Esc 处理
+            if (!isStaticManaged(top)) return;
+            var closeBtn = top.querySelector('.modal-close-btn');
+            if (!closeBtn) return;
+            e.stopImmediatePropagation();
+            e.preventDefault();
+            closeBtn.click();
+        }, true);
+
+        // 性能：弹窗内部的高频 DOM 变动（拼写输入、进度条、GSAP 动画、虚拟列表）
+        // 与「哪个弹窗最顶层」无关，不能全树监听，否则每次变动都 querySelectorAll + 强制回流。
+        // 只监听 body 直接子节点增删（发现动态弹窗）+ 每个弹窗自身的 style/class 变化。
+        var rafScheduled = false;
+        function scheduleSync() {
+            if (rafScheduled) return;
+            rafScheduled = true;
+            requestAnimationFrame(function () {
+                rafScheduled = false;
+                sync();
+            });
+        }
+        var overlayObserver = null;
+        function trackOverlay(el) {
+            if (!el || el.__bpA11yTracked) return;
+            el.__bpA11yTracked = true;
+            if (overlayObserver) {
+                try { overlayObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] }); } catch (e) {}
+            }
+        }
+        if (typeof MutationObserver !== 'undefined') {
+            overlayObserver = new MutationObserver(scheduleSync);
+            var initialOverlays = document.querySelectorAll('.modal-overlay');
+            for (var k = 0; k < initialOverlays.length; k++) trackOverlay(initialOverlays[k]);
+            var bodyObserver = new MutationObserver(function (mutations) {
+                for (var mi = 0; mi < mutations.length; mi++) {
+                    var added = mutations[mi].addedNodes;
+                    for (var ai = 0; ai < added.length; ai++) {
+                        var node = added[ai];
+                        if (node.nodeType === 1) {
+                            if (node.classList && node.classList.contains('modal-overlay')) trackOverlay(node);
+                            if (node.querySelectorAll) {
+                                var inner = node.querySelectorAll('.modal-overlay');
+                                for (var ii = 0; ii < inner.length; ii++) trackOverlay(inner[ii]);
+                            }
+                        }
+                    }
+                }
+                scheduleSync();
+            });
+            bodyObserver.observe(document.body, { childList: true });
+        }
+        setInterval(scheduleSync, 1000); // 兜底轮询（observer 已覆盖，低频即可）
+        sync();
+    })();
+    </script>
+
+    <!-- 键盘可访问性增强：让 <div> 伪装的按钮（汉堡菜单、折叠面板）支持 Enter/Space 触发 -->
+    <script>
+    (function () {
+        if (typeof document === 'undefined') return;
+        function isBtn(el) {
+            return el && (el.id === 'navbar-toggle' || (el.classList && el.classList.contains('history-collapse-header')));
+        }
+        document.addEventListener('keydown', function (e) {
+            var t = e.target;
+            if (!t || !isBtn(t)) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (typeof t.click === 'function') t.click();
+            }
+        });
+        // 折叠面板点击后同步 aria-expanded（依据下一兄弟节点的 display，与 modules/quiz 的 toggle 逻辑一致）
+        document.addEventListener('click', function (e) {
+            var t = e.target;
+            var hdr = t && t.closest ? t.closest('.history-collapse-header') : null;
+            if (!hdr) return;
+            var body = hdr.nextElementSibling;
+            var open = !!(body && body.style && body.style.display !== 'none');
+            hdr.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    })();
+    </script>
 
     <script type="module" src="/src/main.ts"></script>
 </body>

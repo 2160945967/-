@@ -79,6 +79,16 @@ body.dark-mode .setting-item input[type="number"]::-webkit-outer-spin-button {
 
 .setting-item-toggle input[type="checkbox"] {
     margin-right: 10px;
+    align-self: center;
+}
+
+/* 嵌套子选项（「答题时显示例句」挂在「中译英辅助拼写」下）：标签与说明统一缩进对齐 */
+.setting-item-toggle .setting-sub-label {
+    margin-left: 26px;
+}
+
+.setting-item-toggle .setting-sub-desc {
+    margin-left: 26px;
 }
 
 .setting-desc {

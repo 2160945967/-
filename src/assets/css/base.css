@@ -10,7 +10,9 @@ body {
     background: transparent;
     color: var(--text-dark);
     line-height: 1.7;
-    display: flex;
+    /* sidebar 为 fixed，主内容用块级流式 + margin-left 让位；
+       不用 body:flex，以免外部环境向 body 注入的 in-flow 元素参与主轴分配、把主内容挤偏 */
+    display: block;
     min-height: 100vh;
     transition: color 0.3s ease;
 }
@@ -1214,24 +1216,25 @@ input[type="radio"]:checked {
 input[type="checkbox"]:checked::after {
     content: '';
     position: absolute;
-    left: 4px;
-    top: 1px;
-    width: 5px;
-    height: 9px;
+    left: 50%;
+    top: 44%;
+    width: 34%;
+    height: 60%;
     border: solid #fff;
     border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
+    transform: translate(-50%, -56%) rotate(45deg);
 }
 
 input[type="radio"]:checked::after {
     content: '';
     position: absolute;
-    left: 3px;
-    top: 3px;
-    width: 8px;
-    height: 8px;
+    left: 50%;
+    top: 50%;
+    width: 56%;
+    height: 56%;
     border-radius: 50%;
     background: #fff;
+    transform: translate(-50%, -50%);
 }
 
 input[type="checkbox"]:focus-visible,
@@ -1764,5 +1767,251 @@ body.dark-mode .usage-guide-content code {
         border-left: none !important;
         border-bottom-color: var(--primary-blue, #3498db);
         background: rgba(52, 152, 219, 0.1);
+    }
+}
+
+/* ========== 键盘焦点可见性（:focus-visible） ==========
+ * 输入框/下拉/复选框已在上方通过 box-shadow 提供焦点样式；
+ * 这里补齐按钮、链接、以及 role=button 伪按钮的键盘焦点环，避免 Tab 时无视觉焦点。 */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid var(--primary-blue);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* ========== 减弱动效偏好（prefers-reduced-motion: reduce） ==========
+ * 全局把动画/过渡时长压到接近瞬时，并停止无限脉冲，尊重系统减弱动效设置。
+ * 0.01ms 而非 0，避免依赖 transitionend 的逻辑被破坏。 */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ========== 弹窗式下拉选择器（popupSelect） ==========
+ * 原生 select 保留为状态载体但视觉隐藏，.ps-trigger 为触发器按钮，
+ * 点击后在 #ps-overlay 居中弹窗中选择选项。 */
+.ps-native-hidden {
+    display: none !important;
+}
+
+.ps-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: auto;
+    min-width: 140px;
+    max-width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-white);
+    color: var(--text-dark);
+    box-shadow: var(--shadow-sm);
+    font-size: 15px;
+    line-height: 1.3;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ps-trigger:hover {
+    border-color: var(--primary-blue-light);
+}
+
+.ps-trigger:focus-visible {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+}
+
+.ps-trigger[data-size="sm"] {
+    min-width: 92px;
+    padding: 8px 12px;
+    border-width: 1px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.setting-item .ps-trigger {
+    width: 100%;
+    max-width: 280px;
+}
+
+.ps-trigger-flex {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 150px;
+    max-width: 300px;
+}
+
+.ps-trigger-full {
+    width: 100%;
+}
+
+.asset-action-btns .ps-trigger {
+    min-height: 28px;
+    padding: 4px 10px;
+    font-size: 13px;
+}
+
+.ps-trigger-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ps-trigger.ps-placeholder .ps-trigger-label {
+    color: var(--text-gray);
+}
+
+.ps-trigger-arrow {
+    flex-shrink: 0;
+    color: var(--text-gray);
+    transition: transform 0.2s ease;
+}
+
+.ps-trigger[data-open="1"] .ps-trigger-arrow {
+    transform: rotate(180deg);
+}
+
+/* 弹窗（其他模态框靠 HTML 内联定位，这里必须自带定位，避免落入文档流） */
+.ps-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10060;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.ps-dialog {
+    width: 380px;
+    max-width: 90vw;
+    max-height: 82vh;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ps-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ps-dialog-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dark);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ps-dialog-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-gray);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ps-dialog-close:hover {
+    background: var(--bg-light);
+    color: var(--text-dark);
+}
+
+.ps-options {
+    overflow-y: auto;
+    padding: 8px;
+    max-height: 62vh;
+}
+
+.ps-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dark);
+    font-size: 15px;
+    line-height: 1.3;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.ps-option:hover {
+    background: var(--box-bg-accent);
+}
+
+.ps-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ps-option-selected {
+    color: var(--primary-blue);
+    font-weight: 600;
+    background: var(--box-bg-accent);
+}
+
+.ps-option-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ps-option-check {
+    flex-shrink: 0;
+    opacity: 0;
+    color: var(--primary-blue);
+}
+
+.ps-option-selected .ps-option-check {
+    opacity: 1;
+}
+
+.ps-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--text-gray);
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .ps-dialog {
+        width: 92vw;
+    }
+    .ps-option {
+        font-size: 16px;
+        padding: 13px 14px;
     }
 }

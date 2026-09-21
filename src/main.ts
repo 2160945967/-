@@ -29,6 +29,7 @@ import { setWordbookFilter, setWordbookSort, removeFromWordlist } from './module
 import { showImportFormat } from './modules/settings';
 import { playPronunciation, playSentencePronunciation, setAppState } from './utils/audio';
 import { initGsapAnimations, setupGsapGlobal } from './utils/gsap';
+import { initPopupSelects } from './utils/popupSelect';
 
 // 毛玻璃滚动降级（停止滚动 150ms 后恢复）
 function initGlassScrollDegradation(): void {
@@ -154,6 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 5.6 初始化ESC键关闭modal
     initModalEscKey();
+
+    // 5.7 把所有原生下拉框升级为弹窗式选择器（含后续动态插入的）
+    initPopupSelects();
 
     // 6. 初始化词典页面
     initSearch();

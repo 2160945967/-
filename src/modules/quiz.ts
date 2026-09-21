@@ -1108,7 +1108,17 @@ function applyTypeArea(): void {
     input.placeholder = inputPlaceholderForMode(m);
     const qtEx = document.getElementById('qt-example');
     const qtAs = document.getElementById('qt-assist');
-    if (qtEx) qtEx.style.display = (m === QuizMode.Spelling || m === QuizMode.ZhToEn || m === QuizMode.EnToZh) ? '' : 'none';
+    if (qtEx) {
+        // 英译中模式不挖空（答案是中文），仅完整展示例句，开关文案相应切换
+        const showEx = (m === QuizMode.Spelling || m === QuizMode.ZhToEn || m === QuizMode.EnToZh);
+        qtEx.style.display = showEx ? '' : 'none';
+        const exLabel = qtEx.parentElement?.querySelector('.qt-pill-label');
+        if (exLabel) exLabel.textContent = (m === QuizMode.EnToZh) ? '显示例句' : '例句填空';
+        const exTitle = (m === QuizMode.EnToZh)
+            ? '答题时在题目下方显示例句'
+            : '答题时显示例句，目标单词挖空';
+        if (qtEx.parentElement) (qtEx.parentElement as HTMLElement).title = exTitle;
+    }
     if (qtAs) qtAs.style.display = (m === QuizMode.Spelling || m === QuizMode.ZhToEn) ? '' : 'none';
     syncQuickToggles();
 }

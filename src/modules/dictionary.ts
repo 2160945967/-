@@ -1021,7 +1021,7 @@ export function displayResult(data: WordData): void {
 
     let buttonsHtml = '';
     buttonsHtml += '<div class="result-actions">';
-    buttonsHtml += '<select id="wordbook-selector" class="result-wb-select">';
+    buttonsHtml += '<select id="wordbook-selector" class="result-wb-select" aria-label="选择单词本" data-popup-title="选择单词本">';
     buttonsHtml += wordbookOptions;
     buttonsHtml += '</select>';
     buttonsHtml += '<button class="favorites-btn" onclick="event.stopPropagation(); g(\'playPronunciation\',\'us\',\'' + escapeForJsString(data.word) + '\')">美式发音</button>';
@@ -1347,7 +1347,7 @@ export function showSentenceWordbookModal(): void {
                 <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--text-gray);">
                     将句子添加到：
                 </p>
-                <select id="sentence-wordbook-select" class="sentence-wb-select" style="width: 100%; padding: 8px 40px 8px 12px; border: 2px solid var(--border-color); border-radius: 6px; background-color: var(--bg-white); color: var(--text-dark); font-size: 14px; margin-bottom: 16px; outline: none;">
+                <select id="sentence-wordbook-select" class="sentence-wb-select" aria-label="选择单词本" data-popup-title="选择单词本" style="width: 100%; padding: 8px 40px 8px 12px; border: 2px solid var(--border-color); border-radius: 6px; background-color: var(--bg-white); color: var(--text-dark); font-size: 14px; margin-bottom: 16px; outline: none;">
                     <option value="">-- 请选择单词本 --</option>
                     ${optionsHtml}
                 </select>
@@ -1746,7 +1746,7 @@ export async function translateText(text: string): Promise<void> {
             let resultHtml = `<div class="translation-original">
                 <strong>原文：</strong>${clickableOriginalText}
                 <div class="result-actions">
-                    <select id="sentence-wordbook-select-inline" class="result-wb-select">
+                    <select id="sentence-wordbook-select-inline" class="result-wb-select" aria-label="选择单词本" data-popup-title="选择单词本">
                         <option value="" disabled selected>选择单词本</option>
                     </select>
                     <button data-action="play-sentence" data-type="us" data-text="${escapeHtml(pronounceText)}"
