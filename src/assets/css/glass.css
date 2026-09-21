@@ -151,6 +151,17 @@
     transform: translateZ(0);
 }
 
+.quiz-answer-card {
+    background: var(--box-bg-strong);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transform: translateZ(0);
+}
+
+#quiz-answer-card #quiz-question {
+    background: transparent;
+    border: none;
+}
+
 .quiz-option {
     background: var(--box-bg);
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -286,8 +297,10 @@ body.dark-mode #search-history-items {
 
 html.dark-mode #quiz-question,
 html.dark-mode .quiz-option,
+html.dark-mode .quiz-answer-card,
 body.dark-mode #quiz-question,
-body.dark-mode .quiz-option {
+body.dark-mode .quiz-option,
+body.dark-mode .quiz-answer-card {
     border-color: rgba(255, 255, 255, 0.08);
 }
 

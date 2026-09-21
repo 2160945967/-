@@ -72,6 +72,39 @@
     font-size: 18px;
 }
 
+/* ============================================================
+   测验答题区：题目 + 快捷开关 + 输入框 合并为一张卡片
+   ============================================================ */
+.quiz-answer-card {
+    margin-bottom: 24px;
+    padding: 28px;
+    background: var(--bg-white);
+    border-radius: var(--radius-md);
+    border-left: 5px solid var(--accent-orange);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-normal);
+}
+.quiz-answer-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* 题目区融入卡片：去掉其独立卡片外观 */
+#quiz-answer-card #quiz-question {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    transition: none;
+}
+#quiz-answer-card #quiz-question:hover {
+    box-shadow: none;
+}
+#quiz-answer-card #quiz-question > :last-child {
+    margin-bottom: 0;
+}
+
 #quiz-answer, #review-answer {
     width: 100%;
     padding: 16px 24px;
@@ -890,13 +923,15 @@ html.dark-mode .quiz-stuck-word-text {
    输入区重构：题目与输入一体化圆角容器 + 艺术字 + 长下划线 + 逐字符红绿
    ============================================================ */
 
-/* 练习界面快捷开关（例句填空 / 辅助拼写） */
+/* 练习界面快捷开关（例句填空 / 辅助拼写）：题目与输入之间的分隔行 */
 .quiz-quick-toggles {
     display: flex;
     gap: 10px;
     justify-content: flex-end;
     flex-wrap: wrap;
-    margin: -16px 0 18px;
+    margin: 20px 0 0;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--border-color);
 }
 .qt-pill {
     display: inline-flex;
@@ -922,24 +957,25 @@ html.dark-mode .quiz-stuck-word-text {
     font-weight: 600;
 }
 
-/* 一体化输入容器 */
+/* 输入容器：卡片内嵌输入区（静息时浅底无边框，聚焦时蓝边+光晕） */
 .quiz-type-area {
     position: relative;
     display: flex;
     align-items: center;
     min-height: 88px;
-    margin-bottom: 24px;
+    margin: 16px 0 0;
     padding: 20px 24px;
-    background: var(--bg-white);
-    border: 2px solid var(--border-color);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
-    transition: border-color .2s ease, box-shadow .2s ease;
+    background: var(--bg-light);
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    box-shadow: none;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
     overflow: hidden;
 }
 .quiz-type-area:focus-within {
     border-color: var(--primary-blue);
-    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.14);
+    background: var(--bg-white);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.14);
 }
 .quiz-type-area.is-disabled { opacity: .75; }
 
@@ -1017,6 +1053,8 @@ html.dark-mode .quiz-stuck-word-text {
     z-index: 2;
 }
 .quiz-type-area #quiz-answer:focus { outline: none; border-color: transparent; box-shadow: none; }
+/* 英文模式视觉交给自定义占位提示，隐藏原生大字号 placeholder 避免重叠 */
+.quiz-type-area.is-en #quiz-answer::placeholder { color: transparent; }
 
 /* 中文输入模式：输入框可见（中文圆体粗体 + 自带下划线），展示层隐藏 */
 .quiz-type-area.is-zh { align-items: center; padding: 16px 22px; }
@@ -1112,7 +1150,9 @@ html.dark-mode .quiz-stuck-word-text {
 /* 深色模式 */
 html.dark-mode .qt-pill { background: var(--bg-white); border-color: rgba(255,255,255,.16); color: var(--text-dark); }
 html.dark-mode .qt-pill:has(input:checked) { background: rgba(52,152,219,.22); color: #7cc1ea; }
-html.dark-mode .quiz-type-area { background: var(--bg-white); border-color: rgba(255,255,255,.16); }
+html.dark-mode .quiz-type-area { background: var(--bg-light); }
+html.dark-mode .quiz-type-area:focus-within { background: var(--bg-white); border-color: var(--primary-blue); }
+html.dark-mode .quiz-quick-toggles { border-top-color: rgba(255,255,255,.1); }
 html.dark-mode .tc-ok { color: #46d188; }
 html.dark-mode .tc-bad { color: #ff7060; }
 html.dark-mode .cloze-card { background: linear-gradient(135deg, rgba(52,152,219,.18), rgba(52,152,219,.06)); border-color: rgba(124,193,234,.3); }
@@ -1121,6 +1161,7 @@ html.dark-mode .quiz-type-placeholder { color: #78848f; }
 
 /* 响应式 */
 @media (max-width: 768px) {
+    .quiz-answer-card { padding: 20px 16px; }
     .quiz-type-area { min-height: 72px; padding: 14px 16px; }
     .quiz-type-area.is-en::after { left: 16px; right: 16px; bottom: 12px; }
     .quiz-type-area #quiz-answer { font-size: 28px; padding: 14px 16px; }

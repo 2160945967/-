@@ -1877,11 +1877,14 @@ a:focus-visible,
 .ps-trigger-arrow {
     flex-shrink: 0;
     color: var(--text-gray);
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, color 0.2s ease;
 }
 
-.ps-trigger[data-open="1"] .ps-trigger-arrow {
-    transform: rotate(180deg);
+/* 点击后打开的是居中模态弹窗（非锚定下拉），用右箭头 hover 微移提示「进入选择」 */
+.ps-trigger:hover .ps-trigger-arrow,
+.ps-trigger:focus-visible .ps-trigger-arrow {
+    color: var(--primary-blue);
+    transform: translateX(2px);
 }
 
 /* 弹窗（其他模态框靠 HTML 内联定位，这里必须自带定位，避免落入文档流） */
