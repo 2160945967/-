@@ -14,6 +14,8 @@ import { animateCorrectFeedback, animateErrorShake, showToast } from '../utils/g
 import { playCorrectSound, playWrongSound, playCompleteSound, playClickSound } from '../utils/audio';
 import { apiTranslate } from '../utils/api';
 import { selectMeaningsForQuestion, buildMeaningDisplayHtml, checkQuizAnswer } from '../utils/quizHelper';
+import { safeParse } from '../utils/storage';
+import { fetchWordDefinitionsInBatches } from '../utils/quizCommon';
 import {
     SessionState,
     createSession,
@@ -26,13 +28,11 @@ import {
     saveSessionState,
     updateSettingsButtons,
 } from '../utils/quizSession';
-
-interface QuizWordData {
-    word: string;
-    phonetic?: string;
-    meanings: Array<{ part: string; definition: string }>;
-    isSentence?: boolean;
-}
+import type { QuizWordData } from '../utils/quizSession';
+import {
+    isStructuredSource, collectBookWords, toQuizWord,
+    getSourceWordListSync, ensureIndexLoaded,
+} from '../utils/structuredBook';
 
 export function initQuiz(): void {
     loadSettings();
@@ -182,11 +182,9 @@ export function initQuiz(): void {
         // 输入冷却期
         setupInputCooldown(quizAnswerInput);
 
-        // 拼写模式：逐字符即时反馈
+        // 输入即时反馈：英文拼写类模式逐字符回显/红绿着色，中文模式仅同步状态
         quizAnswerInput.addEventListener('input', function() {
-            if (appState.currentQuizMode === QuizMode.Spelling) {
-                updateSpellingFeedback();
-            }
+            updateSpellingFeedback();
         });
 
         // 兜底：点击输入框时强制聚焦
@@ -212,6 +210,7 @@ export function initQuiz(): void {
         endQuiz();
     });
 
+    initQuizTypeUi();
     updateRestartWordbookButton();
     updateSettingsButtons('quiz');
 }
@@ -230,7 +229,7 @@ export { getRandomMeanings } from '../utils/quizCommon';
 
 // 记录学习历史（用于艾宾浩斯遗忘曲线）
 export function recordLearningHistory(word: string, isCorrect: boolean): void {
-    let learningHistory = JSON.parse(localStorage.getItem('learningHistory') || '{}');
+    let learningHistory = safeParse<Record<string, any>>('learningHistory', {});
 
     // 记录当前时间
     const now = new Date().getTime();
@@ -266,7 +265,7 @@ export function recordLearningHistory(word: string, isCorrect: boolean): void {
 }
 
 export function calculateEbbinghausWeight(word: string): number {
-    let learningHistory = JSON.parse(localStorage.getItem('learningHistory') || '{}');
+    let learningHistory = safeParse<Record<string, any>>('learningHistory', {});
 
     // 如果单词没有学习历史，权重为1（最高）
     if (!learningHistory[word]) {
@@ -369,7 +368,7 @@ export function showLearningHistory(): void {
         return;
     }
 
-    let learningHistory = JSON.parse(localStorage.getItem('learningHistory') || '{}');
+    let learningHistory = safeParse<Record<string, any>>('learningHistory', {});
     const historyArray = Object.entries(learningHistory).map(([word, data]: [string, any]) => ({
         word: word,
         data: data
@@ -434,7 +433,7 @@ export function showLearningHistory(): void {
 
 // 查看艾宾浩斯到期词（供复习模式页面使用）
 export function showDueWords(): void {
-    const history = JSON.parse(localStorage.getItem('learningHistory') || '{}');
+    const history = safeParse<Record<string, any>>('learningHistory', {});
     const now = Date.now();
     const dueWordsHtml = document.getElementById('due-words');
     const dueEmpty = document.getElementById('due-words-empty');
@@ -461,7 +460,7 @@ export function showDueWords(): void {
 
 // 从艾宾浩斯到期词中移除（删除该单词的学习历史）
 export function removeDueWord(word: string): void {
-    const history = JSON.parse(localStorage.getItem('learningHistory') || '{}');
+    const history = safeParse<Record<string, any>>('learningHistory', {});
     if (history[word]) {
         delete history[word];
         localStorage.setItem('learningHistory', JSON.stringify(history));
@@ -538,6 +537,7 @@ let quizAnsweredCount = 0;
 let quizAnsweredWords: Set<string> = new Set();
 let quizAnswerSubmitted = false; // 标记用户是否提交了答案（区别于手动点"显示答案"）
 let quizLastAnswerCorrect = false; // 上一题答对还是答错
+let answerCommitted = false; // 当前题是否已落库（防重复提交/双写）
 let _showAnswerEnterHandler: ((e: KeyboardEvent) => void) | null = null;
 let quizSession: SessionState | null = null;
 let spellingAutoSubmitTimer: ReturnType<typeof setTimeout> | null = null;
@@ -581,27 +581,44 @@ function saveAnsweredWords(): void {
     localStorage.setItem('quizAnsweredWords', JSON.stringify([...quizAnsweredWords]));
 }
 function loadAnsweredWords(): void {
-    try {
-        const saved = JSON.parse(localStorage.getItem('quizAnsweredWords') || '[]');
-        quizAnsweredWords = new Set(saved);
-    } catch (e) { console.error('解析已答单词列表失败:', e); quizAnsweredWords = new Set(); }
+    const saved = safeParse<string[]>('quizAnsweredWords', []);
+    quizAnsweredWords = new Set(saved);
+}
+
+// 答完一题判定后立即落库：学习历史 + 已答记录 + 复习调度 + 会话进度。
+// answerCommitted 保证每题只提交一次（checkAnswer 判定 correct 或 showAnswer 揭晓时各调用一次，
+// 由 guard 互斥），避免重复计数；翻题时重置。
+function commitCurrentAnswer(isCorrect: boolean): void {
+    if (answerCommitted) return;
+    if (!appState.currentQuizWord) return;
+    const word = appState.currentQuizWord.word;
+    answerCommitted = true;
+
+    quizAnsweredWords.add(word);
+    recordLearningHistory(word, isCorrect);
+    incrementStudyDay();
+    appState.studyStats.todayWords++;
+    appState.studyStats.learnedCount++;
+    updateStudyStats();
+    localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
+    void updateWordSourceSelect();
+    saveAnsweredWords();
+    if (quizSession) {
+        markAnswered(quizSession, word, isCorrect);
+    }
 }
 
 const LOOP_COUNTS_KEY = 'quizLoopCounts';
 
 function getLoopCount(source: string): number {
-    try {
-        const counts = JSON.parse(localStorage.getItem(LOOP_COUNTS_KEY) || '{}');
-        return counts[source] || 0;
-    } catch { return 0; }
+    const counts = safeParse<Record<string, number>>(LOOP_COUNTS_KEY, {});
+    return counts[source] || 0;
 }
 
 function setLoopCount(source: string, count: number): void {
-    try {
-        const counts = JSON.parse(localStorage.getItem(LOOP_COUNTS_KEY) || '{}');
-        counts[source] = count;
-        localStorage.setItem(LOOP_COUNTS_KEY, JSON.stringify(counts));
-    } catch {}
+    const counts = safeParse<Record<string, number>>(LOOP_COUNTS_KEY, {});
+    counts[source] = count;
+    localStorage.setItem(LOOP_COUNTS_KEY, JSON.stringify(counts));
 }
 
 function incrementLoopCount(source: string): void {
@@ -612,12 +629,12 @@ function clearSourceProgress(source: string): void {
     const words = getSourceWordList(source);
     if (words.length === 0) return;
     const sourceWords = new Set(words);
-    try {
-        const answered = JSON.parse(localStorage.getItem('quizAnsweredWords') || '[]') as string[];
+    {
+        const answered = safeParse<string[]>('quizAnsweredWords', []);
         const filtered = answered.filter(w => !sourceWords.has(w));
         localStorage.setItem('quizAnsweredWords', JSON.stringify(filtered));
         loadAnsweredWords();
-    } catch {}
+    }
 }
 
 // 根据当前单词来源切换「重新测验该单词本」按钮显示
@@ -626,7 +643,7 @@ function updateRestartWordbookButton(): void {
     const restartBtn = document.getElementById('restart-wordbook');
     if (!wordSourceEl || !restartBtn) return;
     const source = wordSourceEl.value;
-    const isWordbook = source.startsWith('wordbook:') || source.startsWith('system:');
+    const isWordbook = source.startsWith('wordbook:') || source.startsWith('system:') || isStructuredSource(source);
     restartBtn.style.display = isWordbook ? 'inline-block' : 'none';
 }
 
@@ -697,11 +714,11 @@ export async function startQuiz(): Promise<void> {
                     });
                 });
                 // 缓存系统词库单词列表，供统计使用
-                try {
-                    const cache = JSON.parse(localStorage.getItem('systemWordbookWordsCache') || '{}');
+                {
+                    const cache = safeParse<Record<string, string[]>>('systemWordbookWordsCache', {});
                     cache[tags] = data.data.words.map((w: { word: string }) => w.word);
                     localStorage.setItem('systemWordbookWordsCache', JSON.stringify(cache));
-                } catch {}
+                }
             } else {
                 void showAlert('系统单词本加载失败！');
                 return;
@@ -709,6 +726,22 @@ export async function startQuiz(): Promise<void> {
         } catch (e: unknown) {
             console.error('加载系统单词本失败:', e);
             void showAlert('加载系统单词本失败');
+            return;
+        }
+    } else if (isStructuredSource(wordSource)) {
+        // 结构化词书（四级词书：整本 / 按单元 / 多选课）
+        try {
+            const bookWords = await collectBookWords(wordSource);
+            if (bookWords.length === 0) {
+                void showAlert('词书内容加载失败，请稍后重试。');
+                return;
+            }
+            appState.quizWords.length = 0;
+            bookWords.forEach(bw => appState.quizWords.push(toQuizWord(bw) as unknown as QuizWordData));
+            await ensureIndexLoaded();
+        } catch (e: unknown) {
+            console.error('加载结构化词书失败:', e);
+            void showAlert('结构化词书加载失败');
             return;
         }
     } else {
@@ -778,28 +811,20 @@ export async function startQuiz(): Promise<void> {
 
     if (wordsToLoad.length > 0) {
         try {
-            const response = await fetch('/api/words/batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ words: wordsToLoad })
-            });
-            const result = await response.json();
-
-            if (result.success && result.data) {
-                result.data.forEach((item: { word: string; info?: { meanings?: Array<{ part: string; definition: string }>; translation?: string; phonetic?: string } }) => {
-                    const wordObj = appState.quizWords.find(w => w.word.toLowerCase() === item.word.toLowerCase());
-                    if (wordObj && item.info) {
-                        if (item.info.meanings) {
-                            wordObj.meanings = item.info.meanings;
-                        } else if (item.info.translation) {
-                            wordObj.meanings = [{ part: '', definition: item.info.translation }];
-                        }
-                        if (item.info.phonetic) {
-                            wordObj.phonetic = item.info.phonetic;
-                        }
+            const data = await fetchWordDefinitionsInBatches(wordsToLoad);
+            data.forEach((item: { word: string; info?: { meanings?: Array<{ part: string; definition: string }>; translation?: string; phonetic?: string } }) => {
+                const wordObj = appState.quizWords.find(w => w.word.toLowerCase() === item.word.toLowerCase());
+                if (wordObj && item.info) {
+                    if (item.info.meanings) {
+                        wordObj.meanings = item.info.meanings;
+                    } else if (item.info.translation) {
+                        wordObj.meanings = [{ part: '', definition: item.info.translation }];
                     }
-                });
-            }
+                    if (item.info.phonetic) {
+                        wordObj.phonetic = item.info.phonetic;
+                    }
+                }
+            });
         } catch (e: unknown) {
             console.error('批量加载释义失败:', e);
         }
@@ -836,22 +861,8 @@ export async function generateQuestion(): Promise<void> {
     // 每次生成题目前加载最新设置
     loadSettings();
 
-    // 上一题如果用户提交过答案，标记为已答
-    if (appState.currentQuizWord && quizAnswerSubmitted) {
-        quizAnsweredWords.add(appState.currentQuizWord.word);
-        recordLearningHistory(appState.currentQuizWord.word, quizLastAnswerCorrect);
-        incrementStudyDay();
-        appState.studyStats.todayWords++;
-        appState.studyStats.learnedCount++;
-        updateStudyStats();
-        localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
-        await updateWordSourceSelect();
-        saveAnsweredWords();
-        if (quizSession) {
-            markAnswered(quizSession, appState.currentQuizWord.word, quizLastAnswerCorrect);
-        }
-        quizAnswerSubmitted = false;
-    }
+    // 注：上一题的落库已在 checkAnswer/showAnswer 判定后立即执行（commitCurrentAnswer），
+    // 此处不再推迟提交；answerCommitted 已在选题时重置。
 
     // 跳过已答过的单词
     let skippedCount = 0;
@@ -881,18 +892,8 @@ export async function generateQuestion(): Promise<void> {
     const quizAnswerInput = document.getElementById('quiz-answer') as HTMLInputElement;
     quizAnswerInput.value = '';
     quizAnswerInput.disabled = false;
-    updateSpellingFeedback();
-    const quizModeSelect = document.getElementById('quiz-mode') as HTMLSelectElement;
-    if (quizModeSelect && quizModeSelect.value === QuizMode.EnToZh) {
-        quizAnswerInput.placeholder = '请输入答案，输入多个中文时用逗号分号或空格隔开，按Enter提交';
-    } else if (quizModeSelect && quizModeSelect.value === QuizMode.Spelling) {
-        quizAnswerInput.placeholder = '请根据释义拼写单词，按Enter提交';
-    } else if (quizModeSelect && quizModeSelect.value === QuizMode.ListeningStuck) {
-        quizAnswerInput.placeholder = '请听发音并写出听到的单词或句子，按Enter提交';
-    } else {
-        quizAnswerInput.placeholder = '请输入答案...按Enter提交';
-    }
     quizAnswerInput.classList.remove('quiz-answer-hidden');
+    updateSpellingFeedback();
     // 等浏览器完成重排后再聚焦，避免 display:none 刚移除时 focus 失效
     requestAnimationFrame(() => quizAnswerInput.focus());
     const showAnswerBtn = document.getElementById('show-answer');
@@ -906,6 +907,7 @@ export async function generateQuestion(): Promise<void> {
     appState.quizWords.splice(selectedIndex, 1);
 
     quizAnswerSubmitted = false; // 重置提交标记
+    answerCommitted = false; // 新题允许落库一次
 
     // 如果没有释义，尝试获取翻译（不管是不是句子）
     const hasMeaning = appState.currentQuizWord.meanings &&
@@ -1018,6 +1020,11 @@ export async function generateQuestion(): Promise<void> {
         quizQuestion.innerHTML = questionHtml;
     }
 
+    // 配置输入区形态（英文拼写 / 中文输入）、占位提示与快捷开关
+    applyTypeArea();
+    // 例句填空（受“显示例句”开关控制）
+    setupClozeForCurrent();
+
     // 生成新题目后滚动到测验区域，确保用户能看到所有内容
     scrollToQuizArea();
 }
@@ -1031,48 +1038,287 @@ export function scrollToQuizArea(): void {
     }
 }
 
-// 拼写模式：逐字符即时反馈（正确绿色、错误红色），完整拼写正确后自动提交
+// ==================== 输入区：内嵌字体 / 模式形态 / 逐字符反馈 / 例句填空 ====================
+let quizFontInjected = false;
+function ensureQuizFont(): void {
+    if (quizFontInjected) return;
+    quizFontInjected = true;
+    try {
+        const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+        const st = document.createElement('style');
+        st.id = 'quiz-font-face';
+        const face = (weight: number, file: string) =>
+            `@font-face{font-family:'FredokaQuiz';font-style:normal;font-weight:${weight};font-display:swap;` +
+            `src:url('${base}/fonts/${file}') format('woff2');}`;
+        st.textContent = face(500, 'fredoka-latin-500-normal.woff2')
+            + face(600, 'fredoka-latin-600-normal.woff2')
+            + face(700, 'fredoka-latin-700-normal.woff2');
+        document.head.appendChild(st);
+    } catch { /* 路径异常时回退系统字体 */ }
+}
+
+// 需要“写英文”的模式：透明输入框 + 艺术字回显层
+const ENGLISH_INPUT_MODES: QuizMode[] = [QuizMode.Spelling, QuizMode.ZhToEn, QuizMode.Dictation, QuizMode.ListeningStuck];
+function isEnglishInputMode(m: QuizMode | undefined): boolean {
+    return !!m && ENGLISH_INPUT_MODES.includes(m);
+}
+// 逐字符红绿反馈：拼写模式始终开启；中译英受“辅助拼写”开关控制；听写类不反馈（专注听辨）
+function isCharFeedbackMode(m: QuizMode | undefined): boolean {
+    if (m === QuizMode.Spelling) return true;
+    if (m === QuizMode.ZhToEn) return appState.settings.assistSpelling !== false;
+    return false;
+}
+
+function placeholderForMode(m: QuizMode | undefined): string {
+    switch (m) {
+        case QuizMode.EnToZh: return '输入中文意思，按 Enter 提交';
+        case QuizMode.Spelling: return '根据释义拼写单词…';
+        case QuizMode.ZhToEn: return '写出英文单词…';
+        case QuizMode.Dictation: return '听写单词…';
+        case QuizMode.ListeningStuck: return '听发音写出单词…';
+        default: return '输入答案，按 Enter 提交';
+    }
+}
+
+// 输入框自身的 placeholder（中文模式下可见，需提供更详细的提示）
+function inputPlaceholderForMode(m: QuizMode | undefined): string {
+    switch (m) {
+        case QuizMode.EnToZh: return '请输入答案，输入多个中文时用逗号分号或空格隔开，按Enter提交';
+        case QuizMode.Spelling: return '请根据释义拼写单词，按Enter提交';
+        case QuizMode.ListeningStuck: return '请听发音并写出听到的单词或句子，按Enter提交';
+        default: return '请输入答案...按Enter提交';
+    }
+}
+
+// 根据当前模式切换输入区形态（英文拼写 / 中文输入）与占位提示
+function applyTypeArea(): void {
+    const area = document.getElementById('quiz-type-area');
+    const input = document.getElementById('quiz-answer') as HTMLInputElement | null;
+    const ph = document.getElementById('quiz-type-placeholder');
+    if (!area || !input) return;
+    const m = appState.currentQuizMode;
+    const en = isEnglishInputMode(m) && !!appState.currentQuizWord;
+    area.classList.toggle('is-en', en);
+    area.classList.toggle('is-zh', m === QuizMode.EnToZh);
+    area.classList.toggle('has-value', input.value.length > 0);
+    area.classList.toggle('is-disabled', !!input.disabled);
+    area.dataset.mode = m || '';
+    if (ph) ph.textContent = placeholderForMode(m);
+    // 同步输入框 placeholder（中文模式下输入框可见，需用自身 placeholder）
+    input.placeholder = inputPlaceholderForMode(m);
+    const qtEx = document.getElementById('qt-example');
+    const qtAs = document.getElementById('qt-assist');
+    if (qtEx) qtEx.style.display = (m === QuizMode.Spelling || m === QuizMode.ZhToEn || m === QuizMode.EnToZh) ? '' : 'none';
+    if (qtAs) qtAs.style.display = (m === QuizMode.Spelling || m === QuizMode.ZhToEn) ? '' : 'none';
+    syncQuickToggles();
+}
+
+function syncQuickToggles(): void {
+    const qtEx = document.getElementById('qt-example') as HTMLInputElement | null;
+    const qtAs = document.getElementById('qt-assist') as HTMLInputElement | null;
+    if (qtEx) qtEx.checked = !!appState.settings.showExampleInQuiz;
+    if (qtAs) qtAs.checked = appState.settings.assistSpelling !== false;
+}
+
+function syncSettingCheckbox(id: string, on: boolean): void {
+    const el = document.getElementById(id) as HTMLInputElement | null;
+    if (el) el.checked = on;
+}
+
+// 对错时输入区动效（正确微弹 / 错误轻抖）
+function pulseTypeArea(correct: boolean): void {
+    const area = document.getElementById('quiz-type-area');
+    if (!area) return;
+    const cls = correct ? 'type-pop' : 'type-shake';
+    area.classList.remove('type-pop', 'type-shake');
+    void (area as HTMLElement).offsetWidth;
+    area.classList.add(cls);
+    setTimeout(() => area.classList.remove(cls), correct ? 430 : 360);
+}
+
+function initQuizTypeUi(): void {
+    ensureQuizFont();
+    const area = document.getElementById('quiz-type-area');
+    const input = document.getElementById('quiz-answer') as HTMLInputElement | null;
+    if (area && input) {
+        area.addEventListener('click', () => { if (!input.disabled) input.focus(); });
+    }
+    const qtEx = document.getElementById('qt-example') as HTMLInputElement | null;
+    if (qtEx) qtEx.addEventListener('change', function(this: HTMLInputElement) {
+        appState.settings.showExampleInQuiz = this.checked;
+        syncSettingCheckbox('show-example-in-quiz', this.checked);
+        if (this.checked) setupClozeForCurrent(); else removeCloze();
+    });
+    const qtAs = document.getElementById('qt-assist') as HTMLInputElement | null;
+    if (qtAs) qtAs.addEventListener('change', function(this: HTMLInputElement) {
+        appState.settings.assistSpelling = this.checked;
+        syncSettingCheckbox('assist-spelling', this.checked);
+        lastWrongCount = 0;
+        updateSpellingFeedback();
+    });
+    syncQuickToggles();
+}
+
+// ---------- 例句填空 ----------
+let currentClozeExample: { en: string; zh: string; source: string } | null = null;
+let clozeSeq = 0;
+
+function pickBookExample(wd: QuizWordData): { en: string; zh: string; y?: string; source: string } | null {
+    const be = wd.bookExtra;
+    if (!be) return null;
+    if (be.ex && be.ex.en) return { en: be.ex.en, zh: be.ex.zh || '', y: be.ex.y, source: '书中例句' };
+    if (be.real && be.real.en) return { en: be.real.en, zh: be.real.zh || '', y: be.real.y, source: '四级真题' };
+    return null;
+}
+
+function escapeRegExp(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// 目标词（含可接受拼写变体 + 常见屈折后缀）；不挖 ly/ment/tion 等派生词，避免误伤同根新词
+function buildTargetRegex(word: string, answers: string[]): RegExp {
+    const cands = Array.from(new Set([word, ...(answers || [])].map(x => x.toLowerCase().trim()).filter(Boolean)))
+        .sort((a, b) => b.length - a.length);
+    const alt = cands.map(escapeRegExp).join('|');
+    return new RegExp('\\b(?:' + alt + ')(?:s|es|ies|ied|ed|d|ing|er|est)?\\b', 'gi');
+}
+
+function maskExample(en: string, wd: QuizWordData, doMask: boolean): { html: string; matched: boolean } {
+    if (!doMask) return { html: escapeHtml(en), matched: true };
+    const re = buildTargetRegex(wd.word, wd.answers || []);
+    const T = '\u0001';
+    let matched = false;
+    const tmp = en.replace(re, (m) => { matched = true; return T + Math.max(5, m.length) + T; });
+    let html = escapeHtml(tmp);
+    html = html.replace(new RegExp('\u0001(\\d+)\u0001', 'g'), (_m, n) =>
+        `<span class="cloze-blank" style="--blen:${n}"></span>`);
+    return { html, matched };
+}
+
+function removeCloze(): void {
+    const q = document.getElementById('quiz-question');
+    const c = q && q.querySelector('.cloze-card');
+    if (c) c.remove();
+}
+
+function renderCloze(ex: { en: string; zh: string; y?: string; source: string }, wd: QuizWordData, doMask: boolean): void {
+    const q = document.getElementById('quiz-question');
+    if (!q) return;
+    removeCloze();
+    const r = maskExample(ex.en, wd, doMask);
+    if (!r.matched) return;
+    const card = document.createElement('div');
+    card.className = 'cloze-card';
+    card.innerHTML =
+        `<div class="cloze-hint">📝 ${escapeHtml(ex.source)}${ex.y ? ' · ' + escapeHtml(ex.y) : ''}${doMask ? ' · 补全划线单词' : ''}</div>` +
+        `<p class="cloze-en">${r.html}</p>`;
+    q.appendChild(card);
+}
+
+function setupClozeForCurrent(): void {
+    const wd = appState.currentQuizWord;
+    const seq = ++clozeSeq;
+    currentClozeExample = null;
+    removeCloze();
+    if (!wd) return;
+    const m = appState.currentQuizMode;
+    const isSentence = wd.word.includes(' ') || wd.isSentence;
+    if (!appState.settings.showExampleInQuiz || isSentence) return;
+    if (m !== QuizMode.Spelling && m !== QuizMode.ZhToEn && m !== QuizMode.EnToZh) return;
+    const doMask = (m === QuizMode.Spelling || m === QuizMode.ZhToEn);
+    const be = pickBookExample(wd);
+    if (be) {
+        currentClozeExample = { en: be.en, zh: be.zh, source: be.source };
+        renderCloze(be, wd, doMask);
+        return;
+    }
+    // 非词书词：异步取一句例句兜底
+    fetch('/api/examples?word=' + encodeURIComponent(wd.word))
+        .then(r => r.json())
+        .then(d => {
+            if (seq !== clozeSeq || appState.currentQuizWord !== wd) return;
+            if (d && d.success && Array.isArray(d.data) && d.data.length > 0) {
+                const e = d.data[Math.floor(Math.random() * d.data.length)];
+                const ex = { en: String(e.text || ''), zh: String(e.translation || ''), source: '例句' };
+                if (!ex.en) return;
+                currentClozeExample = ex;
+                renderCloze(ex, wd, doMask);
+            }
+        })
+        .catch(() => { /* 无例句则不显示 */ });
+}
+
+let lastWrongCount = 0;
+// 拼写 / 中译英：逐字符即时反馈（正确前缀绿色、首个错误位起全部红色），完整正确后自动提交
 function updateSpellingFeedback(): void {
     const input = document.getElementById('quiz-answer') as HTMLInputElement | null;
     const feedback = document.getElementById('quiz-spelling-feedback');
-    if (!input || !feedback) return;
+    const area = document.getElementById('quiz-type-area');
+    if (!input || !feedback || !area) return;
 
-    if (appState.currentQuizMode !== QuizMode.Spelling || !appState.currentQuizWord) {
+    area.classList.toggle('has-value', input.value.length > 0);
+    area.classList.toggle('is-disabled', !!input.disabled);
+
+    const wd = appState.currentQuizWord as QuizWordData | null;
+    const m = appState.currentQuizMode;
+    const en = isEnglishInputMode(m) && !!wd;
+
+    if (!en || !wd) {
         feedback.innerHTML = '';
+        if (spellingAutoSubmitTimer) { clearTimeout(spellingAutoSubmitTimer); spellingAutoSubmitTimer = null; }
         return;
     }
 
-    const word = appState.currentQuizWord.word || '';
     const value = input.value;
-    let html = '';
-    let allCorrect = true;
+    const feedbackOn = isCharFeedbackMode(m);
 
-    for (let i = 0; i < value.length; i++) {
-        const char = value[i];
-        const targetChar = word[i];
-        if (targetChar && char.toLowerCase() === targetChar.toLowerCase()) {
-            html += `<span class="spelling-char spelling-char-correct">${escapeHtml(char)}</span>`;
-        } else {
-            html += `<span class="spelling-char spelling-char-wrong">${escapeHtml(char)}</span>`;
-            allCorrect = false;
-        }
+    if (!feedbackOn) {
+        // 听写类 / 关闭辅助：艺术字中性回显，不红绿、不自动提交
+        feedback.innerHTML = value ? `<span class="tc tc-neutral">${escapeHtml(value)}</span>` : '';
+        lastWrongCount = 0;
+        scheduleSpellingAutoSubmit(false);
+        return;
     }
 
+    const word = wd.word || '';
+    const candidates = Array.from(new Set([word, ...(wd.answers || [])].filter(Boolean)));
+    const v = value.toLowerCase();
+    let target = word;
+    if (v.length > 0) {
+        // 优先选择「以当前输入为前缀」的候选作为反馈目标，兼容英美拼写变体
+        const hit = candidates.find(c => c.toLowerCase().startsWith(v));
+        if (hit) target = hit;
+    }
+
+    let wrong = 0;
+    let html = '';
+    for (let i = 0; i < value.length; i++) {
+        const ch = value[i];
+        const tc = target[i];
+        if (!(wrong === 0 && tc && ch.toLowerCase() === tc.toLowerCase())) wrong++;
+        const cls = wrong === 0 ? 'tc tc-ok' : 'tc tc-bad';
+        html += `<span class="${cls}">${escapeHtml(ch === ' ' ? '\u00A0' : ch)}</span>`;
+    }
+    if (!input.disabled) html += `<span class="tc tc-caret"></span>`;
     feedback.innerHTML = html;
 
-    if (spellingAutoSubmitTimer) {
-        clearTimeout(spellingAutoSubmitTimer);
-        spellingAutoSubmitTimer = null;
-    }
+    // 错误字符新增时整行轻抖一次
+    if (wrong > lastWrongCount && !input.disabled) pulseTypeArea(false);
+    lastWrongCount = wrong;
 
-    if (value.length > 0 && value.length === word.length && allCorrect && !appState.isProcessingAnswer && !input.disabled) {
-        spellingAutoSubmitTimer = setTimeout(() => {
-            spellingAutoSubmitTimer = null;
-            if (!appState.isProcessingAnswer && appState.currentQuizMode === QuizMode.Spelling) {
-                checkAnswer().catch(() => {});
-            }
-        }, 250);
-    }
+    const fullMatch = value.length > 0 && candidates.some(c => c.toLowerCase() === v);
+    scheduleSpellingAutoSubmit(fullMatch && !appState.isProcessingAnswer && !input.disabled);
+}
+
+function scheduleSpellingAutoSubmit(should: boolean): void {
+    if (spellingAutoSubmitTimer) { clearTimeout(spellingAutoSubmitTimer); spellingAutoSubmitTimer = null; }
+    if (!should) return;
+    spellingAutoSubmitTimer = setTimeout(() => {
+        spellingAutoSubmitTimer = null;
+        if (!appState.isProcessingAnswer && isCharFeedbackMode(appState.currentQuizMode)) {
+            checkAnswer().catch(() => {});
+        }
+    }, 220);
 }
 
 function updateQuizProgress(): void {
@@ -1113,7 +1359,8 @@ export async function checkAnswer(): Promise<void> {
         appState.currentQuizWord.word,
         appState.currentQuizWord.meanings || [],
         appState.currentQuizMode,
-        isSentence
+        isSentence,
+        (appState.currentQuizWord as QuizWordData).answers
     );
 
     if (result.isCorrect) {
@@ -1121,10 +1368,12 @@ export async function checkAnswer(): Promise<void> {
         feedback.textContent = '回答正确！';
         feedback.className = 'quiz-feedback-success';
         animateCorrectFeedback(feedback);
+        pulseTypeArea(true);
         playCorrectSound();
 
         quizAnswerSubmitted = true;
         quizLastAnswerCorrect = true;
+        commitCurrentAnswer(true); // 答对即落库，避免答最后一词按 Esc 丢失
 
         (document.getElementById('quiz-answer') as HTMLInputElement).value = '';
 
@@ -1237,6 +1486,7 @@ export async function checkAnswer(): Promise<void> {
         }
         feedback.className = 'quiz-feedback-error';
         animateErrorShake(feedback);
+        pulseTypeArea(false);
         playWrongSound();
 
         appState.isProcessingAnswer = false;
@@ -1258,6 +1508,44 @@ function markAsListeningStuck(wordData: QuizWordData): void {
     }
 }
 
+// 把英文文本中的单词转为可点击跳查的链接
+function linkifyWords(text: string): string {
+    const safe = escapeHtml(text || '');
+    return safe.replace(/([a-zA-Z]+(?:'[a-zA-Z]+)?)/g, m =>
+        `<a href="#" onclick="g('jumpToWord','${escapeForJsString(m.toLowerCase())}');return false;" class="quiz-clickable-word">${m}</a>`);
+}
+
+// 结构化词书附加内容：记忆法 / 四级真题 / 书中例句 / 派生词
+function buildBookExtraHtml(wd: QuizWordData): string {
+    const be = wd.bookExtra;
+    if (!be) return '';
+    const blocks: string[] = [];
+
+    if (be.mem && be.mem.trim()) {
+        blocks.push(`<div class="be-block be-memory"><div class="be-h">🧠 记忆法</div><p>${escapeHtml(be.mem)}</p></div>`);
+    }
+
+    const exampleBlock = (cls: string, title: string, e: { en: string; zh: string; y?: string } | null | undefined): string => {
+        if (!e || !e.en) return '';
+        return `<div class="be-block ${cls}">
+            <div class="be-h">${title}${e.y ? ` <span class="be-year">${escapeHtml(e.y)} 年</span>` : ''}</div>
+            <p class="be-en">${linkifyWords(e.en)}</p>
+            <p class="be-zh">${escapeHtml(e.zh || '')}</p>
+        </div>`;
+    };
+    if (be.real) blocks.push(exampleBlock('be-real', '📝 四级真题', be.real));
+    if (be.ex) blocks.push(exampleBlock('be-example', '📖 书中例句', be.ex));
+
+    if (be.der && be.der.length > 0) {
+        const items = be.der.map(d => {
+            const def = (d.pos || []).map(x => `${x.p ? escapeHtml(x.p) + '. ' : ''}${escapeHtml(x.d)}`).join('；');
+            return `<span class="be-der-item"><a class="be-der-w quiz-clickable-word" href="#" onclick="g('jumpToWord','${escapeForJsString(d.w.toLowerCase())}');return false;">${escapeHtml(d.w)}</a>${d.ph ? ` <span class="be-der-ph">/${escapeHtml(d.ph)}/</span>` : ''}${def ? ` <span class="be-der-d">${def}</span>` : ''}</span>`;
+        }).join('');
+        blocks.push(`<div class="be-block be-deriv"><div class="be-h">🔗 派生词</div><div class="be-der-list">${items}</div></div>`);
+    }
+
+    return blocks.length ? `<div class="book-extra">${blocks.join('')}</div>` : '';
+}
 export function showAnswer(manual: boolean = false): void {
     const quizQuestion = document.getElementById('quiz-question');
     const feedback = document.getElementById('quiz-feedback') as HTMLElement;
@@ -1291,49 +1579,49 @@ export function showAnswer(manual: boolean = false): void {
         });
     }
 
+    // 结构化词书：追加记忆法 / 真题 / 例句 / 派生词
+    if (!isSentence) {
+        answerHtml += buildBookExtraHtml(appState.currentQuizWord);
+    }
+
     quizQuestion.innerHTML = answerHtml;
 
     // 显示答案后滚动到测验区域，确保能看到所有内容
     scrollToQuizArea();
 
-    // 如果是单词，获取并显示一句随机例句
-    if (!isSentence) {
-        (async () => {
-            try {
-                const examplesResponse = await fetch('/api/examples?word=' + encodeURIComponent(appState.currentQuizWord.word));
-                const examplesData = await examplesResponse.json();
-                if (examplesData.success && examplesData.data && examplesData.data.length > 0) {
-                    // 随机选择一句例句
-                    const randomIndex = Math.floor(Math.random() * examplesData.data.length);
-                    const example = examplesData.data[randomIndex];
-
-                    // 给例句单词加链接
-                    let exampleText = example.text;
-                    exampleText = exampleText.replace(/([a-zA-Z]+(?:'[a-zA-Z]+)?)/g, function(match: string) {
-                        return '<a href="#" onclick="g(\'jumpToWord\', \'' + escapeForJsString(match.toLowerCase()) + '\'); return false;" class="quiz-clickable-word">' + escapeHtml(match) + '</a>';
-                    });
-
-                    let exampleHtml = '<div class="quiz-example-section">';
-                    exampleHtml += '<h3 class="quiz-example-heading">';
-                    exampleHtml += '<span>📖</span> 例句';
-                    exampleHtml += '</h3>';
-                    exampleHtml += '<div class="quiz-example-card">';
-                    exampleHtml += '<div class="quiz-example-badge-row">';
-                    exampleHtml += '<span class="quiz-example-lang-badge">英文</span>';
-                    exampleHtml += '</div>';
-                    exampleHtml += '<div class="quiz-example-text">' + exampleText + '</div>';
-                    exampleHtml += '<div class="quiz-example-translation">';
-                    exampleHtml += '<span class="quiz-example-zh-label">中文:</span>' + example.translation;
-                    exampleHtml += '</div>';
-                    exampleHtml += '</div>';
-                    exampleHtml += '</div>';
-
-                    quizQuestion.innerHTML += exampleHtml;
+    // 书内已带例句/真题时不再请求外部例句；否则优先复用填空阶段取到的同一句，再随机兜底
+    const bookExtra = (appState.currentQuizWord as QuizWordData).bookExtra;
+    const hasBookExample = !!(bookExtra && (bookExtra.real || bookExtra.ex));
+    if (!isSentence && !hasBookExample) {
+        const appendExampleCard = (example: { text: string; translation: string }) => {
+            const exampleText = example.text.replace(/([a-zA-Z]+(?:'[a-zA-Z]+)?)/g, (match: string) => {
+                return '<a href="#" onclick="g(\'jumpToWord\', \'' + escapeForJsString(match.toLowerCase()) + '\'); return false;" class="quiz-clickable-word">' + escapeHtml(match) + '</a>';
+            });
+            let exampleHtml = '<div class="quiz-example-section">';
+            exampleHtml += '<h3 class="quiz-example-heading"><span>📖</span> 例句</h3>';
+            exampleHtml += '<div class="quiz-example-card">';
+            exampleHtml += '<div class="quiz-example-badge-row"><span class="quiz-example-lang-badge">英文</span></div>';
+            exampleHtml += '<div class="quiz-example-text">' + exampleText + '</div>';
+            exampleHtml += '<div class="quiz-example-translation"><span class="quiz-example-zh-label">中文:</span>' + escapeHtml(example.translation || '') + '</div>';
+            exampleHtml += '</div></div>';
+            quizQuestion.innerHTML += exampleHtml;
+        };
+        const cached = currentClozeExample;
+        if (cached && cached.en) {
+            appendExampleCard({ text: cached.en, translation: cached.zh || '' });
+        } else {
+            (async () => {
+                try {
+                    const examplesResponse = await fetch('/api/examples?word=' + encodeURIComponent(appState.currentQuizWord.word));
+                    const examplesData = await examplesResponse.json();
+                    if (examplesData.success && examplesData.data && examplesData.data.length > 0) {
+                        appendExampleCard(examplesData.data[Math.floor(Math.random() * examplesData.data.length)]);
+                    }
+                } catch (e: unknown) {
+                    console.error('获取例句失败:', e);
                 }
-            } catch (e: unknown) {
-                console.error('获取例句失败:', e);
-            }
-        })();
+            })();
+        }
     }
 
     if (feedback) {
@@ -1344,13 +1632,16 @@ export function showAnswer(manual: boolean = false): void {
     // 清空输入框，保持启用状态，修改提示词并聚焦
     quizAnswerInput.value = '';
     quizAnswerInput.disabled = false;
-    quizAnswerInput.placeholder = '可以输入答案巩固一下哦';
+    const phEl = document.getElementById('quiz-type-placeholder');
+    if (phEl) phEl.textContent = '输入答案巩固一下，按 Enter 进入下一题';
+    applyTypeArea();
     updateSpellingFeedback();
     requestAnimationFrame(() => quizAnswerInput.focus());
 
     appState.isWaitingForNextQuestion = true;
     quizAnswerSubmitted = true;
     quizLastAnswerCorrect = false;
+    commitCurrentAnswer(false); // 手动揭晓视为答错；答对路径已在 checkAnswer 提交，guard 防双写
 
     const quizFavBtn = document.getElementById('quiz-fav-btn') as HTMLButtonElement | null;
     if (quizFavBtn) {
@@ -1413,9 +1704,25 @@ export async function endQuiz(): Promise<void> {
 }
 
 // 继续上一轮答题（从中断处继续）
+// 续答/重做结构化词书时，按 session 保存的词序回填完整词数据（释义/音标/记忆法/例句等）
+async function hydrateSessionWords(state: SessionState): Promise<void> {
+    if (!isStructuredSource(state.source)) return;
+    try {
+        const bookWords = await collectBookWords(state.source);
+        const map = new Map(bookWords.map(bw => [bw.w.toLowerCase(), bw]));
+        state.words = state.words.map(sw => {
+            const bw = map.get(sw.word.toLowerCase());
+            return bw ? (toQuizWord(bw) as unknown as QuizWordData) : sw;
+        });
+    } catch (e) {
+        console.error('续答词书数据补全失败:', e);
+    }
+}
+
 export async function continueQuiz(): Promise<void> {
     const state = loadSessionState();
     if (!state) return;
+    await hydrateSessionWords(state);
     quizSession = state;
     appState.quizWords = state.words.slice(state.currentIndex);
     quizTotalCount = state.words.length;
@@ -1436,6 +1743,7 @@ export async function continueQuiz(): Promise<void> {
 export async function redoQuiz(): Promise<void> {
     const state = loadSessionState();
     if (!state) return;
+    await hydrateSessionWords(state);
     quizSession = createSession('quiz', state.source, state.words);
     saveSessionState(quizSession);
     appState.quizWords = [...state.words];
@@ -1676,7 +1984,7 @@ async function restartWordbookFromSettings(): Promise<void> {
     const wordSourceEl = document.getElementById('word-source') as HTMLSelectElement | null;
     if (!wordSourceEl) return;
     const source = wordSourceEl.value;
-    if (!source.startsWith('wordbook:') && !source.startsWith('system:')) return;
+    if (!source.startsWith('wordbook:') && !source.startsWith('system:') && !isStructuredSource(source)) return;
 
     incrementLoopCount(source);
     clearSourceProgress(source);

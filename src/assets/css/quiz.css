@@ -842,3 +842,293 @@ html.dark-mode .quiz-stuck-word-text {
 #review-answer-area {
     display: none;
 }
+/* ===== 结构化词书附加内容（记忆法 / 真题 / 例句 / 派生词） ===== */
+.book-extra {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.be-block {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--box-bg);
+    padding: 10px 14px;
+    text-align: left;
+}
+.be-h {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text-dark);
+}
+.be-block p { margin: 4px 0; line-height: 1.6; }
+.be-en { font-size: 14.5px; color: var(--text-dark); }
+.be-zh { font-size: 13.5px; color: var(--text-gray); }
+.be-year {
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--accent-red);
+    border: 1px solid var(--accent-red);
+    border-radius: 999px;
+    padding: 0 8px;
+    margin-left: 4px;
+}
+.be-memory { border-left: 3px solid var(--primary-blue); background: var(--box-bg-accent); }
+.be-memory p { color: var(--text-dark); font-size: 14px; }
+.be-real { border-left: 3px solid var(--accent-red); }
+.be-example { border-left: 3px solid var(--accent-green); }
+.be-deriv { border-left: 3px solid var(--accent-orange); }
+.be-der-list { display: flex; flex-direction: column; gap: 6px; }
+.be-der-item { font-size: 13.5px; line-height: 1.5; }
+.be-der-w { font-weight: 700; color: var(--primary-blue); }
+.be-der-ph { color: var(--text-gray); font-size: 12.5px; }
+.be-der-d { color: var(--text-dark); }
+
+
+/* ============================================================
+   输入区重构：题目与输入一体化圆角容器 + 艺术字 + 长下划线 + 逐字符红绿
+   ============================================================ */
+
+/* 练习界面快捷开关（例句填空 / 辅助拼写） */
+.quiz-quick-toggles {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin: -16px 0 18px;
+}
+.qt-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 15px;
+    border-radius: 999px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dark);
+    cursor: pointer;
+    user-select: none;
+    transition: border-color .18s ease, background .18s ease, color .18s ease, transform .12s ease;
+}
+.qt-pill:hover { transform: translateY(-1px); }
+.qt-pill input { margin: 0; cursor: pointer; accent-color: var(--primary-blue); width: 15px; height: 15px; }
+.qt-pill:has(input:checked) {
+    border-color: var(--primary-blue);
+    background: rgba(52, 152, 219, 0.12);
+    color: #2471a3;
+    font-weight: 600;
+}
+
+/* 一体化输入容器 */
+.quiz-type-area {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 88px;
+    margin-bottom: 24px;
+    padding: 20px 24px;
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    transition: border-color .2s ease, box-shadow .2s ease;
+    overflow: hidden;
+}
+.quiz-type-area:focus-within {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.14);
+}
+.quiz-type-area.is-disabled { opacity: .75; }
+
+/* 英文拼写模式：字符坐落在一条长下划线上 */
+.quiz-type-area.is-en { align-items: flex-end; }
+.quiz-type-area.is-en::after {
+    content: '';
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: 16px;
+    height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--primary-blue) 0%, var(--primary-blue-light, #7cc1ea) 55%, rgba(52,152,219,0.15) 100%);
+    opacity: .6;
+    transition: opacity .2s ease;
+}
+.quiz-type-area.is-en.has-value::after { opacity: .28; }
+
+/* 逐字符展示层 */
+.quiz-type-display {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1px 2px;
+    width: 100%;
+    min-height: 46px;
+    padding-bottom: 12px;
+    z-index: 1;
+    pointer-events: none;
+}
+.quiz-type-area.is-zh .quiz-type-display { display: none; }
+
+.tc {
+    font-family: 'FredokaQuiz', 'Trebuchet MS', 'Segoe UI', sans-serif;
+    font-weight: 700;
+    font-size: 36px;
+    line-height: 1.1;
+    letter-spacing: .5px;
+    color: var(--text-dark);
+}
+.tc-neutral { color: var(--text-dark); }
+.tc-ok { color: #1e9e57; text-shadow: 0 1px 0 rgba(30, 158, 87, .12); }
+.tc-bad { color: #e0483b; text-shadow: 0 1px 0 rgba(224, 72, 59, .12); }
+.tc-caret {
+    display: inline-block;
+    width: 3px;
+    height: 34px;
+    margin-left: 3px;
+    margin-bottom: 4px;
+    background: var(--primary-blue);
+    border-radius: 2px;
+    animation: tc-blink 1.05s steps(1) infinite;
+}
+@keyframes tc-blink { 0%, 55% { opacity: 1; } 56%, 100% { opacity: 0; } }
+
+/* 透明原生输入框（英文模式捕获键盘 / IME，视觉交给展示层） */
+.quiz-type-area #quiz-answer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 18px 24px;
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    box-shadow: none;
+    font-family: 'FredokaQuiz', 'Trebuchet MS', 'Segoe UI', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: transparent;
+    caret-color: transparent;
+    z-index: 2;
+}
+.quiz-type-area #quiz-answer:focus { outline: none; border-color: transparent; box-shadow: none; }
+
+/* 中文输入模式：输入框可见（中文圆体粗体 + 自带下划线），展示层隐藏 */
+.quiz-type-area.is-zh { align-items: center; padding: 16px 22px; }
+.quiz-type-area.is-zh::after { display: none; }
+.quiz-type-area.is-zh #quiz-answer {
+    position: static;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    padding: 4px 2px 10px;
+    border: none;
+    border-bottom: 3px solid var(--primary-blue);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-dark);
+    caret-color: var(--primary-blue);
+    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    z-index: 2;
+}
+.quiz-type-area.is-zh #quiz-answer:focus { outline: none; border-bottom-color: var(--primary-blue-dark, #2471a3); }
+
+/* 自定义占位提示 */
+.quiz-type-placeholder {
+    position: absolute;
+    left: 26px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9aa5b1;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: .5px;
+    pointer-events: none;
+    z-index: 1;
+}
+.quiz-type-area.is-zh .quiz-type-placeholder {
+    display: none;
+}
+.quiz-type-area.has-value .quiz-type-placeholder,
+.quiz-type-area.is-disabled .quiz-type-placeholder { display: none; }
+
+/* 对错动效 */
+.quiz-type-area.type-shake { animation: tc-shake .34s ease; }
+@keyframes tc-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-7px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(3px); }
+}
+.quiz-type-area.type-pop { animation: tc-pop .42s cubic-bezier(.2, .9, .3, 1.4); }
+@keyframes tc-pop {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.015); }
+    100% { transform: scale(1); }
+}
+
+/* 例句填空卡 */
+.cloze-card {
+    margin-top: 20px;
+    padding: 16px 20px;
+    text-align: left;
+    background: linear-gradient(135deg, rgba(52, 152, 219, .09), rgba(52, 152, 219, .03));
+    border: 1px solid rgba(52, 152, 219, .22);
+    border-radius: var(--radius-md);
+    animation: cloze-in .35s ease both;
+}
+@keyframes cloze-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.cloze-hint {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2471a3;
+}
+.cloze-en {
+    margin: 0;
+    font-size: 17px;
+    line-height: 2.05;
+    color: var(--text-dark);
+}
+.cloze-blank {
+    display: inline-block;
+    min-width: calc(var(--blen, 7) * 0.6em);
+    height: 1.05em;
+    margin: 0 4px;
+    border-bottom: 3px solid var(--primary-blue);
+    position: relative;
+    top: 3px;
+}
+
+/* 深色模式 */
+html.dark-mode .qt-pill { background: var(--bg-white); border-color: rgba(255,255,255,.16); color: var(--text-dark); }
+html.dark-mode .qt-pill:has(input:checked) { background: rgba(52,152,219,.22); color: #7cc1ea; }
+html.dark-mode .quiz-type-area { background: var(--bg-white); border-color: rgba(255,255,255,.16); }
+html.dark-mode .tc-ok { color: #46d188; }
+html.dark-mode .tc-bad { color: #ff7060; }
+html.dark-mode .cloze-card { background: linear-gradient(135deg, rgba(52,152,219,.18), rgba(52,152,219,.06)); border-color: rgba(124,193,234,.3); }
+html.dark-mode .cloze-hint { color: #7cc1ea; }
+html.dark-mode .quiz-type-placeholder { color: #78848f; }
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .quiz-type-area { min-height: 72px; padding: 14px 16px; }
+    .quiz-type-area.is-en::after { left: 16px; right: 16px; bottom: 12px; }
+    .quiz-type-area #quiz-answer { font-size: 28px; padding: 14px 16px; }
+    .quiz-type-area.is-zh #quiz-answer { font-size: 22px; }
+    .tc { font-size: 28px; }
+    .tc-caret { height: 26px; }
+    .quiz-type-display { min-height: 36px; }
+    .quiz-type-placeholder { left: 18px; font-size: 16px; }
+    .cloze-en { font-size: 15px; line-height: 1.9; }
+    .quiz-quick-toggles { justify-content: flex-start; }
+}
