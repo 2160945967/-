@@ -73,7 +73,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-modal);
     box-shadow: var(--shadow-lg);
 }
 .bp-header {

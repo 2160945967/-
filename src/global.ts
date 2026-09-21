@@ -3,7 +3,7 @@ export { appState };
 
 import { searchWord } from './modules/dictionary';
 import { PageSection, WordSource } from './types/enums';
-import { animatePageEnter, showToast } from './utils/gsap';
+import { animatePageEnter, showToast, getGsapCore, prefersReducedMotion } from './utils/gsap';
 import { SYSTEM_WORDBOOKS, MAX_RENDERED_PAGES } from './constants';
 
 // 当前所在页面 + 切换锁，防止连续点击叠加
@@ -222,7 +222,10 @@ export function toggleTheme(event: MouseEvent): void {
     themeMask.style.display = 'block';
     themeMask.style.clipPath = `circle(0px at ${cx}px ${cy}px)`;
 
-    const gsapCore = (window as any).gsap;
+    // GSAP 经 vite 动态 import('gsap') 打包进模块（index.html 无 CDN script 标签），实例存于 gsap.ts 模块局部；
+    // 原 (window as any).gsap 永远为 undefined（从未挂到 window），此处改为从 gsap.ts 同步取真实实例。
+    // 用户开启"减少动态"时不取 gsapCore，直接走 CSS 兜底，跳过 JS 波纹/大位移动画。
+    const gsapCore = prefersReducedMotion() ? null : getGsapCore();
     const overlays = createThemeOverlays(items, gsapCore);
 
     const cleanup = () => {
@@ -313,6 +316,21 @@ export function setupNavbar(): void {
 }
 
 // 切换页面
+/**
+ * 等待下一帧，用于页面切换/跨页跳词时让浏览器先完成一帧渲染。
+ * 当页面处于后台（document.hidden，如最小化、后台标签、失焦窗口）时 requestAnimationFrame 会被暂停，
+ * 单纯 await rAF 会永久挂起、导致切换锁 isSwitching 不复位、所有页面切换失效；
+ * 因此用 setTimeout 做兜底，前台仍由 rAF 在下一帧 resolve，时序不变。
+ */
+function nextFrame(): Promise<void> {
+    return new Promise<void>(resolve => {
+        let done = false;
+        const fin = () => { if (!done) { done = true; resolve(); } };
+        requestAnimationFrame(() => fin());
+        setTimeout(fin, 120);
+    });
+}
+
 export async function switchPage(section: string): Promise<void> {
     if (section === currentSection) return;
     if (isSwitching) {
@@ -361,7 +379,7 @@ export async function switchPage(section: string): Promise<void> {
             }
             // 触发页面离开回调
             pageHandlers.onPageLeave?.(prevSection);
-            await new Promise(r => requestAnimationFrame(r));
+            await nextFrame();
         }
 
         // 目标页若之前在后台，移除渲染记录
@@ -605,7 +623,7 @@ export function showConfirm(message: string, title: string = '提示'): Promise<
 
         const modalHtml = `
             <div id="custom-confirm-modal" class="modal-overlay custom-prompt-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0;">
-                <div class="modal-content" style="background: var(--bg-white); border-radius: 12px; padding: 24px; width: 360px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
+                <div class="modal-content" style="background: var(--bg-white); border-radius: var(--radius-modal); padding: 24px; width: 360px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
                     <h3 style="margin: 0 0 12px 0; color: var(--text-dark); font-size: 16px;">${title}</h3>
                     <p style="margin: 0 0 20px 0; font-size: 14px; color: var(--text-gray); line-height: 1.6; white-space: pre-line;">${message}</p>
                     <div style="display: flex; gap: 12px; justify-content: flex-end;">
@@ -668,7 +686,7 @@ export function showAlert(message: string, title: string = '提示'): Promise<vo
 
         const modalHtml = `
             <div id="custom-alert-modal" class="modal-overlay custom-prompt-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0;">
-                <div class="modal-content" style="background: var(--bg-white); border-radius: 12px; padding: 24px; width: 360px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
+                <div class="modal-content" style="background: var(--bg-white); border-radius: var(--radius-modal); padding: 24px; width: 360px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
                     <h3 style="margin: 0 0 12px 0; color: var(--text-dark); font-size: 16px;">${title}</h3>
                     <p style="margin: 0 0 20px 0; font-size: 14px; color: var(--text-gray); line-height: 1.6; white-space: pre-line;">${message}</p>
                     <div style="display: flex; gap: 12px; justify-content: flex-end;">
@@ -725,7 +743,7 @@ export function showPrompt(message: string, defaultValue: string = '', title: st
 
         const modalHtml = `
             <div id="custom-prompt-modal" class="modal-overlay custom-prompt-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0;">
-                <div class="modal-content" style="background: var(--bg-white); border-radius: 12px; padding: 24px; width: 360px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
+                <div class="modal-content" style="background: var(--bg-white); border-radius: var(--radius-modal); padding: 24px; width: 360px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
                     <h3 style="margin: 0 0 12px 0; color: var(--text-dark); font-size: 16px;">${title}</h3>
                     <p style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-gray); line-height: 1.6; white-space: pre-line;">${message}</p>
                     <input id="custom-prompt-input" type="text" value="${escapeHtml(defaultValue)}" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-bottom: 20px; background: var(--bg-light); color: var(--text-dark);" />
@@ -837,8 +855,8 @@ async function doWordJump(word: string, triggerSearch: () => void): Promise<void
             result.style.opacity = '0';
         }
         await switchPage(PageSection.Dictionary);
-        await new Promise(r => requestAnimationFrame(r));
-        await new Promise(r => requestAnimationFrame(r));
+        await nextFrame();
+        await nextFrame();
         triggerSearch();
     }
 }

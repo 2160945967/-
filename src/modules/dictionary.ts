@@ -1342,7 +1342,7 @@ export function showSentenceWordbookModal(): void {
 
     const modalHtml = `
         <div id="sentence-wordbook-modal" class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0;">
-            <div class="modal-content" style="background: var(--bg-white); border-radius: 12px; padding: 24px; width: 400px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
+            <div class="modal-content" style="background: var(--bg-white); border-radius: var(--radius-modal); padding: 24px; width: 400px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.15); transform: scale(0.92) translateY(10px); opacity: 0;">
                 <h3 style="margin: 0 0 16px 0; color: var(--text-dark);">选择单词本</h3>
                 <p style="margin: 0 0 12px 0; font-size: 13px; color: var(--text-gray);">
                     将句子添加到：

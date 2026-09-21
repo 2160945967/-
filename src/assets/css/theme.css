@@ -17,6 +17,7 @@
     --radius-sm: 6px;
     --radius-md: 8px;
     --radius-lg: 12px;
+    --radius-modal: 16px;
     --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
     /* 毛玻璃卡片背景：浅色模式半透明白，深色模式统一实色 */
