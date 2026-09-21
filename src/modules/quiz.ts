@@ -54,19 +54,10 @@ export function initQuiz(): void {
     if (quizModeSelect) {
         quizModeSelect.addEventListener('change', function() {
             saveQuizSettings();
-            // 同时更新输入框的placeholder
-            const quizAnswerInput = document.getElementById('quiz-answer') as HTMLInputElement;
-            if (quizAnswerInput) {
-                if (quizModeSelect.value === QuizMode.EnToZh) {
-                    quizAnswerInput.placeholder = '请输入答案，输入多个中文时用逗号分号或空格隔开，按Enter提交';
-                } else if (quizModeSelect.value === QuizMode.Spelling) {
-                    quizAnswerInput.placeholder = '请根据释义拼写单词，按Enter提交';
-                } else if (quizModeSelect.value === QuizMode.ListeningStuck) {
-                    quizAnswerInput.placeholder = '请听发音并写出听到的单词或句子，按Enter提交';
-                } else {
-                    quizAnswerInput.placeholder = '请输入答案...按Enter提交';
-                }
-            }
+            // 同步输入区形态（is-en / is-zh、原生 placeholder、自定义占位文案），
+            // 避免只改 placeholder 而类名仍是上一模式导致两层占位重叠
+            appState.currentQuizMode = quizModeSelect.value as QuizMode;
+            applyTypeArea();
         });
     }
     if (wordSourceSelect) {
@@ -802,6 +793,18 @@ export async function startQuiz(): Promise<void> {
     quizSession = createSession('quiz', wordSource, appState.quizWords);
     saveSessionState(quizSession);
     showQuizAnswerArea();
+
+    // 立即按当前模式同步输入区形态并清空上一轮残留：下方可能 await 批量加载释义数百毫秒，
+    // 否则该窗口内输入区仍带 is-en 类 + 旧占位文案，而原生 placeholder 已是新模式文案，会出现两层占位重叠
+    const earlyInput = document.getElementById('quiz-answer') as HTMLInputElement | null;
+    if (earlyInput) {
+        earlyInput.value = '';
+        earlyInput.disabled = false;
+        earlyInput.classList.remove('quiz-answer-hidden');
+    }
+    const earlyDisplay = document.getElementById('quiz-spelling-feedback');
+    if (earlyDisplay) earlyDisplay.textContent = '';
+    applyTypeArea();
 
     // 批量加载所有单词的释义（避免逐个调用API）
     const wordsToLoad = appState.quizWords.filter(w => {

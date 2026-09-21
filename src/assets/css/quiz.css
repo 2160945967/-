@@ -1079,8 +1079,10 @@ html.dark-mode .quiz-stuck-word-text {
 }
 .quiz-type-area.is-zh #quiz-answer:focus { outline: none; border-bottom-color: var(--primary-blue-dark, #2471a3); }
 
-/* 自定义占位提示 */
+/* 自定义占位提示：默认隐藏，仅英文拼写形态（且无内容 / 未禁用）时显示。
+   白名单式控制，避免模式切换、异步加载等任何中间态下与中文模式的原生 placeholder 重叠 */
 .quiz-type-placeholder {
+    display: none;
     position: absolute;
     left: 26px;
     top: 50%;
@@ -1092,11 +1094,9 @@ html.dark-mode .quiz-stuck-word-text {
     pointer-events: none;
     z-index: 1;
 }
-.quiz-type-area.is-zh .quiz-type-placeholder {
-    display: none;
+.quiz-type-area.is-en:not(.has-value):not(.is-disabled) .quiz-type-placeholder {
+    display: block;
 }
-.quiz-type-area.has-value .quiz-type-placeholder,
-.quiz-type-area.is-disabled .quiz-type-placeholder { display: none; }
 
 /* 对错动效 */
 .quiz-type-area.type-shake { animation: tc-shake .34s ease; }
