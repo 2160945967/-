@@ -10,7 +10,7 @@
 功能：
   - 多线程下载，可配并发数
   - 每个请求带间隔（随机抖动），降低被限流概率
-  - 断点续传：中断后重跑，已存在且有效的音频自动跳过（不依赖状态文件）
+  - 断点续传：启动时一次性扫描输出目录建立内存索引，已存在音频秒跳过（不依赖状态文件）
   - 自动去重：词集合去重；同一词同一口音只下一次
   - 失败自动重试（指数退避）；连续网络错误/限流时全局冷却
   - 音频有效性校验（拒绝有道返回的 JSON 错误与过短数据）+ 临时文件原子落盘
@@ -138,21 +138,6 @@ def is_valid_mp3(data: bytes) -> bool:
     return False
 
 
-def is_good_file(fp: str) -> bool:
-    try:
-        if os.path.getsize(fp) <= 100:
-            return False
-        with open(fp, "rb") as f:
-            head = f.read(4)
-    except OSError:
-        return False
-    if head[:3] == b"ID3":
-        return True
-    if head[0] == 0xFF and (head[1] & 0xE0) == 0xE0:
-        return True
-    return False
-
-
 def atomic_write(fp: str, data: bytes) -> None:
     os.makedirs(os.path.dirname(fp), exist_ok=True)
     tmp = "%s.tmp.%d" % (fp, threading.get_ident())
@@ -175,6 +160,35 @@ class Downloader:
         self.cursor = 0
         self.done = self.ok = self.skip = self.fail = 0
         self.failed = []
+        # 一次性扫描输出目录，建立「完整文件名」索引；之后跳过判断全部走内存集合，
+        # 不再对每个任务发起 getsize/open 磁盘调用（几万文件逐个 stat 在 Windows 上很慢）
+        self.existing = self.scan_existing()
+
+    def scan_existing(self) -> set:
+        """扫描输出目录，返回所有「已存在且体积有效」的完整 mp3 文件名集合。
+
+        只以完整文件名（{word}_{accent}.mp3）为键，不做任何前缀/模糊匹配；
+        体积阈值 >100 字节与 is_valid_mp3 的长度校验一致。音频头校验只用于
+        新下载内容（is_valid_mp3）——落盘文件均经校验后原子写入，半截文件只会
+        以 .tmp.<线程id> 残留，不会进入本集合。
+        """
+        names = set()
+        try:
+            with os.scandir(self.out) as it:
+                for entry in it:
+                    if not entry.name.endswith(".mp3"):
+                        continue
+                    try:
+                        # follow_symlinks=False 时 Windows 直接复用目录枚举的缓存元数据，
+                        # 不打开文件、不触发杀毒扫描；输出目录中本就没有符号链接
+                        if entry.is_file(follow_symlinks=False) and \
+                                entry.stat(follow_symlinks=False).st_size > 100:
+                            names.add(entry.name)
+                    except OSError:
+                        continue
+        except FileNotFoundError:
+            pass
+        return names
 
     def fetch(self, word: str, accent: str) -> bytes:
         ytype = 0 if accent == "us" else 1
@@ -207,9 +221,10 @@ class Downloader:
             self.consecutive_err = 0
 
     def download_one(self, word: str, accent: str) -> str:
-        fp = os.path.join(self.out, audio_filename(word, accent))
-        if is_good_file(fp):
-            return "skip"
+        name = audio_filename(word, accent)
+        if name in self.existing:
+            return "skip"  # 纯内存判断，无磁盘 I/O
+        fp = os.path.join(self.out, name)
         for attempt in range(1, self.args.retries + 1):
             if self.stop.is_set():
                 return "abort"
@@ -218,6 +233,7 @@ class Downloader:
                 data = self.fetch(word, accent)
                 if is_valid_mp3(data):
                     atomic_write(fp, data)
+                    self.existing.add(name)  # 同一次运行内后续命中也直接跳过
                     self.on_success()
                     return "ok"
                 # 无效内容（无发音/JSON），短暂退避后重试
@@ -272,6 +288,8 @@ class Downloader:
     def run(self, tasks) -> None:
         total = len(tasks)
         print("输出目录: %s" % self.out)
+        print("已扫描到 %d 个有效音频，命中即秒跳过（内存索引，零磁盘检测）"
+              % len(self.existing))
         print("待处理任务: %d（词 × 口音），并发 %d，单请求间隔约 %.2fs"
               % (total, self.args.workers, self.args.interval))
         print("提示：按 Ctrl+C 可随时安全退出，重跑会自动跳过已下载项。\n")
