@@ -87,7 +87,26 @@ npm run package:dir
 
 ### 资源分发
 
-源码仓库（Gitee）：<https://gitee.com/yangs-project/pick-up-words> 。超大资源（词典数据库、语义模型、听力音频）不直接入库，按约 100MB 分卷、通过 Release 资产提供下载。
+源码仓库（Gitee）：<https://gitee.com/yangs-project/pick-up-words> 。
+
+Gitee 普通项目配额：仓库单文件 50MB、单仓库约 1GB；**Release 附件单文件 100MB、单仓库附件总容量 1GB**。因此大资源不入库，词典 / 模型 / 例句按约 100MB 分卷，发布在 [V2.0 Release](https://gitee.com/yangs-project/pick-up-words/releases/tag/V2.0)：
+
+| 资源 | 分卷 | 解压后 | 必需性 |
+| --- | --- | --- | --- |
+| stardict.7z | 2 | stardict.db（ECDict 词典） | 必需 |
+| semantic-model.7z | 4 | text2vec-base-chinese（多释义判别） | 可选 |
+| sherpa-model.7z | 2 | SenseVoice 语音识别模型 | 可选 |
+| examples.7z | 3 | examples.db（例句库） | 可选 |
+
+下载同一资源的全部分卷放入同一目录，用 7-Zip 解压 `.001` 即自动合并还原。
+
+**四级听力音频（约 8GB，100 套 wav）无法通过 Gitee 分发**：单仓库附件总容量上限 1GB，分卷只能解决单文件 100MB 限制、无法突破总容量。可选替代方式：
+
+- 网盘中转（百度网盘 / 阿里云盘等）；
+- 移动硬盘 / U 盘在本机间直接拷贝；
+- 升级 Gitee 至推荐项目（附件 5GB）/ GVP（20GB），但仍需配合压缩才可能容纳 8GB。
+
+单词发音不随仓库分发，运行 `scripts/download_pronunciations.py` 自行下载（多线程、断点续传、自动去重）。
 
 ## 项目结构
 
