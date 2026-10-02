@@ -40,6 +40,8 @@ export const SYSTEM_TAGS: Record<string, string> = {
 // ==================== 虚拟滚动 ====================
 export const VIRTUAL_SCROLL_BUFFER = 20;
 export const COLLAPSED_HEIGHT = 140;
+// 收起态卡片之间的统一视觉间距（px）
+export const CARD_GAP = 12;
 
 // ==================== 音频 ====================
 export const AUDIO_MAX_CONCURRENT = 3;

@@ -1,0 +1,1512 @@
+{
+ "id": "cet4-beidanci",
+ "name": "英语四级 · 你还在背单词吗",
+ "author": "刘晓艳",
+ "description": "PART 01 词以群记（U1–U10）· PART 02 词以序记（U11–U12）",
+ "parts": [
+  {
+   "id": "P1",
+   "name": "词以群记",
+   "units": [
+    {
+     "id": "U1",
+     "idx": 1,
+     "name": "Unit 1",
+     "lessons": [
+      {
+       "id": "U1L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 54,
+       "file": "lessons/U1L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "vers(e)相关",
+         "count": 18
+        },
+        {
+         "no": 2,
+         "name": "develop相关",
+         "count": 10
+        },
+        {
+         "no": 3,
+         "name": "en相关",
+         "count": 10
+        },
+        {
+         "no": 4,
+         "name": "form相关",
+         "count": 16
+        }
+       ]
+      },
+      {
+       "id": "U1L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 39,
+       "file": "lessons/U1L2.json",
+       "groups": [
+        {
+         "no": 5,
+         "name": "大海相关",
+         "count": 15
+        },
+        {
+         "no": 6,
+         "name": "绑相关",
+         "count": 10
+        },
+        {
+         "no": 7,
+         "name": "大山相关",
+         "count": 14
+        }
+       ]
+      },
+      {
+       "id": "U1L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 66,
+       "file": "lessons/U1L3.json",
+       "groups": [
+        {
+         "no": 8,
+         "name": "ce相关",
+         "count": 15
+        },
+        {
+         "no": 9,
+         "name": "走相关",
+         "count": 11
+        },
+        {
+         "no": 10,
+         "name": "move相关",
+         "count": 14
+        },
+        {
+         "no": 11,
+         "name": "act相关",
+         "count": 9
+        },
+        {
+         "no": 12,
+         "name": "fr相关",
+         "count": 17
+        }
+       ]
+      },
+      {
+       "id": "U1L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 64,
+       "file": "lessons/U1L4.json",
+       "groups": [
+        {
+         "no": 13,
+         "name": "cur/cue相关",
+         "count": 19
+        },
+        {
+         "no": 14,
+         "name": "当代相关",
+         "count": 10
+        },
+        {
+         "no": 15,
+         "name": "大量相关",
+         "count": 15
+        },
+        {
+         "no": 16,
+         "name": "人群相关",
+         "count": 10
+        },
+        {
+         "no": 17,
+         "name": "成长阶段相关",
+         "count": 5
+        },
+        {
+         "no": 18,
+         "name": "移民相关",
+         "count": 5
+        }
+       ]
+      }
+     ],
+     "count": 223
+    },
+    {
+     "id": "U10",
+     "idx": 10,
+     "name": "Unit 10",
+     "lessons": [
+      {
+       "id": "U10L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 54,
+       "file": "lessons/U10L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "“巨大的”相关",
+         "count": 8
+        },
+        {
+         "no": 2,
+         "name": "“标准”相关",
+         "count": 6
+        },
+        {
+         "no": 3,
+         "name": "“绝对”相关",
+         "count": 8
+        },
+        {
+         "no": 4,
+         "name": "tract相关",
+         "count": 14
+        },
+        {
+         "no": 5,
+         "name": "“持续的、裸露的”相关",
+         "count": 7
+        },
+        {
+         "no": 6,
+         "name": "“事故”相关",
+         "count": 11
+        }
+       ]
+      },
+      {
+       "id": "U10L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 47,
+       "file": "lessons/U10L2.json",
+       "groups": [
+        {
+         "no": 7,
+         "name": "mit相关",
+         "count": 19
+        },
+        {
+         "no": 8,
+         "name": "“密码、规范”相关",
+         "count": 9
+        },
+        {
+         "no": 9,
+         "name": "ate相关",
+         "count": 8
+        },
+        {
+         "no": 10,
+         "name": "“文章”相关",
+         "count": 11
+        }
+       ]
+      },
+      {
+       "id": "U10L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 73,
+       "file": "lessons/U10L3.json",
+       "groups": [
+        {
+         "no": 11,
+         "name": "drama相关",
+         "count": 12
+        },
+        {
+         "no": 12,
+         "name": "“品牌、标签”相关",
+         "count": 8
+        },
+        {
+         "no": 13,
+         "name": "“家庭”相关",
+         "count": 11
+        },
+        {
+         "no": 14,
+         "name": "“航空”相关",
+         "count": 15
+        },
+        {
+         "no": 15,
+         "name": "“食物”相关",
+         "count": 18
+        },
+        {
+         "no": 16,
+         "name": "“吓唬”相关",
+         "count": 9
+        }
+       ]
+      },
+      {
+       "id": "U10L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 58,
+       "file": "lessons/U10L4.json",
+       "groups": [
+        {
+         "no": 17,
+         "name": "“谨慎”相关",
+         "count": 13
+        },
+        {
+         "no": 18,
+         "name": "“相似的”相关",
+         "count": 13
+        },
+        {
+         "no": 19,
+         "name": "“宽广”相关",
+         "count": 17
+        },
+        {
+         "no": 20,
+         "name": "“逻辑关系”相关",
+         "count": 15
+        }
+       ]
+      }
+     ],
+     "count": 232
+    },
+    {
+     "id": "U2",
+     "idx": 2,
+     "name": "Unit 2",
+     "lessons": [
+      {
+       "id": "U2L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 45,
+       "file": "lessons/U2L1.json",
+       "groups": [
+        {
+         "no": 9,
+         "name": "梦想实现相关",
+         "count": 12
+        },
+        {
+         "no": 10,
+         "name": "堆、积相关",
+         "count": 5
+        },
+        {
+         "no": 11,
+         "name": "认为相关",
+         "count": 13
+        },
+        {
+         "no": 12,
+         "name": "居住相关",
+         "count": 5
+        },
+        {
+         "no": 13,
+         "name": "惊恐不安相关",
+         "count": 10
+        }
+       ]
+      },
+      {
+       "id": "U2L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 45,
+       "file": "lessons/U2L2.json",
+       "groups": [
+        {
+         "no": 14,
+         "name": "sign相关",
+         "count": 10
+        },
+        {
+         "no": 15,
+         "name": "必须相关",
+         "count": 6
+        },
+        {
+         "no": 16,
+         "name": "适应相关",
+         "count": 5
+        },
+        {
+         "no": 17,
+         "name": "娱乐相关",
+         "count": 7
+        },
+        {
+         "no": 18,
+         "name": "改变相关",
+         "count": 9
+        },
+        {
+         "no": 19,
+         "name": "模式相关",
+         "count": 8
+        }
+       ]
+      },
+      {
+       "id": "U2L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 60,
+       "file": "lessons/U2L3.json",
+       "groups": [
+        {
+         "no": 20,
+         "name": "光相关",
+         "count": 16
+        },
+        {
+         "no": 21,
+         "name": "流相关",
+         "count": 8
+        },
+        {
+         "no": 22,
+         "name": "固体/液体相关",
+         "count": 11
+        },
+        {
+         "no": 23,
+         "name": "洪水相关",
+         "count": 13
+        },
+        {
+         "no": 24,
+         "name": "饮料相关",
+         "count": 12
+        }
+       ]
+      },
+      {
+       "id": "U2L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 62,
+       "file": "lessons/U2L4.json",
+       "groups": [
+        {
+         "no": 25,
+         "name": "ge/g相关",
+         "count": 23
+        },
+        {
+         "no": 26,
+         "name": "优雅、荣耀相关",
+         "count": 9
+        },
+        {
+         "no": 27,
+         "name": "与众不同相关",
+         "count": 10
+        },
+        {
+         "no": 28,
+         "name": "宏伟的、极好的相关",
+         "count": 11
+        },
+        {
+         "no": 29,
+         "name": "政府机构相关",
+         "count": 9
+        }
+       ]
+      }
+     ],
+     "count": 212
+    },
+    {
+     "id": "U3",
+     "idx": 3,
+     "name": "Unit 3",
+     "lessons": [
+      {
+       "id": "U3L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 60,
+       "file": "lessons/U3L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "count相关",
+         "count": 12
+        },
+        {
+         "no": 2,
+         "name": "\"草\"相关",
+         "count": 11
+        },
+        {
+         "no": 3,
+         "name": "\"方位\"相关",
+         "count": 12
+        },
+        {
+         "no": 4,
+         "name": "fer相关",
+         "count": 9
+        },
+        {
+         "no": 5,
+         "name": "line相关",
+         "count": 9
+        },
+        {
+         "no": 6,
+         "name": "\"坏\"相关",
+         "count": 7
+        }
+       ]
+      },
+      {
+       "id": "U3L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 54,
+       "file": "lessons/U3L2.json",
+       "groups": [
+        {
+         "no": 7,
+         "name": "out相关",
+         "count": 6
+        },
+        {
+         "no": 8,
+         "name": "over相关",
+         "count": 17
+        },
+        {
+         "no": 9,
+         "name": "rupt相关",
+         "count": 6
+        },
+        {
+         "no": 10,
+         "name": "\"丢弃\"相关",
+         "count": 9
+        },
+        {
+         "no": 11,
+         "name": "\"冲击\"相关",
+         "count": 7
+        },
+        {
+         "no": 12,
+         "name": "\"掩盖、揭露\"相关",
+         "count": 9
+        }
+       ]
+      },
+      {
+       "id": "U3L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 65,
+       "file": "lessons/U3L3.json",
+       "groups": [
+        {
+         "no": 13,
+         "name": "stan相关",
+         "count": 14
+        },
+        {
+         "no": 14,
+         "name": "stitu相关",
+         "count": 6
+        },
+        {
+         "no": 15,
+         "name": "part相关",
+         "count": 16
+        },
+        {
+         "no": 16,
+         "name": "\"严重的\"相关",
+         "count": 12
+        },
+        {
+         "no": 17,
+         "name": "\"爆炸\"相关",
+         "count": 11
+        },
+        {
+         "no": 18,
+         "name": "\"射击\"相关",
+         "count": 6
+        }
+       ]
+      },
+      {
+       "id": "U3L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 55,
+       "file": "lessons/U3L4.json",
+       "groups": [
+        {
+         "no": 19,
+         "name": "\"珍贵的\"相关",
+         "count": 11
+        },
+        {
+         "no": 20,
+         "name": "mate相关",
+         "count": 4
+        },
+        {
+         "no": 21,
+         "name": "cap/cab相关",
+         "count": 12
+        },
+        {
+         "no": 22,
+         "name": "\"起源\"相关",
+         "count": 13
+        },
+        {
+         "no": 23,
+         "name": "cord相关",
+         "count": 5
+        },
+        {
+         "no": 24,
+         "name": "guish相关",
+         "count": 10
+        }
+       ]
+      }
+     ],
+     "count": 234
+    },
+    {
+     "id": "U4",
+     "idx": 4,
+     "name": "Unit 4",
+     "lessons": [
+      {
+       "id": "U4L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 64,
+       "file": "lessons/U4L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "serv(e)相关",
+         "count": 8
+        },
+        {
+         "no": 2,
+         "name": "“阻止、冻结”相关",
+         "count": 12
+        },
+        {
+         "no": 3,
+         "name": "“膨胀、压缩”相关",
+         "count": 12
+        },
+        {
+         "no": 4,
+         "name": "“足够的”相关",
+         "count": 7
+        },
+        {
+         "no": 5,
+         "name": "“紧张、感觉”相关",
+         "count": 15
+        },
+        {
+         "no": 6,
+         "name": "tain相关",
+         "count": 10
+        }
+       ]
+      },
+      {
+       "id": "U4L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 60,
+       "file": "lessons/U4L2.json",
+       "groups": [
+        {
+         "no": 7,
+         "name": "species相关",
+         "count": 8
+        },
+        {
+         "no": 8,
+         "name": "“湿”相关",
+         "count": 7
+        },
+        {
+         "no": 9,
+         "name": "“人”相关",
+         "count": 7
+        },
+        {
+         "no": 10,
+         "name": "main相关",
+         "count": 14
+        },
+        {
+         "no": 11,
+         "name": "“消失、出现”相关",
+         "count": 11
+        },
+        {
+         "no": 12,
+         "name": "para相关",
+         "count": 13
+        }
+       ]
+      },
+      {
+       "id": "U4L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 63,
+       "file": "lessons/U4L3.json",
+       "groups": [
+        {
+         "no": 13,
+         "name": "trans相关",
+         "count": 18
+        },
+        {
+         "no": 14,
+         "name": "“土地”相关",
+         "count": 17
+        },
+        {
+         "no": 15,
+         "name": "domestic相关",
+         "count": 19
+        },
+        {
+         "no": 16,
+         "name": "“位置”相关",
+         "count": 9
+        }
+       ]
+      },
+      {
+       "id": "U4L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 59,
+       "file": "lessons/U4L4.json",
+       "groups": [
+        {
+         "no": 17,
+         "name": "pose相关",
+         "count": 19
+        },
+        {
+         "no": 18,
+         "name": "“乡村、城市”相关",
+         "count": 16
+        },
+        {
+         "no": 19,
+         "name": "surround相关",
+         "count": 12
+        },
+        {
+         "no": 20,
+         "name": "“环”相关",
+         "count": 12
+        }
+       ]
+      }
+     ],
+     "count": 246
+    },
+    {
+     "id": "U5",
+     "idx": 5,
+     "name": "Unit 5",
+     "lessons": [
+      {
+       "id": "U5L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 62,
+       "file": "lessons/U5L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "\"指挥\"相关",
+         "count": 19
+        },
+        {
+         "no": 2,
+         "name": "\"自由的雕像\"相关",
+         "count": 9
+        },
+        {
+         "no": 3,
+         "name": "\"作者\"相关",
+         "count": 7
+        },
+        {
+         "no": 4,
+         "name": "pre/super相关",
+         "count": 10
+        },
+        {
+         "no": 5,
+         "name": "\"交流、联系\"相关",
+         "count": 17
+        }
+       ]
+      },
+      {
+       "id": "U5L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 62,
+       "file": "lessons/U5L2.json",
+       "groups": [
+        {
+         "no": 6,
+         "name": "rat相关",
+         "count": 10
+        },
+        {
+         "no": 7,
+         "name": "cat相关",
+         "count": 11
+        },
+        {
+         "no": 8,
+         "name": "ex相关",
+         "count": 17
+        },
+        {
+         "no": 9,
+         "name": "\"衣服\"相关",
+         "count": 10
+        },
+        {
+         "no": 10,
+         "name": "fair相关",
+         "count": 14
+        }
+       ]
+      },
+      {
+       "id": "U5L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 68,
+       "file": "lessons/U5L3.json",
+       "groups": [
+        {
+         "no": 11,
+         "name": "\"专注\"相关",
+         "count": 9
+        },
+        {
+         "no": 12,
+         "name": "fac(t)/fect\"做\"相关",
+         "count": 16
+        },
+        {
+         "no": 13,
+         "name": "ory/ery相关",
+         "count": 18
+        },
+        {
+         "no": 14,
+         "name": "\"入侵\"相关",
+         "count": 10
+        },
+        {
+         "no": 15,
+         "name": "inter相关",
+         "count": 5
+        },
+        {
+         "no": 16,
+         "name": "journal相关",
+         "count": 10
+        }
+       ]
+      },
+      {
+       "id": "U5L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 62,
+       "file": "lessons/U5L4.json",
+       "groups": [
+        {
+         "no": 17,
+         "name": "\"学术\"相关",
+         "count": 8
+        },
+        {
+         "no": 18,
+         "name": "\"教职工\"相关",
+         "count": 13
+        },
+        {
+         "no": 19,
+         "name": "campus相关",
+         "count": 15
+        },
+        {
+         "no": 20,
+         "name": "\"培养、养育\"相关",
+         "count": 12
+        },
+        {
+         "no": 21,
+         "name": "\"课程\"相关",
+         "count": 14
+        }
+       ]
+      }
+     ],
+     "count": 254
+    },
+    {
+     "id": "U6",
+     "idx": 6,
+     "name": "Unit 6",
+     "lessons": [
+      {
+       "id": "U6L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 51,
+       "file": "lessons/U6L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "“混合、复杂”相关",
+         "count": 7
+        },
+        {
+         "no": 2,
+         "name": "request相关",
+         "count": 7
+        },
+        {
+         "no": 3,
+         "name": "“精神”相关",
+         "count": 20
+        },
+        {
+         "no": 4,
+         "name": "“描述、技术”相关",
+         "count": 17
+        }
+       ]
+      },
+      {
+       "id": "U6L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 67,
+       "file": "lessons/U6L2.json",
+       "groups": [
+        {
+         "no": 5,
+         "name": "press相关",
+         "count": 18
+        },
+        {
+         "no": 6,
+         "name": "“司法”相关",
+         "count": 14
+        },
+        {
+         "no": 7,
+         "name": "legal相关",
+         "count": 8
+        },
+        {
+         "no": 8,
+         "name": "“证明、证实”相关",
+         "count": 9
+        },
+        {
+         "no": 9,
+         "name": "“惩罚”相关",
+         "count": 7
+        },
+        {
+         "no": 10,
+         "name": "“犯罪”相关",
+         "count": 11
+        }
+       ]
+      },
+      {
+       "id": "U6L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 76,
+       "file": "lessons/U6L3.json",
+       "groups": [
+        {
+         "no": 11,
+         "name": "“原因”相关",
+         "count": 7
+        },
+        {
+         "no": 12,
+         "name": "“言语冲突”相关",
+         "count": 11
+        },
+        {
+         "no": 13,
+         "name": "sist“站”相关",
+         "count": 11
+        },
+        {
+         "no": 14,
+         "name": "“公司”相关",
+         "count": 5
+        },
+        {
+         "no": 15,
+         "name": "“管理、竞争”相关",
+         "count": 11
+        },
+        {
+         "no": 16,
+         "name": "“商贸”相关",
+         "count": 14
+        },
+        {
+         "no": 17,
+         "name": "“经济、收入”相关",
+         "count": 10
+        },
+        {
+         "no": 18,
+         "name": "“生产”相关",
+         "count": 7
+        }
+       ]
+      },
+      {
+       "id": "U6L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 68,
+       "file": "lessons/U6L4.json",
+       "groups": [
+        {
+         "no": 19,
+         "name": "“钱”相关",
+         "count": 21
+        },
+        {
+         "no": 20,
+         "name": "bar相关",
+         "count": 7
+        },
+        {
+         "no": 21,
+         "name": "fici相关",
+         "count": 6
+        },
+        {
+         "no": 22,
+         "name": "low相关",
+         "count": 9
+        },
+        {
+         "no": 23,
+         "name": "“看”相关(1)",
+         "count": 12
+        },
+        {
+         "no": 24,
+         "name": "“看”相关(2)",
+         "count": 13
+        }
+       ]
+      }
+     ],
+     "count": 262
+    },
+    {
+     "id": "U7",
+     "idx": 7,
+     "name": "Unit 7",
+     "lessons": [
+      {
+       "id": "U7L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 37,
+       "file": "lessons/U7L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "“边缘”相关",
+         "count": 13
+        },
+        {
+         "no": 2,
+         "name": "“具体、熟悉”相关",
+         "count": 14
+        },
+        {
+         "no": 3,
+         "name": "“打扰、忽视”相关",
+         "count": 10
+        }
+       ]
+      },
+      {
+       "id": "U7L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 59,
+       "file": "lessons/U7L2.json",
+       "groups": [
+        {
+         "no": 4,
+         "name": "“选择”相关",
+         "count": 17
+        },
+        {
+         "no": 5,
+         "name": "“户外、活动”相关",
+         "count": 22
+        },
+        {
+         "no": 6,
+         "name": "vi相关",
+         "count": 20
+        }
+       ]
+      },
+      {
+       "id": "U7L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 56,
+       "file": "lessons/U7L3.json",
+       "groups": [
+        {
+         "no": 7,
+         "name": "device相关",
+         "count": 8
+        },
+        {
+         "no": 8,
+         "name": "clude相关",
+         "count": 8
+        },
+        {
+         "no": 9,
+         "name": "car相关",
+         "count": 24
+        },
+        {
+         "no": 10,
+         "name": "“汽车”相关",
+         "count": 16
+        }
+       ]
+      },
+      {
+       "id": "U7L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 42,
+       "file": "lessons/U7L4.json",
+       "groups": [
+        {
+         "no": 11,
+         "name": "s相关",
+         "count": 18
+        },
+        {
+         "no": 12,
+         "name": "“喷、洒”相关",
+         "count": 14
+        },
+        {
+         "no": 13,
+         "name": "“保证”相关",
+         "count": 10
+        }
+       ]
+      }
+     ],
+     "count": 194
+    },
+    {
+     "id": "U8",
+     "idx": 8,
+     "name": "Unit 8",
+     "lessons": [
+      {
+       "id": "U8L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 56,
+       "file": "lessons/U8L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "器官相关",
+         "count": 11
+        },
+        {
+         "no": 2,
+         "name": "医疗相关",
+         "count": 15
+        },
+        {
+         "no": 3,
+         "name": "病痛相关",
+         "count": 22
+        },
+        {
+         "no": 4,
+         "name": "donation相关",
+         "count": 8
+        }
+       ]
+      },
+      {
+       "id": "U8L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 66,
+       "file": "lessons/U8L2.json",
+       "groups": [
+        {
+         "no": 5,
+         "name": "联系、连接相关",
+         "count": 13
+        },
+        {
+         "no": 6,
+         "name": "粘、贴相关",
+         "count": 11
+        },
+        {
+         "no": 7,
+         "name": "re相关",
+         "count": 15
+        },
+        {
+         "no": 8,
+         "name": "能源相关",
+         "count": 9
+        },
+        {
+         "no": 9,
+         "name": "愉快相关",
+         "count": 18
+        }
+       ]
+      },
+      {
+       "id": "U8L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 60,
+       "file": "lessons/U8L3.json",
+       "groups": [
+        {
+         "no": 10,
+         "name": "痛苦、绝望相关",
+         "count": 22
+        },
+        {
+         "no": 11,
+         "name": "颤抖相关",
+         "count": 16
+        },
+        {
+         "no": 12,
+         "name": "缺点、限制相关",
+         "count": 14
+        },
+        {
+         "no": 13,
+         "name": "层级相关",
+         "count": 8
+        }
+       ]
+      },
+      {
+       "id": "U8L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 59,
+       "file": "lessons/U8L4.json",
+       "groups": [
+        {
+         "no": 14,
+         "name": "打相关",
+         "count": 21
+        },
+        {
+         "no": 15,
+         "name": "争论、说明相关",
+         "count": 18
+        },
+        {
+         "no": 16,
+         "name": "sent相关",
+         "count": 20
+        }
+       ]
+      }
+     ],
+     "count": 241
+    },
+    {
+     "id": "U9",
+     "idx": 9,
+     "name": "Unit 9",
+     "lessons": [
+      {
+       "id": "U9L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 46,
+       "file": "lessons/U9L1.json",
+       "groups": [
+        {
+         "no": 1,
+         "name": "“包裹”相关",
+         "count": 14
+        },
+        {
+         "no": 2,
+         "name": "“纺织”相关",
+         "count": 14
+        },
+        {
+         "no": 3,
+         "name": "reputation相关",
+         "count": 4
+        },
+        {
+         "no": 4,
+         "name": "“信赖、皇家”相关",
+         "count": 14
+        }
+       ]
+      },
+      {
+       "id": "U9L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 57,
+       "file": "lessons/U9L2.json",
+       "groups": [
+        {
+         "no": 5,
+         "name": "“人类品质”相关",
+         "count": 21
+        },
+        {
+         "no": 6,
+         "name": "fin相关",
+         "count": 9
+        },
+        {
+         "no": 7,
+         "name": "profession相关",
+         "count": 10
+        },
+        {
+         "no": 8,
+         "name": "“澄清、说明”相关",
+         "count": 17
+        }
+       ]
+      },
+      {
+       "id": "U9L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 45,
+       "file": "lessons/U9L3.json",
+       "groups": [
+        {
+         "no": 9,
+         "name": "apply相关",
+         "count": 9
+        },
+        {
+         "no": 10,
+         "name": "tend相关",
+         "count": 17
+        },
+        {
+         "no": 11,
+         "name": "“方便”相关",
+         "count": 6
+        },
+        {
+         "no": 12,
+         "name": "disaster相关",
+         "count": 13
+        }
+       ]
+      },
+      {
+       "id": "U9L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 64,
+       "file": "lessons/U9L4.json",
+       "groups": [
+        {
+         "no": 13,
+         "name": "“胖”谐音相关",
+         "count": 13
+        },
+        {
+         "no": 14,
+         "name": "“文件、结果”相关",
+         "count": 20
+        },
+        {
+         "no": 15,
+         "name": "“重要的、次要的”相关",
+         "count": 12
+        },
+        {
+         "no": 16,
+         "name": "“财产”相关",
+         "count": 10
+        },
+        {
+         "no": 17,
+         "name": "“处理、解决”相关",
+         "count": 9
+        }
+       ]
+      }
+     ],
+     "count": 212
+    }
+   ]
+  },
+  {
+   "id": "P2",
+   "name": "词以序记",
+   "units": [
+    {
+     "id": "U11",
+     "idx": 11,
+     "name": "Unit 11",
+     "lessons": [
+      {
+       "id": "U11L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 313,
+       "file": "lessons/U11L1.json",
+       "groups": []
+      },
+      {
+       "id": "U11L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 230,
+       "file": "lessons/U11L2.json",
+       "groups": []
+      },
+      {
+       "id": "U11L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 399,
+       "file": "lessons/U11L3.json",
+       "groups": []
+      },
+      {
+       "id": "U11L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 314,
+       "file": "lessons/U11L4.json",
+       "groups": []
+      }
+     ],
+     "count": 1256
+    },
+    {
+     "id": "U12",
+     "idx": 12,
+     "name": "Unit 12",
+     "lessons": [
+      {
+       "id": "U12L1",
+       "idx": 1,
+       "name": "Lesson 1",
+       "count": 225,
+       "file": "lessons/U12L1.json",
+       "groups": []
+      },
+      {
+       "id": "U12L2",
+       "idx": 2,
+       "name": "Lesson 2",
+       "count": 322,
+       "file": "lessons/U12L2.json",
+       "groups": []
+      },
+      {
+       "id": "U12L3",
+       "idx": 3,
+       "name": "Lesson 3",
+       "count": 324,
+       "file": "lessons/U12L3.json",
+       "groups": []
+      },
+      {
+       "id": "U12L4",
+       "idx": 4,
+       "name": "Lesson 4",
+       "count": 65,
+       "file": "lessons/U12L4.json",
+       "groups": []
+      }
+     ],
+     "count": 936
+    }
+   ]
+  }
+ ],
+ "totalCount": 4502,
+ "lessonCount": 48
+}

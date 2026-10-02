@@ -289,3 +289,28 @@ body.modal-open { overflow: hidden; }
     .bp-footer { flex-wrap: wrap; }
     .bp-order-switch { order: 3; width: 100%; justify-content: flex-end; margin-right: 0; }
 }
+
+/* 派生词练习开关（四级词书 tab） */
+.bp-der-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 10px 0 0;
+    padding: 9px 11px;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--box-bg);
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease;
+}
+.bp-der-toggle:hover { border-color: var(--primary-blue); }
+.bp-der-toggle input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: var(--primary-blue);
+    flex-shrink: 0;
+    cursor: pointer;
+}
+.bp-der-toggle-label { font-size: 13px; font-weight: 600; color: var(--text-dark); line-height: 1.35; }
+.bp-der-sub { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-gray); margin-top: 2px; }

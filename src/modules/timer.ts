@@ -15,12 +15,33 @@ export function recordActivity(): void {
     lastActivityTime = Date.now();
 }
 
+/** 当前是否真正处于练习状态（而非浏览 / 配置 / 查词） */
+function isPracticing(): boolean {
+    const pageActive = (id: string): boolean => {
+        const el = document.getElementById(id);
+        return !!el && el.classList.contains('active');
+    };
+    const barVisible = (sel: string): boolean => {
+        const b = document.querySelector(sel) as HTMLElement | null;
+        return !!b && b.offsetParent !== null;
+    };
+    // 单词测验进行中（答题进度条可见）
+    if (pageActive('quiz-page') && barVisible('#quiz-page #quiz-progress')) return true;
+    // 单词复习进行中
+    if (pageActive('review-page') && barVisible('#review-page #review-progress')) return true;
+    // 模拟题做题页 / 交卷后复习（首页与题库列表无 .ex-practice）
+    if (pageActive('exam-page') && document.querySelector('#exam-page .ex-practice')) return true;
+    return false;
+}
+
 /** 每秒 tick：累加学习时长 */
 function tick(): void {
     if (!isRunning) return;
     const now = Date.now();
     // 空闲检测：超过阈值不继续累加
     if (now - lastActivityTime > IDLE_THRESHOLD_MS) return;
+    // 仅在真正练习（测验 / 复习 / 模拟题做题）时累加，浏览、查词、设置、配置页不计时
+    if (!isPracticing()) return;
 
     appState.studyStats.todaySeconds = (appState.studyStats.todaySeconds || 0) + 1;
     appState.studyStats.totalSeconds = (appState.studyStats.totalSeconds || 0) + 1;
@@ -76,7 +97,7 @@ function onVisibilityChange(): void {
         const activePage = document.querySelector('.content-page.active');
         if (activePage) {
             const pageId = activePage.id.replace('-page', '');
-            if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(pageId)) {
+            if (['quiz', 'review', 'exam'].includes(pageId)) {
                 startStudyTimer();
             }
         }

@@ -14,7 +14,7 @@ import { classifyText, normalizeCaseByType } from '../services/nlp';
 import { checkSemanticSimilarity } from '../services/semanticSimilarity';
 import {
   successResponse, errorResponse, ensureDirExists,
-  getRequestParam, normalizeWordForFilename, ROOT_DIR, APP_ROOT_DIR, CACHE_DIR, ASSETS_DIR, resolveAssetPath,
+  getRequestParam, normalizeWordForFilename, ROOT_DIR, APP_ROOT_DIR, CACHE_DIR, ASSETS_DIR, USER_DATA_DIR, resolveAssetPath,
   findPronunciationFile
 } from '../utils/helpers';
 import { downloadAsset,
@@ -34,6 +34,7 @@ import {
   clearPronunciationCache
 } from '../services/pronunciation-downloader';
 import { LRUCache } from '../utils/cache';
+import { setupExamRoutes } from './exam';
 
 // ==================== 路径常量 ====================
 const STATIC_DIR = path.join(APP_ROOT_DIR, 'dist');
@@ -445,6 +446,9 @@ export function setupRoutes(app: any) {
   // JSON body 解析
   const express = require('express');
   app.use(express.json({ limit: '50mb' }));
+
+  // 模拟题（阅读/听力）：听力音频流、资源状态、四级核心词
+  setupExamRoutes(app);
 
   // ---- 1. 主页 ----
   app.get('/', (req: Request, res: Response) => {
@@ -1972,6 +1976,108 @@ export function setupRoutes(app: any) {
       res.json(successResponse({ isSimilar, threshold }));
     } catch (e: any) {
       res.status(500).json(errorResponse(e.message || '语义相似度判断失败', 500));
+    }
+  });
+
+  // ---------------- 学习数据备份 / 恢复 ----------------
+  const BACKUPS_DIR = path.join(USER_DATA_DIR, 'backups');
+  const BACKUP_KEEP = 10;
+
+  function backupStamp(): string {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const p3 = (n: number) => String(n).padStart(3, '0');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.${p3(d.getMilliseconds())}`;
+  }
+  function safeBackupName(name: string): string | null {
+    return /^[\w.\-]+\.json$/.test(name) ? name : null;
+  }
+  function pruneAutoBackups(): void {
+    try {
+      const old = fs.readdirSync(BACKUPS_DIR)
+        .filter(f => f.startsWith('auto-') && f.endsWith('.json'))
+        .map(f => ({ f, t: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs }))
+        .sort((a, b) => b.t - a.t)
+        .slice(BACKUP_KEEP);
+      for (const { f } of old) { try { fs.unlinkSync(path.join(BACKUPS_DIR, f)); } catch {} }
+    } catch {}
+  }
+
+  // 自动备份：前端定时 / 退出时提交全量 localStorage；后端合并 wordbooks.json 后写盘并保留最近 10 份
+  app.post('/api/backup/auto', (req: Request, res: Response) => {
+    try {
+      const body = req.body;
+      if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') {
+        res.status(400).json(errorResponse('备份数据格式错误'));
+        return;
+      }
+      ensureDirExists(BACKUPS_DIR);
+      try {
+        const wb = loadWordbooks();
+        if (wb && Object.keys(wb).length) body.data.wordbooks = JSON.stringify(wb);
+      } catch {}
+      const file = path.join(BACKUPS_DIR, `auto-${backupStamp()}.json`);
+      fs.writeFileSync(file + '.tmp', JSON.stringify(body), 'utf-8');
+      fs.renameSync(file + '.tmp', file);
+      pruneAutoBackups();
+      res.json(successResponse({ name: path.basename(file) }));
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '自动备份失败', 500));
+    }
+  });
+
+  app.get('/api/backup/list', (req: Request, res: Response) => {
+    try {
+      ensureDirExists(BACKUPS_DIR);
+      const items = fs.readdirSync(BACKUPS_DIR)
+        .filter(f => f.endsWith('.json'))
+        .map(f => {
+          const st = fs.statSync(path.join(BACKUPS_DIR, f));
+          return { name: f, size: st.size, mtime: st.mtime.toISOString() };
+        })
+        .sort((a, b) => (a.mtime < b.mtime ? 1 : -1));
+      res.json(successResponse(items));
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '获取备份列表失败', 500));
+    }
+  });
+
+  app.get('/api/backup/file/:name', (req: Request, res: Response) => {
+    const name = safeBackupName(req.params.name);
+    if (!name) { res.status(400).json(errorResponse('文件名非法')); return; }
+    const file = path.join(BACKUPS_DIR, name);
+    if (!fs.existsSync(file)) { res.status(404).json(errorResponse('备份不存在', 404)); return; }
+    res.header('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
+    res.header('Content-Type', 'application/json; charset=utf-8');
+    res.send(fs.readFileSync(file));
+  });
+
+  app.delete('/api/backup/file/:name', (req: Request, res: Response) => {
+    const name = safeBackupName(req.params.name);
+    if (!name) { res.status(400).json(errorResponse('文件名非法')); return; }
+    const file = path.join(BACKUPS_DIR, name);
+    if (!fs.existsSync(file)) { res.status(404).json(errorResponse('备份不存在', 404)); return; }
+    fs.unlinkSync(file);
+    res.json(successResponse({ name }));
+  });
+
+  // 恢复：把备份中的自定义单词本写回 wordbooks.json，其余 localStorage 由前端覆盖
+  app.post('/api/backup/restore', (req: Request, res: Response) => {
+    try {
+      const data = req.body?.data;
+      if (!data || typeof data !== 'object') {
+        res.status(400).json(errorResponse('恢复数据格式错误'));
+        return;
+      }
+      if (typeof data.wordbooks === 'string') {
+        try {
+          const wb = JSON.parse(data.wordbooks);
+          if (wb && typeof wb === 'object') saveWordbooks(wb);
+        } catch {}
+      }
+      res.json(successResponse({ restored: true }));
+    } catch (e: any) {
+      res.status(500).json(errorResponse(e.message || '恢复失败', 500));
     }
   });
 }

@@ -2,12 +2,25 @@
 
 import { appState } from '../store';
 import { updateStudyStats } from '../modules/stats';
+import { safeParse } from './storage';
 
 export interface QuizWordData {
     word: string;
     phonetic?: string;
     meanings: Array<{ part: string; definition: string }>;
     isSentence?: boolean;
+    // 结构化词书扩展：可接受拼写（英美变体）与词书附加内容（记忆法/例句/真题/派生词）
+    answers?: string[];
+    // 判分用附加正确释义（来自 ECDict，词书练习时并入匹配；不用于界面显示）
+    extraMeanings?: string[];
+    bookExtra?: {
+        mem?: string;
+        ex?: { en: string; zh: string; y?: string } | null;
+        real?: { en: string; zh: string; y?: string } | null;
+        der?: Array<{ w: string; ph: string; pos: Array<{ p: string; d: string }> }>;
+        gn?: string;
+        derivedFrom?: string;
+    };
 }
 
 export interface SessionState {
@@ -94,7 +107,7 @@ function takeSnapshots(): { errorbook: string; learningHistory: string; quizAnsw
     return {
         errorbook: JSON.stringify(appState.errorbook || {}),
         learningHistory: localStorage.getItem('learningHistory') || '{}',
-        quizAnswered: JSON.parse(localStorage.getItem('quizAnsweredWords') || '[]') as string[],
+        quizAnswered: safeParse<string[]>('quizAnsweredWords', []),
     };
 }
 
@@ -146,10 +159,7 @@ export function endSessionWithSave(session: SessionState): void {
 export function endSessionWithRollback(session: SessionState): void {
     // 回退 quizAnsweredWords
     const snapshotSet = new Set(session.quizAnsweredWordsSnapshot);
-    let currentSet = new Set<string>();
-    try {
-        currentSet = new Set(JSON.parse(localStorage.getItem('quizAnsweredWords') || '[]') as string[]);
-    } catch {}
+    let currentSet = new Set<string>(safeParse<string[]>('quizAnsweredWords', []));
 
     // 只移除本轮新增的
     const toRemove = session.answeredInThisRound.filter(w => !snapshotSet.has(w));
@@ -158,7 +168,7 @@ export function endSessionWithRollback(session: SessionState): void {
 
     // 回退 learningHistory
     const snapshotHistory = JSON.parse(session.learningHistorySnapshot) as Record<string, any>;
-    const currentHistory = JSON.parse(localStorage.getItem('learningHistory') || '{}') as Record<string, any>;
+    const currentHistory = safeParse<Record<string, any>>('learningHistory', {});
     toRemove.forEach(w => {
         if (!snapshotHistory[w]) {
             delete currentHistory[w];

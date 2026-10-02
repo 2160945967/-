@@ -11,11 +11,14 @@ export const virtualScrollMixin = {
             containerHeight: 600,
             BUFFER: VIRTUAL_SCROLL_BUFFER,
             collapsedHeight: COLLAPSED_HEIGHT,
+            // 收起态每张卡片的实测槽位高度（卡片真实高度 + CARD_GAP），未测时回退 collapsedHeight
+            collapsedHeights: {} as Record<string, number>,
             _offsetCache: {} as Record<number, number>,
             _rafId: 0,
             _pendingScrollTop: 0 as number,
             _resizeObserver: null as ResizeObserver | null,
             _lastTotalHeight: 0,
+            _scrollMeasureTimer: null as ReturnType<typeof setTimeout> | null,
         };
     },
     computed: {
@@ -121,7 +124,12 @@ export const virtualScrollMixin = {
                 // 初始估算不要太大，实际高度由 measureWordHeight 尽快修正
                 return (this as any).collapsedHeight * 2;
             }
-            return (this as any).collapsedHeight;
+            return (this as any).collapsedHeights[word] ?? (this as any).collapsedHeight;
+        },
+        setCollapsedHeight(word: string, px: number) {
+            if ((this as any).collapsedHeights[word] !== px) {
+                (this as any).collapsedHeights[word] = px;
+            }
         },
         getItemStyle(idx: number) {
             const word = (this as any).wordList[idx]?.word;
@@ -144,7 +152,18 @@ export const virtualScrollMixin = {
             (this as any)._rafId = requestAnimationFrame(() => {
                 (this as any).scrollTop = (this as any)._pendingScrollTop;
                 (this as any)._rafId = 0;
+                // 滚动会让缓冲区外（从未测量）的卡片进入渲染范围，节流重测，
+                // 否则这些卡片一直占用 140px 估算槽位，宽屏下表现为大空白
+                (this as any)._scheduleScrollMeasure?.();
             });
+        },
+        _scheduleScrollMeasure() {
+            if ((this as any)._scrollMeasureTimer) return;
+            (this as any)._scrollMeasureTimer = setTimeout(() => {
+                (this as any)._scrollMeasureTimer = null;
+                const fn = (this as any).measureVisibleHeights;
+                if (typeof fn === 'function') fn.call(this);
+            }, 120);
         },
         updateContainerHeight() {
             const el = (this as any).$el as HTMLElement;
@@ -155,6 +174,7 @@ export const virtualScrollMixin = {
         clearCache() {
             (this as any)._offsetCache = {};
             (this as any)._lastTotalHeight = 0;
+            (this as any).collapsedHeights = {};
         },
         setWordList(words: any[], keepScroll?: boolean) {
             if (!keepScroll) {
@@ -169,8 +189,16 @@ export const virtualScrollMixin = {
         (this as any).$nextTick(() => {
             (this as any).updateContainerHeight();
         });
+        (this as any)._resizeRaf = 0;
         (this as any)._resizeObserver = new ResizeObserver(() => {
             (this as any).updateContainerHeight();
+            // 容器尺寸（尤其宽度）变化后，收起态卡片高度需按新排版重测
+            (this as any).collapsedHeights = {};
+            if ((this as any)._resizeRaf) cancelAnimationFrame((this as any)._resizeRaf);
+            (this as any)._resizeRaf = requestAnimationFrame(() => {
+                (this as any)._resizeRaf = 0;
+                (this as any).$nextTick?.(() => { (this as any).measureVisibleHeights?.(); });
+            });
         });
         const el = (this as any).$el as HTMLElement;
         if (el && el.parentElement) {
@@ -178,6 +206,18 @@ export const virtualScrollMixin = {
         }
     },
     beforeUnmount() {
+        if ((this as any)._scrollMeasureTimer) {
+            clearTimeout((this as any)._scrollMeasureTimer);
+            (this as any)._scrollMeasureTimer = null;
+        }
+        if ((this as any)._rafId) {
+            cancelAnimationFrame((this as any)._rafId);
+            (this as any)._rafId = 0;
+        }
+        if ((this as any)._resizeRaf) {
+            cancelAnimationFrame((this as any)._resizeRaf);
+            (this as any)._resizeRaf = 0;
+        }
         if ((this as any)._resizeObserver) {
             (this as any)._resizeObserver.disconnect();
         }

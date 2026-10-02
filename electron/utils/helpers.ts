@@ -44,9 +44,17 @@ export const ASSETS_DIR = path.join(USER_DATA_DIR, 'assets');
  * 回退到应用安装目录（ROOT_DIR），便于开发时直接使用本地文件。
  */
 export function resolveAssetPath(relativePath: string): string {
+  // 1) 用户数据目录中下载/生成的资源优先级最高
   const userPath = path.join(ASSETS_DIR, relativePath);
   if (fs.existsSync(userPath)) return userPath;
-  return path.join(ROOT_DIR, relativePath);
+  // 2) 安装/打包根目录（electron-builder extraResources 解包到 resources/ 根；dev 下为项目根，
+  //    examples.db、wordbooks.json 等仍直接放在项目根）
+  const bundledPath = path.join(ROOT_DIR, relativePath);
+  if (fs.existsSync(bundledPath)) return bundledPath;
+  // 3) dev 模式下只读大文件统一收纳在项目根的 resource/ 子目录（stardict.db、*.txt 等）
+  const devResourcePath = path.join(ROOT_DIR, 'resource', relativePath);
+  if (fs.existsSync(devResourcePath)) return devResourcePath;
+  return bundledPath;
 }
 
 /** 查找发音文件，优先用户数据目录，再回退安装目录 */

@@ -38,6 +38,18 @@ export function clearStudyStats(): void {
     for (const key of Object.keys(appState.errorbook)) {
         delete appState.errorbook[key];
     }
+    // 清空内存中的听力卡壳词
+    for (const key of Object.keys(appState.listeningStuckWords || {})) {
+        delete appState.listeningStuckWords[key];
+    }
+
+    // 显式清除 localStorage 中残留的学习记录类键（设置/主题/偏好类配置键不动）
+    localStorage.removeItem('learningHistory');
+    localStorage.removeItem('quizAnsweredWords');
+    localStorage.removeItem('listeningStuckWords');
+    localStorage.removeItem('lastSessionState');
+    localStorage.removeItem('quizLoopCounts');
+    localStorage.removeItem('searchHistory');
 
     void showAlert('学习数据已清空！');
 

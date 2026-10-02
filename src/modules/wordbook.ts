@@ -20,6 +20,9 @@ import { SortBy, FilterType, WordSource, ContentType, PageSection } from '../typ
 import { playPronunciation } from '../utils/audio';
 import { removeFromFavorites } from './favorites';
 import { removeFromErrorbook } from './errorbook';
+import {
+    isStructuredSource, getSourceWordListSync, getSourceLabel, loadDerIndex,
+} from '../utils/structuredBook';
 import { virtualScrollMixin } from '../utils/virtualScroll';
 import { cardMixin } from '../utils/cardMixin';
 import { showToast } from '../utils/gsap';
@@ -627,6 +630,9 @@ export function getSourceWordList(value: string): string[] {
         const cache = safeParse<Record<string, string[]>>('systemWordbookWordsCache', {});
         return cache[tag] || [];
     }
+    if (isStructuredSource(value)) {
+        return getSourceWordListSync(value, !!appState.settings.includeDerivations);
+    }
     return [];
 }
 
@@ -635,9 +641,15 @@ function formatSourceStats(total: number, practiced: number): string {
     return `（共${total}词 已练习：${practiced}词 未练习：${unpracticed}词）`;
 }
 
+// 来源选择器重建的运行序号：并发触发时只让最新一次写 DOM，旧调用在 await 后主动交出
+let sourceSelectRunSeq = 0;
+
 export async function updateWordSourceSelect(): Promise<void> {
     const wordSourceSelect = document.getElementById('word-source') as HTMLSelectElement;
     if (!wordSourceSelect) return;
+    const myRun = ++sourceSelectRunSeq;
+    // 词书派生词索引（首次加载，之后走缓存），保证“共 X 词”计数在开关开启时包含派生词
+    await loadDerIndex().catch(() => {});
 
     // 确保系统单词本数量已加载
     const hasSystemCache = Object.keys(systemWordbookCounts).length > 0;
@@ -654,12 +666,16 @@ export async function updateWordSourceSelect(): Promise<void> {
                 });
             }
         } catch (e) {
-            if ((e as Error).name === 'AbortError') return;
-            console.error('加载系统单词本失败:', e);
+            // 被更新的调用 abort：不致命，继续用已有 / 空 counts 重建（cb option 至少补回）；
+            // 是否写 DOM 由下方 myRun 守卫统一决定
+            if ((e as Error).name !== 'AbortError') console.error('加载系统单词本失败:', e);
         } finally {
             systemWordbookListAbortController = null;
         }
     }
+
+    // 已有更新的重建在跑：交出，不再操作 DOM，避免互相覆盖 / 清空
+    if (myRun !== sourceSelectRunSeq) return;
 
     const currentValue = wordSourceSelect.value;
     wordSourceSelect.innerHTML = '';
@@ -696,42 +712,44 @@ export async function updateWordSourceSelect(): Promise<void> {
         wordSourceSelect.appendChild(createOption(value, '系统-' + wb.name, total, practicedCount));
     });
 
-    if (wordSourceSelect.querySelector(`option[value="${currentValue}"]`)) {
-        wordSourceSelect.value = currentValue;
+    // 结构化词书（四级词书）：当前选中项可能是任意 整本/单元/多课 组合，动态补回该 option。
+    // 冷启动时 cb option 尚未建立，select.value 会退回首个静态 option，此时以持久化的
+    // appState.settings.wordSource 为准补回，否则重启后四级词书来源会丢失。
+    let cbSource: string | null = isStructuredSource(currentValue) ? currentValue : null;
+    if (!cbSource) {
+        const savedSource = appState.settings.wordSource as string | undefined;
+        if (savedSource && isStructuredSource(savedSource)) cbSource = savedSource;
     }
+    if (cbSource) {
+        const cbWords = getSourceWordList(cbSource);
+        const cbPracticed = cbWords.filter(w => practiced.has(w)).length;
+        wordSourceSelect.appendChild(createOption(cbSource, getSourceLabel(cbSource), cbWords.length, cbPracticed));
+    }
+
+    // 恢复选中：优先 currentValue；若它无对应 option（冷启动 cb 退回静态项），
+    // 回退到持久化的 settings.wordSource
+    let restoreValue: string | null = currentValue;
+    if (!wordSourceSelect.querySelector(`option[value="${restoreValue}"]`)) {
+        const savedSource = appState.settings.wordSource as string | undefined;
+        if (savedSource && wordSourceSelect.querySelector(`option[value="${savedSource}"]`)) {
+            restoreValue = savedSource;
+        }
+    }
+    if (restoreValue) wordSourceSelect.value = restoreValue;
 
     setupWordSourceDisplay(wordSourceSelect);
 }
 
 function setupWordSourceDisplay(select: HTMLSelectElement): void {
-    // 把 select 包在相对定位容器里，上面盖一层只显示纯名称的 div
-    let wrapper = select.parentElement as HTMLElement | null;
-    let display = wrapper?.querySelector('.word-source-display') as HTMLElement | null;
-
-    if (!wrapper || !wrapper.classList.contains('word-source-wrapper')) {
-        wrapper = document.createElement('div');
-        wrapper.className = 'word-source-wrapper';
-        select.parentNode?.insertBefore(wrapper, select);
-        wrapper.appendChild(select);
-    }
-
-    if (!display) {
-        display = document.createElement('div');
-        display.className = 'word-source-display';
-        wrapper.appendChild(display);
-    }
-
-    function updateDisplay(): void {
-        const selected = select.options[select.selectedIndex];
-        display!.textContent = selected?.dataset.name || selected?.textContent || '';
-    }
-
+    // 单词来源的可视化由词书选择器（bookPicker）统一渲染为「选择按钮 + 弹窗」；
+    // 这里只在数据刷新或选择变化时广播事件，由 bookPicker 更新按钮文案与进度。
     if (!select.dataset.displayBound) {
-        select.addEventListener('change', updateDisplay);
+        select.addEventListener('change', () => {
+            select.dispatchEvent(new CustomEvent('word-source-updated', { bubbles: true, detail: select.value }));
+        });
         select.dataset.displayBound = '1';
     }
-
-    updateDisplay();
+    select.dispatchEvent(new CustomEvent('word-source-updated', { bubbles: true, detail: select.value }));
 }
 
 export async function createWordbook(name: string): Promise<void> {

@@ -118,6 +118,30 @@ export function setupInputCooldown(input: HTMLInputElement): void {
     });
 }
 
+// /api/words/batch 服务端单批上限
+export const BATCH_WORD_LIMIT = 500;
+
+// 分片调用 /api/words/batch：每片 <=500 个，串行发完所有片，合并所有成功片的结果。
+// 不引入新的全局状态；单批失败时跳过该批（partial success），网络异常向上抛出由调用方 catch。
+export async function fetchWordDefinitionsInBatches(
+    words: string[]
+): Promise<Array<{ word: string; info?: { meanings?: Array<{ part: string; definition: string }>; translation?: string; phonetic?: string } }>> {
+    const merged: Array<{ word: string; info?: { meanings?: Array<{ part: string; definition: string }>; translation?: string; phonetic?: string } }> = [];
+    for (let i = 0; i < words.length; i += BATCH_WORD_LIMIT) {
+        const chunk = words.slice(i, i + BATCH_WORD_LIMIT);
+        const response = await fetch('/api/words/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ words: chunk })
+        });
+        const result = await response.json();
+        if (result && result.success && result.data) {
+            merged.push(...result.data);
+        }
+    }
+    return merged;
+}
+
 // 从释义中随机选择（按分号分组，每组随机选一个，打乱顺序）
 interface WordMeaning {
     part: string;

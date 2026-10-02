@@ -69,3 +69,10 @@ gitee-assets/
 # Package lock optional
 # package-lock.json
 测试.docx
+
+# 本地大资源 / 素材（不入库，随 resource 目录或资源包提供）
+/resource/
+
+# 冗余旧构建拷贝 / 临时目录
+/static/
+/cache/

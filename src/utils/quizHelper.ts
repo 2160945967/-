@@ -3,6 +3,7 @@
 import { QuizMode } from '../types/enums';
 import { normalizeNewlines } from './translation';
 import { appState } from '../store';
+import { apiPost } from './api';
 
 export interface MeaningItem {
   part: string;
@@ -24,6 +25,9 @@ export interface SelectMeaningsResult {
 export interface CheckAnswerResult {
   isCorrect: boolean;
   isPartial: boolean;
+  /** EnToZh 单词模式：字符串匹配命中 / 未命中的用户释义片段（用于逐义项红绿纠错） */
+  zhCorrect?: string[];
+  zhWrong?: string[];
 }
 
 // 常见词性标签白名单；不在此列表的标记（如 na.）直接忽略，避免显示成奇怪前缀
@@ -250,15 +254,43 @@ export function buildMeaningDisplayHtml(
 
 // 核心答案检查：不涉及 UI 更新、错题本、发音等，只判断对错
 // EnToZh 模式下，字符串匹配失败后会调用语义相似度 API 做兜底判断
+// 中文义项匹配：完全相等直接判对；子串命中需满足长度 / 覆盖率门槛，
+// 避免「正确：苹果，输入：果」也判对；单字义项不做子串宽松匹配。
+export function zhMeaningMatch(ua: string, cm: string): boolean {
+  const u = ua.trim();
+  const c = cm.trim();
+  if (u === c) return true;
+  if (!/[\u4e00-\u9fff]/.test(c)) return false;
+  const la = [...u].length;
+  const lc = [...c].length;
+  if (lc <= 1) return false;
+  if (c.includes(u)) return la >= 2 && la / lc >= 0.5;
+  if (u.includes(c)) return lc >= 2;
+  return false;
+}
+
+// 把 ECDict translation（如 "adv. 大概, 或许；很可能， 大概"）清洗成去重的中文释义片段，
+// 供 EnToZh 判分并入正确释义集合
+export function splitEcdictTranslation(t: string | undefined | null): string[] {
+  if (!t) return [];
+  const cleaned = t.replace(/\b(adv|adj|vt|vi|prep|conj|pron|num|art|int|det|aux|n|v)\.[\s]*/gi, ' ');
+  const parts = cleaned.split(/[；;，,、\/]+/).map(x => x.trim()).filter(x => x.length > 0);
+  return Array.from(new Set(parts));
+}
+
 export async function checkQuizAnswer(
   userAnswer: string,
   word: string,
   meanings: MeaningItem[],
   mode: QuizMode,
-  isSentence: boolean
+  isSentence: boolean,
+  acceptableAnswers?: string[],
+  extraCorrectMeanings?: string[]
 ): Promise<CheckAnswerResult> {
   let isCorrect = false;
   let isPartial = false;
+  let zhCorrect: string[] | undefined;
+  let zhWrong: string[] | undefined;
 
   if (mode === QuizMode.ZhToEn || mode === QuizMode.Dictation || mode === QuizMode.Spelling || mode === QuizMode.ListeningStuck) {
     if (isSentence) {
@@ -266,7 +298,10 @@ export async function checkQuizAnswer(
       const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'""。，！？；：""'']/g, '').trim();
       isCorrect = normalize(userAnswer) === normalize(word);
     } else {
-      isCorrect = userAnswer.toLowerCase() === word.toLowerCase();
+      // 单词：接受主拼写与全部可接受拼写（英美变体），统一大小写与多余空白
+      const normWord = (x: string) => x.trim().toLowerCase().replace(/\s+/g, ' ');
+      const candidates = acceptableAnswers && acceptableAnswers.length ? acceptableAnswers : [word];
+      isCorrect = candidates.some(c => normWord(userAnswer) === normWord(c));
     }
   } else {
     // EnToZh 模式
@@ -287,6 +322,11 @@ export async function checkQuizAnswer(
         const parts = m.definition.split(/[；;，,]/).map(p => p.trim()).filter(p => p.length > 0);
         parts.forEach(p => allCorrectMeanings.push(p));
       });
+      // 并入 ECDict 附加释义：覆盖词书未列的同义说法（如 probably 的「或许」）
+      (extraCorrectMeanings || []).forEach(p => {
+        const t = (p || '').trim();
+        if (t && !allCorrectMeanings.includes(t)) allCorrectMeanings.push(t);
+      });
 
       const userAnswers = userAnswer.split(/[，,；;\s]+/).map(a => a.trim()).filter(a => a.length > 0);
 
@@ -297,40 +337,46 @@ export async function checkQuizAnswer(
       const correctUserAnswers: string[] = [];
       const wrongUserAnswers: string[] = [];
 
-      userAnswers.forEach(ua => {
-        const match = allCorrectMeanings.some(cm => cm.includes(ua) || ua.includes(cm));
-        if (match) {
+      // 逐释义片段判定：先字面匹配，未命中再逐个走语义相似度模型（串行，避免并发压垮本地模型）
+      for (const ua of userAnswers) {
+        const literal = allCorrectMeanings.some(cm => zhMeaningMatch(ua, cm));
+        if (literal) {
           correctUserAnswers.push(ua);
-        } else {
-          wrongUserAnswers.push(ua);
+          continue;
         }
-      });
+        let semOk = false;
+        // 仅在开启「语义相似度模型」时调用。text1 与每个正确义项【单独】比对：
+        // 不能把多义项 join 成一串，否则同一词的不同义项（如 fantastic 的「极好的」与「怪诞的」）
+        // 混在一起会互相拉低相似度，导致近义说法漏判。
+        if (appState.settings.semanticSimilarityEnabled !== false) {
+          for (const cm of allCorrectMeanings) {
+            try {
+              // 统一封装带分级超时（语义接口 60s），推理卡住不会永久转圈
+              const result = await apiPost('/api/semantic-similarity', {
+                text1: ua,
+                text2: cm,
+              });
+              if (result.success && result.data?.isSimilar) { semOk = true; break; }
+            } catch {
+              // 模型不可用：不再对剩余义项逐个等超时，该片段按错误处理
+              break;
+            }
+          }
+        }
+        if (semOk) correctUserAnswers.push(ua);
+        else wrongUserAnswers.push(ua);
+      }
+
+      zhCorrect = correctUserAnswers;
+      zhWrong = wrongUserAnswers;
 
       if (correctUserAnswers.length === userAnswers.length) {
         isCorrect = true;
       } else if (correctUserAnswers.length > 0 && wrongUserAnswers.length > 0) {
         isPartial = true;
-      } else {
-        // 字符串匹配全部失败，尝试语义相似度兜底
-        // 仅在用户开启「语义相似度模型」开关时调用，避免不必要的 CPU 占用
-        if (appState.settings.semanticSimilarityEnabled !== false) {
-          try {
-            const response = await fetch('/api/semantic-similarity', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text1: userAnswer, text2: allCorrectMeanings.join('，') }),
-            });
-            const result = await response.json();
-            if (result.success && result.data?.isSimilar) {
-              isCorrect = true;
-            }
-          } catch {
-            // 模型不可用，保持原有判断
-          }
-        }
       }
     }
   }
 
-  return { isCorrect, isPartial };
+  return { isCorrect, isPartial, zhCorrect, zhWrong };
 }

@@ -3,8 +3,9 @@ export { appState };
 
 import { searchWord } from './modules/dictionary';
 import { PageSection, WordSource } from './types/enums';
-import { animatePageEnter, showToast, getGsapCore, prefersReducedMotion } from './utils/gsap';
+import { animatePageEnter, showToast, prefersReducedMotion } from './utils/gsap';
 import { SYSTEM_WORDBOOKS, MAX_RENDERED_PAGES } from './constants';
+import { trapFocus, TrapHandle } from './utils/focusTrap';
 
 // 当前所在页面 + 切换锁，防止连续点击叠加
 let currentSection = PageSection.Dictionary;
@@ -74,192 +75,82 @@ export function applyTheme(): void {
     }
 }
 
-interface AnimItem {
-    el: HTMLElement; oldBg: string; oldColor: string; dist: number;
-    relX: number; relY: number; elRadius: number;
-}
-
-const THEME_SELECTORS = [
-    '.navbar', '.sidebar', '.content-page',
-    '#result', '#quiz-container', '#review-quiz-container',
-    '#quiz-question', '#review-question',
-    '.word-card', '.wordlist-item', '.stat-item', '.quiz-option',
-    '.setting-item', '.stat-card',
-    '.modal-content', '.stats-container',
-    '.exam-category-card', '.history-item',
-    '.word-detail', '.related-words',
-    '.example-box', '.network-status', '.quiz-loading-text',
-    '.search-container', '#translation-container',
-    '#search-history-items', '.errorbook-sort-controls',
-    '.review-complete', '.history-collapse',
-    '.history-day-group', '.quiz-feedback-success',
-    '.quiz-feedback-error', '.quiz-feedback-partial',
-    '.quiz-feedback-info', '.quiz-example-card',
-    '.meaning-weights',
-    'button', 'input', 'select', 'textarea',
-    'a', 'code', 'pre',
-];
-
-function collectAnimItems(cx: number, cy: number): AnimItem[] {
-    const items: AnimItem[] = [];
-    THEME_SELECTORS.forEach(sel => {
-        document.querySelectorAll<HTMLElement>(sel).forEach(el => {
-            const rect = el.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) return;
-            const style = getComputedStyle(el);
-            const relX = cx - rect.left;
-            const relY = cy - rect.top;
-            items.push({
-                el,
-                oldBg: style.background,
-                oldColor: style.color,
-                dist: Math.hypot(rect.left + rect.width / 2 - cx, rect.top + rect.height / 2 - cy),
-                relX,
-                relY,
-                elRadius: Math.max(
-                    Math.hypot(relX, relY),
-                    Math.hypot(rect.width - relX, relY),
-                    Math.hypot(relX, rect.height - relY),
-                    Math.hypot(rect.width - relX, rect.height - relY)
-                ) + 50,
-            });
-        });
-    });
-    return items;
-}
-
-function createThemeOverlays(items: AnimItem[], gsapCore: any): HTMLDivElement[] {
-    const overlays: HTMLDivElement[] = [];
-    items.forEach(({ el, oldBg, oldColor }, i) => {
-        const rect = el.getBoundingClientRect();
-        const delay = Math.min(items[i].dist / 700, 0.6);
-
-        el.style.color = oldColor;
-        el.style.transition = 'color 0.5s ease';
-        el.style.transitionDelay = `${delay}s`;
-        el.style.color = '';
-
-        const overlay = document.createElement('div');
-        overlay.className = '__theme_overlay';
-        overlay.style.cssText = `
-            position:fixed;top:${rect.top}px;left:${rect.left}px;
-            width:${rect.width}px;height:${rect.height}px;
-            border-radius:${getComputedStyle(el).borderRadius};
-            z-index:998;pointer-events:none;
-            background:${oldBg};
-            clip-path:circle(${items[i].elRadius}px at ${items[i].relX}px ${items[i].relY}px);
-        `;
-        document.body.appendChild(overlay);
-        overlays.push(overlay);
-
-        if (gsapCore) {
-            gsapCore.to(overlay, {
-                clipPath: `circle(0px at ${items[i].relX}px ${items[i].relY}px)`,
-                duration: 0.55,
-                delay,
-                ease: 'power3.out',
-            });
-        } else {
-            overlay.style.transition = `clip-path 0.55s ${delay}s cubic-bezier(0.4, 0, 0.2, 1)`;
-            overlay.style.clipPath = `circle(0px at ${items[i].relX}px ${items[i].relY}px)`;
-        }
-    });
-    return overlays;
-}
-
-export function toggleTheme(event: MouseEvent): void {
+let lastThemeToggleAt = 0;
+export function toggleTheme(event?: MouseEvent): void {
     const themeBtn = document.getElementById('theme-toggle');
-    const themeMask = document.getElementById('theme-mask');
-    if (!themeBtn || !themeMask) return;
-
-    if (themeBtn.getAttribute('data-animating') === '1') return;
-    themeBtn.setAttribute('data-animating', '1');
-
-    const cx = event.clientX;
-    const cy = event.clientY;
-    const maxRadius = Math.hypot(
-        Math.max(cx, window.innerWidth - cx),
-        Math.max(cy, window.innerHeight - cy)
-    );
+    if (!themeBtn) return;
+    const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    // 双保险防连点：动画进行中（可见窗口）或距上次切换不足 480ms（后台标签 / reduced-motion /
+    // 不支持 View Transitions 时动画会被跳过、data-animating 提前释放）均忽略，避免主题来回横跳
+    if (themeBtn.getAttribute('data-animating') === '1' || nowMs - lastThemeToggleAt < 480) return;
+    lastThemeToggleAt = nowMs;
 
     const newDarkMode = !appState.isDarkMode;
-    const maskColor = newDarkMode
-        ? 'radial-gradient(ellipse at 15% 25%, rgba(52, 152, 219, 0.15) 0%, transparent 55%),radial-gradient(ellipse at 85% 75%, rgba(41, 128, 185, 0.12) 0%, transparent 50%),radial-gradient(ellipse at 50% 50%, rgba(30, 30, 30, 0.3) 0%, transparent 70%),linear-gradient(135deg, #0f0f12 0%, #1a1d23 50%, #151920 100%)'
-        : 'radial-gradient(ellipse at 20% 20%, rgba(52, 152, 219, 0.12) 0%, transparent 50%),radial-gradient(ellipse at 80% 80%, rgba(93, 173, 226, 0.1) 0%, transparent 50%),radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.5) 0%, transparent 70%),linear-gradient(135deg, #f0f4f8 0%, #e2eef5 50%, #dce8f0 100%)';
 
-    const items = collectAnimItems(cx, cy);
-
-    // 锁定背景层过渡，防止瞬间跳变
-    const bgUnder = document.getElementById('bg-under') as HTMLElement | null;
-    const bgOver = document.getElementById('bg-over') as HTMLElement | null;
-    const savedUnder = bgUnder ? bgUnder.style.transition : '';
-    const savedOver = bgOver ? bgOver.style.transition : '';
-    const lockedBgUnder = bgUnder ? getComputedStyle(bgUnder).background : '';
-    const lockedBgOver = bgOver ? getComputedStyle(bgOver).background : '';
-    if (bgUnder) { bgUnder.style.transition = 'none'; bgUnder.style.background = lockedBgUnder; }
-    if (bgOver) { bgOver.style.transition = 'none'; bgOver.style.background = lockedBgOver; }
-    document.body.style.transition = 'none';
-    items.forEach(({ el }) => { el.style.transition = 'none'; });
-
-    // 切 class（同步执行，无闪烁）
-    appState.isDarkMode = newDarkMode;
-    localStorage.setItem('darkMode', String(appState.isDarkMode));
-    if (appState.isDarkMode) {
-        document.documentElement.classList.add('dark-mode');
-        document.body.classList.add('dark-mode');
+    // 圆形揭示圆心：优先点击坐标，否则取主题按钮中心，再兜底右上角
+    let x = window.innerWidth - 90;
+    let y = 70;
+    if (event && typeof event.clientX === 'number' && (event.clientX !== 0 || event.clientY !== 0)) {
+        x = event.clientX;
+        y = event.clientY;
     } else {
-        document.documentElement.classList.remove('dark-mode');
-        document.body.classList.remove('dark-mode');
+        const r = themeBtn.getBoundingClientRect();
+        if (r.width > 0) { x = r.left + r.width / 2; y = r.top + r.height / 2; }
     }
+    const maxRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y)
+    );
 
-    const toggleBtn = document.getElementById('theme-toggle');
-    if (toggleBtn) {
-        toggleBtn.textContent = appState.isDarkMode ? '☀️' : '🌙';
-        toggleBtn.title = appState.isDarkMode ? '切换到浅色模式' : '切换到深色模式';
-    }
-
-    themeMask.style.background = maskColor;
-    themeMask.style.display = 'block';
-    themeMask.style.clipPath = `circle(0px at ${cx}px ${cy}px)`;
-
-    // GSAP 经 vite 动态 import('gsap') 打包进模块（index.html 无 CDN script 标签），实例存于 gsap.ts 模块局部；
-    // 原 (window as any).gsap 永远为 undefined（从未挂到 window），此处改为从 gsap.ts 同步取真实实例。
-    // 用户开启"减少动态"时不取 gsapCore，直接走 CSS 兜底，跳过 JS 波纹/大位移动画。
-    const gsapCore = prefersReducedMotion() ? null : getGsapCore();
-    const overlays = createThemeOverlays(items, gsapCore);
-
-    const cleanup = () => {
-        if (bgUnder) { bgUnder.style.transition = savedUnder; bgUnder.style.background = ''; }
-        if (bgOver) { bgOver.style.transition = savedOver; bgOver.style.background = ''; }
-        document.body.style.transition = '';
-        requestAnimationFrame(() => {
-            themeMask.style.display = 'none';
-            themeMask.style.clipPath = '';
-            themeMask.style.background = '';
-            items.forEach(({ el }) => {
-                el.style.color = '';
-                el.style.transition = '';
-                el.style.transitionDelay = '';
-            });
-            overlays.forEach(overlay => {
-                if (overlay.parentNode) overlay.remove();
-            });
-            themeBtn.removeAttribute('data-animating');
-        });
+    const apply = (): void => {
+        appState.isDarkMode = newDarkMode;
+        localStorage.setItem('darkMode', String(newDarkMode));
+        applyTheme();
     };
 
-    if (gsapCore) {
-        gsapCore.to(themeMask, {
-            clipPath: `circle(${maxRadius}px at ${cx}px ${cy}px)`,
-            duration: 1.1,
-            ease: 'power2.out',
-            onComplete: cleanup,
-        });
-    } else {
-        themeMask.style.transition = 'clip-path 1.1s cubic-bezier(0.4, 0, 0.2, 1)';
-        void themeMask.offsetWidth;
-        themeMask.style.clipPath = `circle(${maxRadius}px at ${cx}px ${cy}px)`;
-        setTimeout(() => { themeMask.style.transition = ''; cleanup(); }, 1150);
+    // Electron 28 / Chromium 120 起支持 View Transitions：浏览器对切换前后整页各拍一张快照，
+    // 仅对 ::view-transition-new(root) 这一个合成层做 clip-path 圆形扩散，
+    // 无需创建遮罩 DOM、无需读取上百个元素的布局，主线程零强制回流，动画流畅不抖动。
+    const startVT = (document as any).startViewTransition
+        ? (document as any).startViewTransition.bind(document)
+        : null;
+
+    if (!prefersReducedMotion() && typeof startVT === 'function') {
+        themeBtn.setAttribute('data-animating', '1');
+        let transition: any;
+        try {
+            transition = startVT(() => { apply(); });
+        } catch {
+            apply();
+            themeBtn.removeAttribute('data-animating');
+            return;
+        }
+        transition.ready
+            .then(() => document.documentElement.animate(
+                {
+                    clipPath: [
+                        `circle(0px at ${x}px ${y}px)`,
+                        `circle(${Math.ceil(maxRadius) + 20}px at ${x}px ${y}px)`,
+                    ],
+                },
+                {
+                    duration: 520,
+                    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                    pseudoElement: '::view-transition-new(root)',
+                }
+            ).finished)
+            .catch(() => {})
+            .finally(() => themeBtn.removeAttribute('data-animating'));
+        return;
+    }
+
+    // 兜底（无 View Transitions 或开启“减少动态”）：直接切换 + 极短淡入，不创建遮罩、不操作布局
+    apply();
+    if (!prefersReducedMotion()) {
+        document.documentElement.animate(
+            { opacity: [0.94, 1] },
+            { duration: 200, easing: 'ease-out' }
+        );
     }
 }
 
@@ -587,9 +478,15 @@ export async function checkNetworkStatus(): Promise<void> {
     }
 }
 
+// 各弹窗的焦点陷阱句柄：打开时建立、关闭时释放并把焦点还给触发元素
+const modalTrapHandles = new WeakMap<HTMLElement, TrapHandle>();
+
 export function openModal(modal: HTMLElement): void {
     modal.style.display = 'flex';
     modal.classList.remove('modal-visible');
+    // 重复打开同一弹窗：先释放旧陷阱再重建
+    modalTrapHandles.get(modal)?.release();
+    modalTrapHandles.set(modal, trapFocus(modal));
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             modal.classList.add('modal-visible');
@@ -605,6 +502,8 @@ export function closeModal(modal: HTMLElement): void {
         done = true;
         modal.style.display = 'none';
         modal.removeEventListener('transitionend', onEnd);
+        const handle = modalTrapHandles.get(modal);
+        if (handle) { handle.release(); modalTrapHandles.delete(modal); }
     };
     const onEnd = (e: TransitionEvent) => {
         if (e.target === modal && e.propertyName === 'opacity') {
@@ -615,11 +514,13 @@ export function closeModal(modal: HTMLElement): void {
     setTimeout(finish, 350);
 }
 
+// 活跃 confirm 的立即销毁句柄：重入（双击/重复触发）时正确关闭旧实例，避免悬挂 Promise 与监听器泄漏
+let dismissActiveConfirm: ((result: boolean) => void) | null = null;
+
 // 自定义确认弹窗，按钮文案为「是/否」，替代原生 confirm
 export function showConfirm(message: string, title: string = '提示'): Promise<boolean> {
     return new Promise((resolve) => {
-        const existing = document.getElementById('custom-confirm-modal');
-        if (existing) existing.remove();
+        if (dismissActiveConfirm) dismissActiveConfirm(false);
 
         const modalHtml = `
             <div id="custom-confirm-modal" class="modal-overlay custom-prompt-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0;">
@@ -641,6 +542,9 @@ export function showConfirm(message: string, title: string = '提示'): Promise<
         const yesBtn = document.getElementById('custom-confirm-yes') as HTMLButtonElement;
         const noBtn = document.getElementById('custom-confirm-no') as HTMLButtonElement;
 
+        // 焦点陷阱：Tab 循环在弹窗内，关闭后焦点回到触发元素
+        const confirmTrap = trapFocus(modal, yesBtn);
+
         const keyHandler = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 document.removeEventListener('keydown', keyHandler);
@@ -651,8 +555,23 @@ export function showConfirm(message: string, title: string = '提示'): Promise<
             }
         };
 
-        const cleanup = (result: boolean) => {
+        // 立即销毁（重入时由新实例调用）：无动画、立即移除并 resolve，释放陷阱与监听器
+        const dismiss = (result: boolean) => {
+            if (modal.dataset.dismissed) return;
+            modal.dataset.dismissed = '1';
             document.removeEventListener('keydown', keyHandler);
+            confirmTrap.release();
+            modal.remove();
+            resolve(result);
+        };
+        dismissActiveConfirm = dismiss;
+
+        const cleanup = (result: boolean) => {
+            if (modal.dataset.dismissed) return;
+            modal.dataset.dismissed = '1';
+            dismissActiveConfirm = null;
+            document.removeEventListener('keydown', keyHandler);
+            confirmTrap.release();
             closeModal(modal);
             setTimeout(() => {
                 modal.remove();
@@ -679,10 +598,11 @@ export function showConfirm(message: string, title: string = '提示'): Promise<
 }
 
 // 自定义提示弹窗，只有一个「知道了」按钮，替代原生 alert
+let dismissActiveAlert: (() => void) | null = null;
+
 export function showAlert(message: string, title: string = '提示'): Promise<void> {
     return new Promise((resolve) => {
-        const existing = document.getElementById('custom-alert-modal');
-        if (existing) existing.remove();
+        if (dismissActiveAlert) dismissActiveAlert();
 
         const modalHtml = `
             <div id="custom-alert-modal" class="modal-overlay custom-prompt-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0;">
@@ -702,6 +622,8 @@ export function showAlert(message: string, title: string = '提示'): Promise<vo
         const modalContent = modal.querySelector('.modal-content') as HTMLElement;
         const okBtn = document.getElementById('custom-alert-ok') as HTMLButtonElement;
 
+        const alertTrap = trapFocus(modal, okBtn);
+
         const keyHandler = (e: KeyboardEvent) => {
             if (e.key === 'Escape' || e.key === 'Enter') {
                 document.removeEventListener('keydown', keyHandler);
@@ -709,8 +631,22 @@ export function showAlert(message: string, title: string = '提示'): Promise<vo
             }
         };
 
-        const cleanup = () => {
+        const dismiss = () => {
+            if (modal.dataset.dismissed) return;
+            modal.dataset.dismissed = '1';
             document.removeEventListener('keydown', keyHandler);
+            alertTrap.release();
+            modal.remove();
+            resolve();
+        };
+        dismissActiveAlert = dismiss;
+
+        const cleanup = () => {
+            if (modal.dataset.dismissed) return;
+            modal.dataset.dismissed = '1';
+            dismissActiveAlert = null;
+            document.removeEventListener('keydown', keyHandler);
+            alertTrap.release();
             closeModal(modal);
             setTimeout(() => {
                 modal.remove();
@@ -736,10 +672,11 @@ export function showAlert(message: string, title: string = '提示'): Promise<vo
 }
 
 // 自定义输入弹窗，带一个输入框和「确定/取消」按钮，替代原生 prompt
+let dismissActivePrompt: ((result: string | null) => void) | null = null;
+
 export function showPrompt(message: string, defaultValue: string = '', title: string = '请输入'): Promise<string | null> {
     return new Promise((resolve) => {
-        const existing = document.getElementById('custom-prompt-modal');
-        if (existing) existing.remove();
+        if (dismissActivePrompt) dismissActivePrompt(null);
 
         const modalHtml = `
             <div id="custom-prompt-modal" class="modal-overlay custom-prompt-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0;">
@@ -763,6 +700,8 @@ export function showPrompt(message: string, defaultValue: string = '', title: st
         const okBtn = document.getElementById('custom-prompt-ok') as HTMLButtonElement;
         const cancelBtn = document.getElementById('custom-prompt-cancel') as HTMLButtonElement;
 
+        const promptTrap = trapFocus(modal, input);
+
         const keyHandler = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 document.removeEventListener('keydown', keyHandler);
@@ -773,8 +712,22 @@ export function showPrompt(message: string, defaultValue: string = '', title: st
             }
         };
 
-        const cleanup = (result: string | null) => {
+        const dismiss = (result: string | null) => {
+            if (modal.dataset.dismissed) return;
+            modal.dataset.dismissed = '1';
             document.removeEventListener('keydown', keyHandler);
+            promptTrap.release();
+            modal.remove();
+            resolve(result);
+        };
+        dismissActivePrompt = dismiss;
+
+        const cleanup = (result: string | null) => {
+            if (modal.dataset.dismissed) return;
+            modal.dataset.dismissed = '1';
+            dismissActivePrompt = null;
+            document.removeEventListener('keydown', keyHandler);
+            promptTrap.release();
             closeModal(modal);
             setTimeout(() => {
                 modal.remove();

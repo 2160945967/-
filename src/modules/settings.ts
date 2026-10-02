@@ -294,6 +294,7 @@ export function loadSettings(): void {
             dailyWordCount: 20,
             soundEnabled: true,
             semanticSimilarityEnabled: true,
+            includeDerivations: false,
             ...parsed
         });
     }
@@ -323,6 +324,12 @@ export function loadSettings(): void {
     if (autoAddErrorbook) autoAddErrorbook.checked = appState.settings.addToErrorbookAfterShowAnswer || false;
     if (soundEnabled) soundEnabled.checked = appState.settings.soundEnabled !== false;
     if (semanticSimilarityEnabled) semanticSimilarityEnabled.checked = appState.settings.semanticSimilarityEnabled !== false;
+    const assistSpellingLoad = document.getElementById('assist-spelling') as HTMLInputElement | null;
+    if (assistSpellingLoad) assistSpellingLoad.checked = appState.settings.assistSpelling !== false;
+    const showExampleInQuizLoad = document.getElementById('show-example-in-quiz') as HTMLInputElement | null;
+    if (showExampleInQuizLoad) showExampleInQuizLoad.checked = !!appState.settings.showExampleInQuiz;
+    const includeDerivationsLoad = document.getElementById('include-derivations') as HTMLInputElement | null;
+    if (includeDerivationsLoad) includeDerivationsLoad.checked = !!appState.settings.includeDerivations;
     const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
     const playbackRateValue = document.getElementById('playback-rate-value');
     if (playbackRateSlider) {
@@ -431,6 +438,12 @@ export function saveSettings(): void {
     if (enableEbbinghaus) appState.settings.enableEbbinghaus = enableEbbinghaus.checked;
     if (soundEnabled) appState.settings.soundEnabled = soundEnabled.checked;
     if (semanticSimilarityEnabled) appState.settings.semanticSimilarityEnabled = semanticSimilarityEnabled.checked;
+    const assistSpellingSave = document.getElementById('assist-spelling') as HTMLInputElement | null;
+    if (assistSpellingSave) appState.settings.assistSpelling = assistSpellingSave.checked;
+    const showExampleInQuizSave = document.getElementById('show-example-in-quiz') as HTMLInputElement | null;
+    if (showExampleInQuizSave) appState.settings.showExampleInQuiz = showExampleInQuizSave.checked;
+    const includeDerivationsSave = document.getElementById('include-derivations') as HTMLInputElement | null;
+    if (includeDerivationsSave) appState.settings.includeDerivations = includeDerivationsSave.checked;
     const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
     if (playbackRateSlider) {
         appState.settings.playbackRate = parseFloat(playbackRateSlider.value) || 1.0;
@@ -475,7 +488,12 @@ export function saveQuizSettings(): void {
     }
     const quizCount = document.getElementById('quiz-count') as HTMLInputElement;
     if (quizCount) {
-        appState.settings.quizCount = parseInt(quizCount.value);
+        const c = parseInt(quizCount.value);
+        if (!isNaN(c) && c > 0) {
+            appState.settings.quizCount = c;
+            // 测验个数与每日学习单词数保持一致（双向绑定）
+            appState.settings.dailyWordCount = c;
+        }
     }
     const quizOrder = document.getElementById('quiz-order') as HTMLSelectElement;
     if (quizOrder) {
@@ -544,7 +562,10 @@ export async function clearAllData(): Promise<void> {
             dailyWordCount: 20,
             quizMode: QuizMode.ZhToEn,
             wordSource: WordSource.Favorites,
-            quizCount: 10
+            quizCount: 10,
+            showExampleInQuiz: false,
+            assistSpelling: true,
+            includeDerivations: false
         });
 
         loadSettings();
@@ -1221,6 +1242,12 @@ interface DragState {
 
 let drag: DragState | null = null;
 
+// 兜底清理：拖拽被中断（Esc / 窗口失焦 / 指针异常释放）时，移除残留的半透明态与浮层
+function cleanupDragRemnants(): void {
+    document.querySelectorAll<HTMLElement>('.setting-item.is-dragging').forEach(el => el.classList.remove('is-dragging'));
+    document.querySelectorAll<HTMLElement>('.drag-ghost').forEach(g => { if (g.parentNode) g.parentNode.removeChild(g); });
+}
+
 // 根据指针坐标计算应该插入到哪个索引（使用相对容器的坐标，避免滚动错位）
 function computeTargetIndex(pointerX: number, pointerY: number): number {
     if (!drag) return 0;
@@ -1500,6 +1527,7 @@ function bindSortableEvents(container: HTMLElement, containerKey: string): void 
     window.addEventListener('resize', onScroll);
 }
 
+let _dragSafetyBound = false;
 export function initSortableContainers(): void {
     const containers = document.querySelectorAll<HTMLElement>('.sortable-container');
     containers.forEach(container => {
@@ -1508,6 +1536,19 @@ export function initSortableContainers(): void {
         applySavedOrderToContainer(container, containerKey);
         bindSortableEvents(container, containerKey);
     });
+    if (!_dragSafetyBound) {
+        _dragSafetyBound = true;
+        // 捕获阶段 pointerup：正常 endDrag（冒泡）已复位；下一帧再兜底扫描，清掉任何残留半透明卡片
+        document.addEventListener('pointerup', () => {
+            requestAnimationFrame(() => { if (!drag) cleanupDragRemnants(); });
+        }, true);
+        // Esc 取消拖拽
+        document.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && drag) { drag = null; cleanupDragRemnants(); }
+        });
+        // 窗口失焦（切到别的窗口 / 弹窗）时结束并清理
+        window.addEventListener('blur', () => { if (drag) { drag = null; cleanupDragRemnants(); } });
+    }
 }
 
 

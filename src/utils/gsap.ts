@@ -571,33 +571,11 @@ export function initSettingItemAnim(): void {
     });
 }
 
-// 单词卡片hover弹性（强化CSS效果）
+// 单词卡片 hover 已统一由 CSS .wordlist-item:hover（translateY + 阴影）处理。
+// 不再用 GSAP 写内联 transform：内联 transform 会覆盖 CSS hover，且旧实现只在初始化时
+// 绑定一次，虚拟滚动动态生成的新卡片会失效；CSS 方案零监听、自动覆盖新卡、不掉帧。
 export function initWordCardAnim(): void {
-    if (!gsapCore) return;
-    const items = document.querySelectorAll('.wordlist-item') as NodeListOf<HTMLElement>;
-    items.forEach(item => {
-        if (item.getAttribute('data-card-anim-bound')) return;
-        item.setAttribute('data-card-anim-bound', '1');
-        item.addEventListener('mouseenter', () => {
-            if (item.classList.contains('dragging')) return;
-            gsapCore.to(item, {
-                x: 8,
-                y: -2,
-                duration: 0.28,
-                ease: 'power2.out',
-                overwrite: true
-            });
-        });
-        item.addEventListener('mouseleave', () => {
-            gsapCore.to(item, {
-                x: 0,
-                y: 0,
-                duration: 0.28,
-                ease: 'power2.out',
-                overwrite: true
-            });
-        });
-    });
+    // no-op：保留导出以兼容既有调用与 window.__gsapAnim 注册
 }
 
 // 结果区域出现时的动画（词典查询结果）
@@ -833,68 +811,6 @@ export function animatePageEnter(page: HTMLElement | null): void {
             onComplete: () => {
                 // 仅对页面本身做一次轻量重绘，避免对大量子元素逐帧 display 切换导致掉帧
                 requestAnimationFrame(() => forceRepaint(page));
-            }
-        }
-    );
-}
-
-export function animateThemeSwitchContent(pages: NodeListOf<HTMLElement>): void {
-    // 用户开启"减少动态"：跳过 JS 内容亮度/位移动画（CSS 兜底已存在）
-    if (prefersReducedMotion()) return;
-    if (!gsapCore) return;
-    pages.forEach(page => {
-        gsapCore.fromTo(page,
-            { filter: 'brightness(1.08)', opacity: 0.92 },
-            {
-                filter: 'brightness(1)', opacity: 1, duration: 0.55, ease: 'power2.out', clearProps: 'filter, opacity',
-                onComplete: () => {
-                    requestAnimationFrame(() => forceRepaint(page));
-                }
-            }
-        );
-    });
-}
-
-// theme-mask 是旧主题色全屏遮罩，从新主题色点击位置反向揭示出去
-export function animateThemeSwitch(themeMask: HTMLElement, x: number, y: number, onDone: () => void): void {
-    // 用户开启"减少动态"：跳过 JS 波纹，直接落到终态（CSS 兜底已存在）
-    if (prefersReducedMotion()) {
-        themeMask.style.display = 'none';
-        themeMask.style.clipPath = '';
-        onDone();
-        return;
-    }
-    // 如果 GSAP 未加载，用 CSS transition 兜底（移除时不依赖 theme-switching）
-    if (!gsapCore) {
-        themeMask.style.clipPath = `circle(200vmax at ${x}px ${y}px)`;
-        themeMask.style.transition = 'clip-path 0.9s cubic-bezier(0.4, 0, 0.2, 1)';
-        // 强制重绘后再设置目标状态
-        void themeMask.offsetWidth;
-        themeMask.style.clipPath = `circle(0 at ${x}px ${y}px)`;
-        setTimeout(onDone, 900);
-        return;
-    }
-
-    // GSAP 路径：先设置起始状态，再 fromTo 动画
-    gsapCore.set(themeMask, {
-        clipPath: `circle(200vmax at ${x}px ${y}px)`,
-        display: 'block'
-    });
-
-    // 动画：从 circle(200vmax) 收缩到 circle(0)
-    // 用 power3.inOut 让开头慢、中间快、结尾慢，视觉更有"揭示"感
-    gsapCore.fromTo(themeMask,
-        { clipPath: `circle(200vmax at ${x}px ${y}px)` },
-        {
-            clipPath: `circle(0 at ${x}px ${y}px)`,
-            duration: 0.9,
-            ease: 'power3.inOut',
-            onComplete: () => {
-                gsapCore.set(themeMask, {
-                    clipPath: '',
-                    display: 'none'
-                });
-                onDone();
             }
         }
     );

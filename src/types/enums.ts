@@ -54,6 +54,7 @@ export const enum PageSection {
     Errorbook = 'errorbook',
     Review = 'review',
     Settings = 'settings',
+    Exam = 'exam',
 }
 
 /** 单词内容分类 */

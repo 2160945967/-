@@ -203,7 +203,7 @@
                             <option value="zh-to-en">中文 → 英文</option>
                             <option value="en-to-zh">英文 → 中文</option>
                             <option value="dictation">听写模式</option>
-                            <option value="spelling">拼写模式</option>
+                            <option value="spelling">跟练模式</option>
                             <option value="listening-stuck">听力卡壳词追踪</option>
                         </select>
                     </div>
@@ -543,13 +543,25 @@
                     <div class="setting-item setting-item-toggle" draggable="true" data-setting-key="quiz-assist">
                         <span class="drag-handle" title="拖动排序">⋮⋮</span>
                         <label for="assist-spelling">
-                            <input type="checkbox" id="assist-spelling" checked> 中译英辅助拼写
+                            <input type="checkbox" id="assist-spelling" checked> 辅助拼写
                         </label>
-                        <span class="setting-desc">输入英文时，正确前缀显示绿色、从第一个错误字母起显示红色</span>
-                        <label for="show-example-in-quiz" class="setting-sub-label">
+                        <span class="setting-desc">中译英输入英文时，正确前缀显示绿色、首个错误字母起红色；英译中输入中文时，已确认的正确释义显示绿色、错误释义红色（最后一个仍在输入的释义不标色）</span>
+                    </div>
+
+                    <div class="setting-item setting-item-toggle" draggable="true" data-setting-key="show-example">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="show-example-in-quiz">
                             <input type="checkbox" id="show-example-in-quiz"> 答题时显示例句
                         </label>
-                        <span class="setting-desc setting-sub-desc">题目附带例句：拼写/中译英模式把目标单词挖空为下划线，英译中模式完整展示；答对后展示完整例句与翻译</span>
+                        <span class="setting-desc">题目附带例句：跟练/中译英模式把目标单词挖空为下划线，英译中模式完整展示；勾选后若该词暂无例句会显示“暂无例句”；答对后展示完整例句与翻译</span>
+                    </div>
+
+                    <div class="setting-item setting-item-toggle" draggable="true" data-setting-key="book-derivations">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="include-derivations">
+                            <input type="checkbox" id="include-derivations"> 词书附带练习派生词
+                        </label>
+                        <span class="setting-desc">仅对《英语四级·你还在背单词吗》生效：开启后每个主词的派生词（如 space → spacious、spatial）作为独立单词紧跟主词进入练习；全本去重后 4499 个主词 + 1528 个派生词 = 共 6027 词</span>
                     </div>
 
                     <div class="setting-item" draggable="true" data-setting-key="answer-key">
@@ -689,6 +701,36 @@
                 <div class="settings-actions" style="grid-column: span 2; margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
                     <button id="save-settings">保存设置</button>
                     <button id="clear-cache">清除数据</button>
+                </div>
+
+                <!-- 数据备份与恢复 -->
+                <div class="settings-container backup-container" style="grid-column: span 2; margin-top: 30px;" data-container="data-backup">
+                    <h2 class="backup-title">数据备份与恢复</h2>
+
+                    <div class="setting-item">
+                        <label class="backup-label">手动备份：</label>
+                        <div class="setting-action-row">
+                            <button id="backup-export" class="btn-small">导出全部数据</button>
+                            <button id="backup-import" class="btn-small">导入数据</button>
+                            <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
+                        </div>
+                        <p class="setting-desc">导出收藏、错题本、单词本、学习历史、学习统计与各项设置为一个 JSON 文件。导入会用备份覆盖当前数据，建议导入前先导出当前数据留底。</p>
+                    </div>
+
+                    <div class="setting-item setting-item-toggle">
+                        <label for="auto-backup">
+                            <input type="checkbox" id="auto-backup" checked> 自动备份到磁盘
+                        </label>
+                        <p class="setting-desc">答题过程中每隔约 1 分钟、以及退出 / 关机时自动备份到用户数据目录的 backups 文件夹，仅保留最近 10 份，防止异常退出或清理缓存导致数据丢失。</p>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="backup-label">磁盘上的备份：</label>
+                        <div class="setting-action-row">
+                            <button id="backup-refresh" class="btn-small">刷新</button>
+                        </div>
+                        <div id="backup-list" class="backup-list"></div>
+                    </div>
                 </div>
 
                 <!-- 开源词典声明 -->
@@ -897,11 +939,11 @@
                 <h2 class="modal-title" id="bp-title">选择单词来源</h2>
                 <button id="bp-close" class="modal-close-btn" type="button" aria-label="关闭弹窗">&times;</button>
             </div>
-            <div class="bp-tabs" role="tablist">
-                <button id="bp-tab-mine" class="bp-tab bp-tab-active" type="button" role="tab">我的词库</button>
-                <button id="bp-tab-cet4" class="bp-tab" type="button" role="tab">四级词书</button>
+            <div class="bp-tabs" role="tablist" aria-label="单词来源类型">
+                <button id="bp-tab-mine" class="bp-tab bp-tab-active" type="button" role="tab" aria-selected="true" aria-controls="bp-body" tabindex="0">我的词库</button>
+                <button id="bp-tab-cet4" class="bp-tab" type="button" role="tab" aria-selected="false" aria-controls="bp-body" tabindex="-1">四级词书</button>
             </div>
-            <div id="bp-body" class="bp-body"></div>
+            <div id="bp-body" class="bp-body" role="tabpanel" aria-labelledby="bp-tab-mine"></div>
             <div id="bp-footer" class="bp-footer" style="display:none;">
                 <span id="bp-footer-info" class="bp-footer-info">尚未选择课程</span>
                 <div class="bp-order-switch" id="bp-order-switch">
@@ -1075,7 +1117,7 @@
                             <li><strong>中文→英文：</strong>给出中文释义，输入对应英文单词。</li>
                             <li><strong>英文→中文：</strong>给出英文单词，输入中文释义（多个释义用逗号/分号/空格分隔）。</li>
                             <li><strong>听写模式：</strong>播放发音后输入对应单词。</li>
-                            <li><strong>拼写模式：</strong>根据中文释义拼写英文单词，输入过程中会逐字符显示绿色（正确）或红色（错误）反馈，拼写完整且正确后自动进入下一题。</li>
+                            <li><strong>跟练模式：</strong>本质是带提示的中译英——输入区会先铺一层浅色的完整正确拼写，你照着逐字母跟打，输对的字母逐位变清晰（绿色），输错标红并轻抖，拼完整词后自动进入下一题，适合记新词。</li>
                             <li><strong>听力卡壳词追踪：</strong>播放单词或句子发音，输入听到的内容。回答错误会自动标记为「听力卡壳词」，测验结束后展示本轮卡壳词列表，方便针对性练习听力薄弱点。</li>
                         </ul>
                         <p><strong>单词来源：</strong>点击「单词来源」可选择「我的收藏」「错题本」，或切换到「四级词书」标签，按单元 / 课程勾选《英语四级你还在背单词吗》词书（可整书全选，也可只选若干课）。</p>
@@ -1086,7 +1128,7 @@
                             <li>答对答错会显示不同颜色反馈。</li>
                             <li>答错的单词会自动加入错题本（可在设置中关闭）。</li>
                             <li>可点击「加入收藏」将当前单词收藏。</li>
-                            <li>右下角「例句填空」开关可在题目中附带例句：拼写 / 中文→英文模式把目标单词挖空为下划线；英文→中文模式下开关名为「显示例句」，完整展示例句。答对后会显示完整例句与中文翻译（可在设置中默认关闭）。</li>
+                            <li>右下角「例句填空」开关可在题目中附带例句：跟练 / 中文→英文模式把目标单词挖空为下划线，该词没有例句时显示“暂无例句”；英文→中文模式下开关名为「显示例句」，完整展示例句。答对后会显示完整例句与中文翻译（可在设置中默认关闭）。</li>
                         </ul>
                         <p><strong>测验设置：</strong>可设置测验个数（1-100）和出题顺序（随机/顺序），各设置项支持拖拽排序。选择四级词书后，可在选书窗口底部切换「顺序 / 乱序」：顺序按单元、课程、词群的原始排列出题，乱序则随机打乱；该选择会自动记住。</p>
                         <p><strong>艾宾浩斯遗忘曲线：</strong>启用后系统根据遗忘规律安排复习，答错的单词会在特定时间点重复出现。</p>
@@ -1178,6 +1220,7 @@
                             <li><strong>API设置：</strong>可配置自定义腾讯云翻译API密钥，留空使用默认密钥。</li>
                             <li><strong>每日学习单词数：</strong>设置每日新学单词目标。</li>
                             <li><strong>数据资源管理：</strong>管理词库、例句库、语音识别模型、离线发音包的下载和删除。</li>
+                            <li><strong>数据备份与恢复：</strong>可手动导出 / 导入全部学习数据；默认开启磁盘自动备份（定时 + 退出前落盘，保留最近 10 份），可查看、恢复、下载或删除历史备份。</li>
                         </ul>
                         <p><strong>清除数据：</strong>可清除本地存储数据、翻译缓存和音频缓存。</p>
                     </div>

@@ -331,6 +331,13 @@
     font-size: 22px;
     user-select: none;
     transition: transform 0.15s ease, filter 0.15s ease;
+    /* button 元素重置，保持原图标外观 */
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    line-height: 1;
+    vertical-align: middle;
 }
 
 .quiz-speak-btn:hover {
@@ -1173,3 +1180,67 @@ html.dark-mode .quiz-type-placeholder { color: #78848f; }
     .cloze-en { font-size: 15px; line-height: 1.9; }
     .quiz-quick-toggles { justify-content: flex-start; }
 }
+
+
+/* 词书派生词作为独立词练习时，答案区标注来源主词 */
+.be-derived-from {
+    border-left: 3px solid var(--primary-blue-light);
+    background: var(--box-bg-accent);
+}
+.be-derived-from p { margin: 4px 0 0; font-size: 14px; color: var(--text-gray); }
+.be-derived-from a { color: var(--primary-blue); font-weight: 600; }
+
+/* ===== 跟练模式：浅色完整正确拼写铺底（ghost 描红），输对的字母由 .tc-ok/.tc-bad 实化 ===== */
+.tc-ghost {
+    color: var(--text-dark);
+    opacity: .18;
+}
+.quiz-type-area.is-en[data-mode="spelling"]:not(.is-waiting) .quiz-type-placeholder { display: none; }
+html.dark-mode .tc-ghost { opacity: .28; }
+
+/* 暂无例句占位卡 */
+.cloze-empty { background: transparent; border-style: dashed; }
+.cloze-empty-text { color: var(--text-gray); font-style: italic; font-size: 14.5px; }
+html.dark-mode .cloze-empty { background: transparent; border-color: rgba(255,255,255,.14); }
+
+
+/* ===== 英译中（EnToZh）逐义项红绿纠错态 ===== */
+/* 纠错态：展示层显示红绿释义，原生输入透明，二者位置重合 */
+ .quiz-type-area.is-zh.zh-checking { padding: 0; }
+.quiz-type-area.is-zh.zh-checking .quiz-type-display {
+    display: block;
+    width: 100%;
+    min-height: 60px;
+    margin: 0;
+    padding: 16px 22px;
+    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.5;
+    word-break: break-word;
+}
+.quiz-type-area.is-zh.zh-checking #quiz-answer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 16px 22px;
+    border: none;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--primary-blue);
+    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    line-height: 1.5;
+}
+.tc-zh {
+    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+.tc-zh-sep { color: #9aa5b1; }
+html.dark-mode .tc-zh-sep { color: #78848f; }

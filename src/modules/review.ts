@@ -9,7 +9,7 @@ import { updateStudyStats } from './stats';
 import { loadSettings } from './settings';
 import { loadWordbooks, updateWordSourceSelect, normalizeCaseByType } from './wordbook';
 import { recordLearningHistory, showLearningHistory, calculateEbbinghausWeight } from './quiz';
-import { setupImeHandling, setupEnterSubmission, setupGlobalShortcuts } from '../utils/quizCommon';
+import { setupImeHandling, setupEnterSubmission, setupGlobalShortcuts, fetchWordDefinitionsInBatches } from '../utils/quizCommon';
 import { checkQuizAnswer } from '../utils/quizHelper';
 import { animateCorrectFeedback, animateErrorShake } from '../utils/gsap';
 import {
@@ -247,22 +247,15 @@ async function startReview(): Promise<void> {
 
     if (wordsNeedLoad.length > 0) {
         try {
-            const resp = await fetch('/api/words/batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ words: wordsNeedLoad })
+            const data = await fetchWordDefinitionsInBatches(wordsNeedLoad);
+            data.forEach((item: { word: string; info?: { meanings?: Array<{ part: string; definition: string }>; translation?: string; phonetic?: string } }) => {
+                const w = reviewWords.find(r => r.word.toLowerCase() === item.word.toLowerCase());
+                if (w && item.info) {
+                    if (item.info.meanings) w.meanings = item.info.meanings;
+                    else if (item.info.translation) w.meanings = [{ part: '', definition: item.info.translation }];
+                    if (item.info.phonetic) w.phonetic = item.info.phonetic;
+                }
             });
-            const result = await resp.json();
-            if (result.success && result.data) {
-                result.data.forEach((item: { word: string; info?: { meanings?: Array<{ part: string; definition: string }>; translation?: string; phonetic?: string } }) => {
-                    const w = reviewWords.find(r => r.word.toLowerCase() === item.word.toLowerCase());
-                    if (w && item.info) {
-                        if (item.info.meanings) w.meanings = item.info.meanings;
-                        else if (item.info.translation) w.meanings = [{ part: '', definition: item.info.translation }];
-                        if (item.info.phonetic) w.phonetic = item.info.phonetic;
-                    }
-                });
-            }
         } catch (e) { console.error('批量加载释义失败:', e); }
     }
 
@@ -496,7 +489,7 @@ async function renderReviewQuestion(): Promise<void> {
     reviewCurrentMeanings = [...selectedMeanings];
 
     const pronunciationKey = appState.settings.playPronunciationKey || '2';
-    const speakerHtml = `<span class="quiz-speak-btn" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(word.word)}')">🔊</span>`;
+    const speakerHtml = `<button type="button" class="quiz-speak-btn" aria-label="播放发音（快捷键 ${pronunciationKey}）" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(word.word)}')">🔊</button>`;
 
     if (reviewCurrentMode === QuizMode.Dictation) {
         questionEl.innerHTML = `

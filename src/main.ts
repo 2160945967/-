@@ -20,6 +20,7 @@ import { initSearch, searchWord, initKeyboardShortcuts, translateText, showSearc
 import { initQuiz, showLearningHistory, toggleHistoryDay, toggleDueWords, showDueWordsCondition, removeDueWord, toggleHistoryPanel, cleanupShowAnswerEnterHandler } from './modules/quiz';
 import { initWordbookManagement, loadWordbooks, abortLoadWordbooks, abortWordbookRendering, saveWordbookScroll, restoreWordbookScroll, renameWordbook, updateSelectedWordbookDisplay, updateWordbookSelect } from './modules/wordbook';
 import { initSettings, startSettingsPolling, stopSettingsPolling } from './modules/settings';
+import { initBackupUI, initAutoBackup } from './utils/backup';
 import { initStudyStats } from './modules/stats';
 import { initStudyTimer, startStudyTimer, stopStudyTimer, recordActivity } from './modules/timer';
 import { initReviewQuiz } from './modules/review';
@@ -29,6 +30,9 @@ import { setWordbookFilter, setWordbookSort, removeFromWordlist } from './module
 import { showImportFormat } from './modules/settings';
 import { playPronunciation, playSentencePronunciation, setAppState } from './utils/audio';
 import { initGsapAnimations, setupGsapGlobal } from './utils/gsap';
+import { initBookPicker } from './modules/bookPicker';
+import { initExam } from './modules/exam';
+import { warmupStructuredBook } from './utils/structuredBook';
 import { initPopupSelects } from './utils/popupSelect';
 
 // 毛玻璃滚动降级（停止滚动 150ms 后恢复）
@@ -55,7 +59,6 @@ function initGlassScrollDegradation(): void {
 }
 
 // 全局函数注册表供动态 HTML 中的 onclick 调用
-import { PageSection } from './types/enums';
 import { setupGlobalRegistry } from './global-registry';
 setupGlobalRegistry({
     jumpToWord,
@@ -107,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     pageHandlers.cleanupShowAnswerEnterHandler = cleanupShowAnswerEnterHandler;
     pageHandlers.onPageEnter = (page: string) => {
         // 进入学习相关页面时启动计时器
-        if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(page)) {
+        if (['quiz', 'review', 'exam'].includes(page)) {
             startStudyTimer();
         }
         // 进入设置页面时启动资源状态轮询
@@ -118,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     pageHandlers.onPageLeave = (page: string) => {
         // 离开学习相关页面时停止计时器
-        if (['quiz', 'wordbook', 'favorites', 'errorbook'].includes(page)) {
+        if (['quiz', 'review', 'exam'].includes(page)) {
             stopStudyTimer();
         }
         // 离开设置页面时停止资源状态轮询
@@ -165,12 +168,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 7. 初始化测验页面
     initQuiz();
+    // 7.5 初始化单词来源选择器（按钮 + 弹窗），并静默预热四级词书目录
+    initBookPicker();
+    warmupStructuredBook();
+
+    // 7.6 初始化模拟题模块（阅读理解 / 听力理解）
+    initExam();
 
     // 8. 初始化单词本页面
     initWordbookManagement();
 
     // 9. 初始化设置页面
     initSettings();
+
+    // 9.5 初始化数据备份 / 自动备份
+    initBackupUI();
+    initAutoBackup();
 
     // 10. 初始化学习统计
     initStudyStats();
@@ -210,11 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 19. 初始化使用说明弹窗
     initUsageGuide();
 
-    // 20. 恢复上次访问的页面（默认是词典页）
-    const lastPage = appState.lastVisitedPage;
-    if (lastPage && lastPage !== PageSection.Dictionary && document.getElementById(`${lastPage}-page`)) {
-        void switchPage(lastPage);
-    }
+    // 20. 启动始终停在词典首页，不恢复上次访问的页面
 
     console.log('拾词应用初始化完成');
 });

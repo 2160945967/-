@@ -9,12 +9,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "electron:compile": "tsc -p tsconfig.electron.json",
     "electron:dev": "npm run electron:compile && chcp 65001 >nul && electron .",
-    "electron:start": "npm run build && node -e \"require('fs').cpSync('dist','static',{recursive:true});require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && chcp 65001 >nul && electron .",
+    "electron:start": "npm run build && node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && chcp 65001 >nul && electron .",
     "postinstall": "electron-builder install-app-deps",
-    "package:win": "npm run build && node -e \"require('fs').cpSync('dist','static',{recursive:true});require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64",
-    "package:dir": "npm run build && node -e \"require('fs').cpSync('dist','static',{recursive:true});require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64 --dir"
+    "package:win": "npm run build && node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64",
+    "package:dir": "npm run build && node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64 --dir"
   },
   "build": {
     "appId": "com.shici.app",
@@ -24,13 +26,34 @@
     },
     "extraResources": [
       "pronunciations/**/*",
-      "stardict.db",
-      "examples.db",
-      "sherpa-onnx-sense-voice-zh-en-ja-ko-yue/**/*",
-      "semantic-model-files/**/*",
-      "resemble.txt",
-      "lemma.en.txt",
-      "wordroot.txt"
+      {
+        "from": "resource/stardict.db",
+        "to": "stardict.db"
+      },
+      {
+        "from": "resource/examples.db",
+        "to": "examples.db"
+      },
+      {
+        "from": "resource/sherpa-onnx-sense-voice-zh-en-ja-ko-yue",
+        "to": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue"
+      },
+      {
+        "from": "resource/semantic-model-files",
+        "to": "semantic-model-files"
+      },
+      {
+        "from": "resource/resemble.txt",
+        "to": "resemble.txt"
+      },
+      {
+        "from": "resource/lemma.en.txt",
+        "to": "lemma.en.txt"
+      },
+      {
+        "from": "resource/wordroot.txt",
+        "to": "wordroot.txt"
+      }
     ],
     "compression": "maximum",
     "asar": true,
@@ -45,9 +68,6 @@
       "!electron-dist/**/*.map",
       "dist/**/*",
       "node_modules/**/*",
-      "resemble.txt",
-      "lemma.en.txt",
-      "wordroot.txt",
       "wordbooks.json",
       "logo.ico",
       "package.json",
@@ -108,12 +128,14 @@
     "electron": "^28.3.3",
     "electron-builder": "^24.0.0",
     "electron-rebuild": "^3.2.9",
+    "happy-dom": "^20.14.5",
     "png-to-ico": "^3.0.1",
     "sass": "^1.69.0",
     "sharp": "^0.35.2",
     "svg-to-ico": "^2.0.0",
     "typescript": "^5.0.0",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^2.1.9"
   },
   "optionalDependencies": {
     "sherpa-onnx-win-x64": "^1.13.3"

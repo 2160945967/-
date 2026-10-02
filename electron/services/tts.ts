@@ -206,8 +206,8 @@ export class TencentTTS {
   private secretId: string;
   private secretKey: string;
   private currentVoiceIdx: Record<string, number>;
-  private _edgeTtsChecked = false;
-  private _edgeTtsAvailable = false;
+  private _edgeTtsModule: any = null;
+  private _edgeTtsImportTried = false;
 
   constructor(pronunciationsDir: string, cacheDir: string) {
     this.pronunciationsDir = pronunciationsDir;
@@ -296,7 +296,7 @@ export class TencentTTS {
 
     // 4. 腾讯云TTS（最终兜底）
     if(DEBUG)console.log(`【单词发音】尝试 腾讯云TTS: ${processedWord}`);
-    audioData = this.tencentCloudTTS(processedWord, accent);
+    audioData = await this.tencentCloudTTS(processedWord, accent);
     if (audioData && this.saveWithProvider(audioData, filepath, 'tencent')) {
       return filepath;
     }
@@ -317,17 +317,32 @@ export class TencentTTS {
       if (useCache) return filepath;
     }
 
-    // 1. 腾讯云TTS（HTTP 更快，优先尝试）
-    if(DEBUG)console.log(`【句子发音】尝试 腾讯云TTS: ${phrase.substring(0, 50)}`);
-    let audioData = this.tencentCloudTTS(phrase, accent);
-    if (audioData && this.saveWithProvider(audioData, filepath, 'tencent')) {
+    // 句子链按「当前国内网络实测可用性」排序：
+    // 1. 百度 gettts：国内直连、亚秒级、实测可合成整句（旧 text2audio 英文引擎已停用，baiduTTS 内已切换）
+    if(DEBUG)console.log(`【句子发音】尝试 百度gettts: ${phrase.substring(0, 50)}`);
+    let audioData = await this.baiduTTS(phrase, accent);
+    if (audioData && this.saveWithProvider(audioData, filepath, 'baidu')) {
       return filepath;
     }
 
-    // 2. Edge TTS（兜底）
+    // 2. 有道 dictvoice：词典短语 / 常用句可合成；连续请求易被限流（HTTP 500），失败安全跳过
+    if(DEBUG)console.log(`【句子发音】尝试 有道TTS: ${phrase.substring(0, 50)}`);
+    audioData = await this.youdaoTTS(phrase, accent);
+    if (audioData && this.saveWithProvider(audioData, filepath, 'youdao')) {
+      return filepath;
+    }
+
+    // 3. Edge TTS：免费、音质最自然；微软语音端点在国内网络常被重置（ECONNRESET），外网 / 代理时作为优质兜底
     if(DEBUG)console.log(`【句子发音】尝试 Edge TTS: ${phrase.substring(0, 50)}`);
     audioData = await this.edgeTTS(phrase, accent);
     if (audioData && this.saveWithProvider(audioData, filepath, 'edge')) {
+      return filepath;
+    }
+
+    // 4. 腾讯云TTS：音质好，但需语音资源包有效；账号额度用尽（PkgExhausted）时自动跳过
+    if(DEBUG)console.log(`【句子发音】尝试 腾讯云TTS: ${phrase.substring(0, 50)}`);
+    audioData = await this.tencentCloudTTS(phrase, accent);
+    if (audioData && this.saveWithProvider(audioData, filepath, 'tencent')) {
       return filepath;
     }
 
@@ -389,7 +404,9 @@ export class TencentTTS {
   private async baiduTTS(word: string, accent: string): Promise<Buffer | null> {
     try {
       const wordEncoded = encodeURIComponent(word);
-      const url = `https://tts.baidu.com/text2audio?lan=en&ie=UTF-8&spd=4&text=${wordEncoded}&cuid=shici_app&ctp=1`;
+      // 旧 text2audio 免费端点英文引擎已停（实测稳定 503「jtts engine」/中文报缺 pid），
+      // 改用百度翻译网页 gettts：国内直连、无需鉴权，实测单词与整句均可合成；失败仍按首字节/状态码跳过
+      const url = `https://fanyi.baidu.com/gettts?lan=en&text=${wordEncoded}&spd=3&source=web`;
 
       if(DEBUG)console.log(`使用百度TTS (accent=${accent}): ${word}`);
       const response = await httpGet(url, 8000);
@@ -412,42 +429,51 @@ export class TencentTTS {
     }
   }
 
-  // Edge TTS
+  // Edge TTS（使用项目依赖的 edge-tts 库直连微软语音服务）
+  // 旧实现 spawn `npx edge-tts` 调 CLI，但 npm 版 edge-tts 是纯库、package.json 没有 bin，
+  // 该命令在任何机器上都会报 "could not determine executable to run"，句子发音的 Edge 兜底从未生效
 
-  private isEdgeTtsAvailable(): boolean {
-    if (this._edgeTtsChecked) return this._edgeTtsAvailable;
-    this._edgeTtsChecked = true;
+  // CJS 产物里必须保留运行时原生 import()：TS 编译到 commonjs 会把 await import() 降级成 require，
+  // 而 edge-tts 是 ESM-only，require 会抛 ERR_REQUIRE_ESM；用 Function 构造器绕过编译降级
+  private _dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+
+  private async loadEdgeTts(): Promise<any | null> {
+    if (this._edgeTtsImportTried) return this._edgeTtsModule;
+    this._edgeTtsImportTried = true;
     try {
-      const { execSync } = require('child_process');
-      execSync('npx edge-tts --help', { stdio: 'pipe', timeout: 5000 });
-      this._edgeTtsAvailable = true;
-    } catch {
-      this._edgeTtsAvailable = false;
+      // Electron 28 子进程是 Node 18，全局 Web Crypto（globalThis.crypto）到 Node 19 才默认可用，
+      // edge-tts 库内部直接用全局 crypto 生成令牌，缺失时会 ReferenceError: crypto is not defined
+      const g = globalThis as any;
+      if (typeof g.crypto === 'undefined' || !g.crypto || typeof g.crypto.subtle === 'undefined') {
+        g.crypto = require('crypto').webcrypto;
+      }
+      // 包的 main 指向 index.ts（Node 无法执行 TS），显式指定其编译产物
+      this._edgeTtsModule = await this._dynamicImport('edge-tts/out/index.js');
+      if (DEBUG) console.log('Edge TTS 库加载成功');
+    } catch (e) {
+      if (DEBUG) console.log(`Edge TTS 库加载失败: ${e}`);
+      this._edgeTtsModule = null;
     }
-    return this._edgeTtsAvailable;
+    return this._edgeTtsModule;
   }
 
   private async edgeTTS(text: string, accent: string): Promise<Buffer | null> {
-    if (!this.isEdgeTtsAvailable()) return null;
+    const mod = await this.loadEdgeTts();
+    if (!mod || typeof mod.tts !== 'function') return null;
+    const voice = accent === 'uk' ? 'en-GB-SoniaNeural' : 'en-US-AriaNeural';
     try {
-      const voice = accent === 'uk' ? 'en-GB-SoniaNeural' : 'en-US-AriaNeural';
       if(DEBUG)console.log(`使用Edge TTS (voice=${voice}): ${text.substring(0, 80)}`);
 
-      const tmpPath = await this.edgeTTSGenerate(text, voice);
+      const audioData: Buffer = await Promise.race([
+        mod.tts(text, { voice }),
+        new Promise<Buffer>((_, reject) => setTimeout(() => reject(new Error('Edge TTS 超时(10s)')), 10000)),
+      ]);
 
-      if (tmpPath) {
-        const audioData = fs.readFileSync(tmpPath);
-        try { fs.unlinkSync(tmpPath); } catch {}
-
-        if (audioData.length > 100) {
-          if(DEBUG)console.log(`Edge TTS生成成功 (${audioData.length} bytes)`);
-          return audioData;
-        } else {
-          if(DEBUG)console.log('Edge TTS返回数据过小');
-          return null;
-        }
+      if (audioData && audioData.length > 100) {
+        if(DEBUG)console.log(`Edge TTS生成成功 (${audioData.length} bytes)`);
+        return audioData;
       }
-
+      if(DEBUG)console.log('Edge TTS返回数据过小');
       return null;
     } catch (e) {
       if(DEBUG)console.log(`Edge TTS出错: ${e}`);
@@ -455,40 +481,9 @@ export class TencentTTS {
     }
   }
 
-  // 使用 spawn 避免 shell 注入，异步执行
-  private edgeTTSGenerate(text: string, voice: string): Promise<string | null> {
-    return new Promise((resolve) => {
-      const { spawn } = require('child_process');
-      const tmpPath = path.join(this.cacheDir, `_edge_tmp_${Date.now()}.mp3`);
-      const proc = spawn('npx', ['edge-tts', '--text', text, '--voice', voice, '--write-media', tmpPath], {
-        timeout: 15000,
-        stdio: 'pipe',
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-      });
-
-      proc.on('close', (code: number) => {
-        if (fs.existsSync(tmpPath)) {
-          const stat = fs.statSync(tmpPath);
-          if (stat.size > 100) {
-            resolve(tmpPath);
-          } else {
-            try { fs.unlinkSync(tmpPath); } catch {}
-            resolve(null);
-          }
-        } else {
-          resolve(null);
-        }
-      });
-
-      proc.on('error', () => {
-        resolve(null);
-      });
-    });
-  }
-
   // 腾讯云 TTS
 
-  private tencentCloudTTS(text: string, accent: string): Buffer | null {
+  private async tencentCloudTTS(text: string, accent: string): Promise<Buffer | null> {
     const voiceList = TTS_VOICE_TYPES[accent] || TTS_VOICE_TYPES['us'];
     const startIdx = this.currentVoiceIdx[accent] || 0;
 
@@ -497,7 +492,7 @@ export class TencentTTS {
       try {
         if(DEBUG)console.log(`使用腾讯云TTS (${config.name}, accent=${accent}): ${text}`);
 
-        const audioData = this.tencentCloudTTSRaw(text, config.voiceType, 'mp3', 16000);
+        const audioData = await this.tencentCloudTTSRaw(text, config.voiceType, 'mp3', 16000);
 
         if (audioData) {
           if(DEBUG)console.log(`腾讯云TTS生成成功 (${config.name})`);
@@ -516,12 +511,12 @@ export class TencentTTS {
     return null;
   }
 
-  private tencentCloudTTSRaw(
+  private async tencentCloudTTSRaw(
     text: string,
     voiceType: number,
     codec: string = 'mp3',
     sampleRate: number = 16000
-  ): Buffer | null {
+  ): Promise<Buffer | null> {
     const action = 'TextToVoice';
     const version = '2019-08-23';
     const region = 'ap-guangzhou';
@@ -551,7 +546,7 @@ export class TencentTTS {
     const url = `https://${signResult.host}/`;
 
     try {
-      const response = httpPostSync(url, payload, signResult.headers);
+      const response = await httpPostAsync(url, payload, signResult.headers);
 
       if (response && response.statusCode === 200) {
         const responseData = JSON.parse(response.data.toString('utf8'));
@@ -639,17 +634,17 @@ export class TencentTTS {
   }
 }
 
-//  同步 HTTP 辅助函数
-//  使用 child_process.execFileSync + curl 参数数组，避免命令注入
-//  curl 在 Windows 10+ 和所有主流平台均可用
+//  异步 HTTP 辅助函数（腾讯云 TTS 兜底链路专用）
+//  使用 child_process.execFile + curl 参数数组，避免命令注入且不阻塞事件循环
+//  请求参数、超时与失败语义与原同步实现完全一致，仅改为非阻塞异步
 
-function httpPostSync(url: string, body: string, headers: Record<string, string> = {}, timeout: number = 10000): HttpResponse | null {
+function httpPostAsync(url: string, body: string, headers: Record<string, string> = {}, timeout: number = 10000): Promise<HttpResponse | null> {
   const tmpOutput = path.join(CACHE_DIR, `_http_tmp_out_${Date.now()}_${Math.random().toString(36).slice(2)}.dat`);
   const tmpBody = path.join(CACHE_DIR, `_http_tmp_body_${Date.now()}_${Math.random().toString(36).slice(2)}.txt`);
   const timeoutSec = Math.ceil(timeout / 1000);
 
-  try {
-    const { execFileSync } = require('child_process');
+  return new Promise((resolve) => {
+    const { execFile } = require('child_process');
     // 将请求体写入临时文件
     fs.writeFileSync(tmpBody, body, 'utf8');
 
@@ -668,22 +663,28 @@ function httpPostSync(url: string, body: string, headers: Record<string, string>
     }
     args.push(url);
 
-    const statusCode = execFileSync('curl', args, {
-      timeout: timeout + 5000, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
-    }).trim();
-
-    const code = parseInt(statusCode, 10);
-    let data = Buffer.alloc(0);
-    if (fs.existsSync(tmpOutput)) {
-      data = fs.readFileSync(tmpOutput);
-    }
-    return { statusCode: code, data, headers: {} };
-  } catch (e) {
-    return null;
-  } finally {
-    try { if (fs.existsSync(tmpOutput)) fs.unlinkSync(tmpOutput); } catch {}
-    try { if (fs.existsSync(tmpBody)) fs.unlinkSync(tmpBody); } catch {}
-  }
+    execFile('curl', args, {
+      timeout: timeout + 5000, encoding: 'utf8'
+    }, (err: Error | null, stdout: string) => {
+      try {
+        if (err) {
+          resolve(null);
+          return;
+        }
+        const code = parseInt(stdout.trim(), 10);
+        let data = Buffer.alloc(0);
+        if (fs.existsSync(tmpOutput)) {
+          data = fs.readFileSync(tmpOutput);
+        }
+        resolve({ statusCode: code, data, headers: {} });
+      } catch (e) {
+        resolve(null);
+      } finally {
+        try { if (fs.existsSync(tmpOutput)) fs.unlinkSync(tmpOutput); } catch {}
+        try { if (fs.existsSync(tmpBody)) fs.unlinkSync(tmpBody); } catch {}
+      }
+    });
+  });
 }
 
 //  单例模式 

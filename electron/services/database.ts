@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { parse } from 'csv-parse';
 import { LRUCache } from '../utils/cache';
 import { ROOT_DIR, resolveAssetPath } from '../utils/helpers';
+import { phoneticToIpa } from './phoneticIpa';
 
 // Database instance type (extracted from the constructor)
 type DatabaseInstance = InstanceType<typeof Database>;
@@ -11,7 +12,7 @@ type DatabaseInstance = InstanceType<typeof Database>;
 // ==================== 路径解析 ====================
 const MAIN_DB_PATH = resolveAssetPath('stardict.db');
 const EXAMPLES_DB_PATH = resolveAssetPath('examples.db');
-const STARDICT_CSV_PATH = path.join(ROOT_DIR, 'stardict.csv');
+const STARDICT_CSV_PATH = resolveAssetPath('stardict.csv');
 const LEMMA_PATH = resolveAssetPath('lemma.en.txt');
 const WORDROOT_PATH = resolveAssetPath('wordroot.txt');
 const RESEMBLE_PATH = resolveAssetPath('resemble.txt');
@@ -41,8 +42,8 @@ function stripword(word: string): string {
 
 function cleanPhonetic(phonetic: string | null | undefined): string {
   if (!phonetic) return '';
-  // 修复 stardict 数据源中 `\\\\:` 被错误编码为 `ɜː` 的问题
-  return phonetic.replace(/\\\\\\\\:/g, 'ɜː');
+  // 统一标准化为标准 DJ 音标（IPA）：兼容 ECDICT 重拼式、半 IPA 与乱码，脏数据原样返回
+  return phoneticToIpa(phonetic);
 }
 
 /**
@@ -251,23 +252,41 @@ class StarDict {
       ? lowerPrefix.slice(0, -1) + String.fromCharCode(lastChar.charCodeAt(0) + 1)
       : '';
 
-    const sql = `
+    type MatchRow = { id: number; word: string; tag: string | null; collins: number | null; frq: number | null };
+
+    // 两段取候选，避免高产前缀（app/uni/the 等）按字母序 LIMIT 截断时漏掉常用词：
+    // 1) 前缀范围内的高质量词（有标签 / 柯林斯星级 / 有效词频）全部取出；
+    // 2) 再按字母序补一批，保证精确短词与生僻词也能匹配。最后合并去重、统一排序。
+    const highQualitySql = `
+      SELECT id, word, tag, collins, frq
+      FROM stardict
+      WHERE word >= ? AND word < ?
+        AND (COALESCE(tag, '') <> '' OR COALESCE(collins, 0) > 0 OR (frq IS NOT NULL AND frq > 0))
+    `;
+    const fillSql = `
       SELECT id, word, tag, collins, frq
       FROM stardict
       WHERE word >= ? AND word < ?
       ORDER BY word COLLATE NOCASE
-      LIMIT 500
+      LIMIT 400
     `;
-    const rows = db.prepare(sql).all(lowerPrefix, prefixUpper) as Array<{
-      id: number; word: string; tag: string | null; collins: number | null; frq: number | null;
-    }>;
+    const hqRows = db.prepare(highQualitySql).all(lowerPrefix, prefixUpper) as MatchRow[];
+    const fillRows = db.prepare(fillSql).all(lowerPrefix, prefixUpper) as MatchRow[];
+    const seenIds = new Set<number>();
+    const rows: MatchRow[] = [];
+    for (const r of [...hqRows, ...fillRows]) {
+      if (!seenIds.has(r.id)) {
+        seenIds.add(r.id);
+        rows.push(r);
+      }
+    }
 
     const examTags: Record<string, number> = {
       'xx': 1, 'zk': 2, 'gk': 3, 'cet4': 4, 'cet6': 5,
       'tem4': 6, 'tem8': 7, 'ky': 8, 'toefl': 9, 'ielts': 10, 'gre': 11
     };
 
-    const sortKey = (row: any): [number, number, number, number, number] => {
+    const sortKey = (row: MatchRow): [number, number, number, number, number, number] => {
       const tagLower = (row.tag || '').toLowerCase();
       const isPhrase = row.word.includes(' ') || row.word.includes('-');
 
@@ -278,13 +297,14 @@ class StarDict {
       const paddedTag = ' ' + tagLower + ' ';
       const userMatch = (userCategory && paddedTag.includes(' ' + userCategory + ' ')) ? 0 : 1;
 
-      // 3. 其他考试标签优先级（空格分隔精确匹配）
-      let tagPriority = 0;
+      // 3. 是否带考试标签：有标签的常用词优先；并取该词最基础的考试层级（pri 越小越基础常用）
+      let hasExamTag = 1;
+      let bestTagPri = 99;
       if (tagLower) {
         for (const [etag, pri] of Object.entries(examTags)) {
           if (paddedTag.includes(' ' + etag + ' ')) {
-            tagPriority = 10 - pri;
-            break;
+            hasExamTag = 0;
+            if (pri < bestTagPri) bestTagPri = pri;
           }
         }
       }
@@ -292,19 +312,19 @@ class StarDict {
       // 4. 柯林斯星级（越高越好，取负使高星级排前面）
       const collinsScore = -(row.collins || 0);
 
-      // 5. 词频（越小越常用，null 排后面）
-      const frqScore = row.frq !== null ? row.frq : 999999;
+      // 5. 词频排名（1 最常用，越小越靠前）；0/NULL 表示无语料数据，排末尾
+      const frqScore = (row.frq && row.frq > 0) ? row.frq : 999999;
 
-      return [phrasePriority, userMatch, tagPriority, collinsScore, frqScore];
+      return [phrasePriority, userMatch, hasExamTag, bestTagPri, collinsScore, frqScore];
     };
 
     rows.sort((a, b) => {
       const ka = sortKey(a);
       const kb = sortKey(b);
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < ka.length; i++) {
         if (ka[i] !== kb[i]) return ka[i] - kb[i];
       }
-      return 0;
+      return a.word.localeCompare(b.word);
     });
 
     return rows.slice(0, limit).map((row: any) => ({
@@ -320,9 +340,12 @@ class StarDict {
       SELECT id, word, translation
       FROM stardict
       WHERE translation LIKE ?
-      ORDER BY CASE WHEN frq IS NULL THEN 1 ELSE 0 END,
-               frq ASC,
-               collins DESC
+      ORDER BY
+        -- frq=0/NULL 均视为无语料数据排末尾，避免生僻变形（frq=0）被当成最常用词
+        CASE WHEN frq IS NOT NULL AND frq > 0 THEN frq ELSE 999999 END ASC,
+        collins DESC,
+        CASE WHEN COALESCE(tag, '') <> '' THEN 0 ELSE 1 END,
+        LENGTH(word) ASC
       LIMIT ?
     `;
     const rows = db.prepare(sql).all(`%${keyword}%`, limit) as any[];

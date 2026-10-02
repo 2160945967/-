@@ -5,7 +5,7 @@ import { QuizMode, QuizOrder } from '../types/enums';
 import { playPronunciation } from '../utils/audio';
 import { formatDefinitionHtml } from '../utils/translation';
 import { initErrorbookVue } from './errorbook';
-import { updateStudyStats, incrementStudyDay } from './stats';
+import { updateStudyStats, incrementStudyDay, updateTomorrowWords } from './stats';
 import { loadSettings, saveQuizSettings } from './settings';
 import { loadWordbooks, updateWordSourceSelect, getSourceProgress, getSourceWordList, normalizeCaseByType } from './wordbook';
 import { setupImeHandling, setupEnterSubmission, setupGlobalShortcuts, setupInputCooldown, getRandomMeanings } from '../utils/quizCommon';
@@ -13,7 +13,7 @@ import { updateFavoritesDisplay } from './favorites';
 import { animateCorrectFeedback, animateErrorShake, showToast } from '../utils/gsap';
 import { playCorrectSound, playWrongSound, playCompleteSound, playClickSound } from '../utils/audio';
 import { apiTranslate } from '../utils/api';
-import { selectMeaningsForQuestion, buildMeaningDisplayHtml, checkQuizAnswer } from '../utils/quizHelper';
+import { selectMeaningsForQuestion, buildMeaningDisplayHtml, checkQuizAnswer, zhMeaningMatch, splitEcdictTranslation, type CheckAnswerResult } from '../utils/quizHelper';
 import { safeParse } from '../utils/storage';
 import { fetchWordDefinitionsInBatches } from '../utils/quizCommon';
 import {
@@ -29,6 +29,7 @@ import {
     updateSettingsButtons,
 } from '../utils/quizSession';
 import type { QuizWordData } from '../utils/quizSession';
+import { notifyActivity, backupNow } from '../utils/backup';
 import {
     isStructuredSource, collectBookWords, toQuizWord,
     getSourceWordListSync, ensureIndexLoaded,
@@ -44,6 +45,8 @@ export function initQuiz(): void {
 
     // 中文输入法处理
     const imeState = setupImeHandling(quizAnswerInput);
+    quizAnswerInput.addEventListener('compositionstart', () => { zhComposing = true; });
+    quizAnswerInput.addEventListener('compositionend', () => { zhComposing = false; });
 
     // 测验设置变化时自动保存
     const quizModeSelect = document.getElementById('quiz-mode') as HTMLSelectElement;
@@ -68,6 +71,8 @@ export function initQuiz(): void {
     }
     if (quizCountInput) {
         quizCountInput.addEventListener('input', saveQuizSettings);
+        // 失焦 / 回车确认后，把测验个数同步到侧边栏「明日学习单词数」
+        quizCountInput.addEventListener('change', () => updateTomorrowWords());
     }
     if (quizOrderSelect) {
         quizOrderSelect.addEventListener('change', saveQuizSettings);
@@ -596,7 +601,14 @@ function commitCurrentAnswer(isCorrect: boolean): void {
     saveAnsweredWords();
     if (quizSession) {
         markAnswered(quizSession, word, isCorrect);
+        // 自动持久化当前进度：直接关窗口 / 关机也能从 currentIndex 续测。
+        // 仍有未做题时保存为可中断；最后一题判完由结果页 endSessionComplete 收尾。
+        if (quizSession.currentIndex < quizSession.words.length) {
+            saveSessionState(quizSession);
+        }
     }
+    // 自动备份（节流）：答题进度定期落盘到用户数据目录
+    notifyActivity();
 }
 
 const LOOP_COUNTS_KEY = 'quizLoopCounts';
@@ -648,6 +660,12 @@ export async function startQuiz(): Promise<void> {
     const wordSource = wordSourceEl.value;
     const quizOrder = quizOrderEl.value;
     const quizCount = parseInt(quizCountEl.value) || 10;
+
+    // 测验个数与「每日学习单词数」双向绑定：开始测验时把个数写回设置并刷新侧边栏
+    if (quizCount > 0) {
+        appState.settings.quizCount = quizCount;
+        appState.settings.dailyWordCount = quizCount;
+    }
 
     // 确保单词本数据已加载
     await loadWordbooks();
@@ -722,7 +740,7 @@ export async function startQuiz(): Promise<void> {
     } else if (isStructuredSource(wordSource)) {
         // 结构化词书（四级词书：整本 / 按单元 / 多选课）
         try {
-            const bookWords = await collectBookWords(wordSource);
+            const bookWords = await collectBookWords(wordSource, !!appState.settings.includeDerivations);
             if (bookWords.length === 0) {
                 void showAlert('词书内容加载失败，请稍后重试。');
                 return;
@@ -789,8 +807,9 @@ export async function startQuiz(): Promise<void> {
     const quizQuestion = document.getElementById('quiz-question');
     if (quizQuestion) quizQuestion.innerHTML = '<p class="quiz-loading-text">正在加载单词释义...</p>';
 
-    // 创建 session
+    // 创建 session：进行中即标记可中断，配合每题自动保存，意外退出 / 关机后可续测
     quizSession = createSession('quiz', wordSource, appState.quizWords);
+    quizSession.interrupted = true;
     saveSessionState(quizSession);
     showQuizAnswerArea();
 
@@ -830,6 +849,23 @@ export async function startQuiz(): Promise<void> {
             });
         } catch (e: unknown) {
             console.error('批量加载释义失败:', e);
+        }
+    }
+
+    // 词书来源：批量拉 ECDict translation，清洗成附加正确释义挂到词对象。
+    // 显示 / 详解仍用词书释义；仅 EnToZh 判分并入，覆盖词书未列的同义说法（如 probably 的「或许」）。
+    if (isStructuredSource(wordSource)) {
+        try {
+            const names = appState.quizWords.map(w => w.word);
+            const data = await fetchWordDefinitionsInBatches(names);
+            data.forEach((item: { word: string; info?: { translation?: string } }) => {
+                const wordObj = appState.quizWords.find(w => w.word.toLowerCase() === item.word.toLowerCase()) as QuizWordData | undefined;
+                if (wordObj && item.info && item.info.translation) {
+                    wordObj.extraMeanings = splitEcdictTranslation(item.info.translation);
+                }
+            });
+        } catch (e: unknown) {
+            console.error('加载 ECDict 附加释义失败:', e);
         }
     }
 
@@ -995,25 +1031,25 @@ export async function generateQuestion(): Promise<void> {
         // 自动播放一次
         setTimeout(() => playPronunciation(appState.settings.pronunciationType, appState.currentQuizWord.word), 500);
     } else if (appState.currentQuizMode === QuizMode.Spelling) {
-        // 拼写模式：看中文释义拼写英文单词，支持发音提示与逐字符反馈
+        // 跟练模式：看中文释义，输入区铺浅色完整正确拼写，逐字母跟打、输对实化
         const meaningsHtml = buildMeaningDisplayHtml(selectedMeanings, formatDefinitionHtml);
 
         const pronunciationKey = appState.settings.playPronunciationKey || '2';
-        const speakerHtml = `<span id="quiz-speak-btn" class="quiz-speak-btn" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">🔊</span>`;
+        const speakerHtml = `<button type="button" id="quiz-speak-btn" class="quiz-speak-btn" aria-label="播放发音（快捷键 ${pronunciationKey}）" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">🔊</button>`;
 
-        quizQuestion.innerHTML = `<p><strong>拼写模式：</strong></p><p>请根据释义拼写对应的英文单词</p><p class="quiz-zh-to-en-meanings">${meaningsHtml}${speakerHtml}</p>`;
+        quizQuestion.innerHTML = `<p><strong>跟练模式：</strong></p><p>看着下方浅色的完整拼写逐字母跟打，输对的字母会变清晰</p><p class="quiz-zh-to-en-meanings">${meaningsHtml}${speakerHtml}</p>`;
     } else if (appState.currentQuizMode === QuizMode.ZhToEn) {
         // 中文 -> 英文模式
         const meaningsHtml = buildMeaningDisplayHtml(selectedMeanings, formatDefinitionHtml);
 
         const pronunciationKey = appState.settings.playPronunciationKey || '2';
-        const speakerHtml = `<span id="quiz-speak-btn" class="quiz-speak-btn" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">🔊</span>`;
+        const speakerHtml = `<button type="button" id="quiz-speak-btn" class="quiz-speak-btn" aria-label="播放发音（快捷键 ${pronunciationKey}）" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">🔊</button>`;
 
         quizQuestion.innerHTML = `<p><strong>请写出对应的英文单词：</strong></p><p class="quiz-zh-to-en-meanings">${meaningsHtml}${speakerHtml}</p>`;
     } else {
         // 英文 -> 中文模式
         const pronunciationKey = appState.settings.playPronunciationKey || '2';
-        const speakerHtml = `<span id="quiz-speak-btn" class="quiz-speak-btn" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">🔊</span>`;
+        const speakerHtml = `<button type="button" id="quiz-speak-btn" class="quiz-speak-btn" aria-label="播放发音（快捷键 ${pronunciationKey}）" title="播放发音（快捷键 ${pronunciationKey}）" onclick="g('playPronunciation', '${appState.settings.pronunciationType}', '${escapeForJsString(appState.currentQuizWord.word)}')">🔊</button>`;
 
         const displayWord = normalizeCaseByType(appState.currentQuizWord.word);
         let questionHtml = `<p><strong>请写出对应的中文意思：</strong></p><p class="quiz-question-word">${escapeHtml(displayWord)}${speakerHtml}</p>`;
@@ -1027,6 +1063,8 @@ export async function generateQuestion(): Promise<void> {
     applyTypeArea();
     // 例句填空（受“显示例句”开关控制）
     setupClozeForCurrent();
+    // 立即刷新字符展示层：跟练模式在未输入时就要铺出完整浅色拼写
+    updateSpellingFeedback();
 
     // 生成新题目后滚动到测验区域，确保用户能看到所有内容
     scrollToQuizArea();
@@ -1075,7 +1113,7 @@ function isCharFeedbackMode(m: QuizMode | undefined): boolean {
 function placeholderForMode(m: QuizMode | undefined): string {
     switch (m) {
         case QuizMode.EnToZh: return '输入中文意思，按 Enter 提交';
-        case QuizMode.Spelling: return '根据释义拼写单词…';
+        case QuizMode.Spelling: return '跟着浅色拼写逐字母输入…';
         case QuizMode.ZhToEn: return '写出英文单词…';
         case QuizMode.Dictation: return '听写单词…';
         case QuizMode.ListeningStuck: return '听发音写出单词…';
@@ -1087,7 +1125,7 @@ function placeholderForMode(m: QuizMode | undefined): string {
 function inputPlaceholderForMode(m: QuizMode | undefined): string {
     switch (m) {
         case QuizMode.EnToZh: return '请输入答案，输入多个中文时用逗号分号或空格隔开，按Enter提交';
-        case QuizMode.Spelling: return '请根据释义拼写单词，按Enter提交';
+        case QuizMode.Spelling: return '跟着浅色拼写输入，按Enter提交';
         case QuizMode.ListeningStuck: return '请听发音并写出听到的单词或句子，按Enter提交';
         default: return '请输入答案...按Enter提交';
     }
@@ -1106,15 +1144,17 @@ function applyTypeArea(): void {
     area.classList.toggle('has-value', input.value.length > 0);
     area.classList.toggle('is-disabled', !!input.disabled);
     area.dataset.mode = m || '';
-    if (ph) ph.textContent = placeholderForMode(m);
+    const waiting = !!appState.isWaitingForNextQuestion;
+    if (ph) ph.textContent = waiting ? '输入答案巩固一下，按 Enter 进入下一题' : placeholderForMode(m);
     // 同步输入框 placeholder（中文模式下输入框可见，需用自身 placeholder）
-    input.placeholder = inputPlaceholderForMode(m);
+    input.placeholder = waiting ? '可以再次输入巩固一下哦，按 Enter 进入下一题' : inputPlaceholderForMode(m);
     const qtEx = document.getElementById('qt-example');
     const qtAs = document.getElementById('qt-assist');
     if (qtEx) {
         // 英译中模式不挖空（答案是中文），仅完整展示例句，开关文案相应切换
         const showEx = (m === QuizMode.Spelling || m === QuizMode.ZhToEn || m === QuizMode.EnToZh);
-        qtEx.style.display = showEx ? '' : 'none';
+        const exPill = qtEx.closest('label') as HTMLElement | null;
+        if (exPill) exPill.style.display = showEx ? '' : 'none';
         const exLabel = qtEx.parentElement?.querySelector('.qt-pill-label');
         if (exLabel) exLabel.textContent = (m === QuizMode.EnToZh) ? '显示例句' : '例句填空';
         const exTitle = (m === QuizMode.EnToZh)
@@ -1122,7 +1162,11 @@ function applyTypeArea(): void {
             : '答题时显示例句，目标单词挖空';
         if (qtEx.parentElement) (qtEx.parentElement as HTMLElement).title = exTitle;
     }
-    if (qtAs) qtAs.style.display = (m === QuizMode.Spelling || m === QuizMode.ZhToEn) ? '' : 'none';
+    if (qtAs) {
+        // 跟练模式自带完整拼写提示，不显示；中译英 / 英译中显示「辅助拼写」胶囊
+        const asPill = qtAs.closest('label') as HTMLElement | null;
+        if (asPill) asPill.style.display = (m === QuizMode.ZhToEn || m === QuizMode.EnToZh) ? '' : 'none';
+    }
     syncQuickToggles();
 }
 
@@ -1218,13 +1262,27 @@ function renderCloze(ex: { en: string; zh: string; y?: string; source: string },
     const q = document.getElementById('quiz-question');
     if (!q) return;
     removeCloze();
-    const r = maskExample(ex.en, wd, doMask);
-    if (!r.matched) return;
+    let r = maskExample(ex.en, wd, doMask);
+    const reallyMasked = doMask && r.matched;
+    if (doMask && !r.matched) r = maskExample(ex.en, wd, false); // 例句中没匹配到目标词：降级为完整展示
     const card = document.createElement('div');
     card.className = 'cloze-card';
     card.innerHTML =
-        `<div class="cloze-hint">📝 ${escapeHtml(ex.source)}${ex.y ? ' · ' + escapeHtml(ex.y) : ''}${doMask ? ' · 补全划线单词' : ''}</div>` +
+        `<div class="cloze-hint">📝 ${escapeHtml(ex.source)}${ex.y ? ' · ' + escapeHtml(ex.y) : ''}${reallyMasked ? ' · 补全划线单词' : ''}</div>` +
         `<p class="cloze-en">${r.html}</p>`;
+    q.appendChild(card);
+}
+
+// 用户开了例句但该词确实没有可用例句（词书无、在线兜底也为空 / 失败）时，给出占位说明而非留白
+function renderClozeEmpty(): void {
+    const q = document.getElementById('quiz-question');
+    if (!q) return;
+    removeCloze();
+    const card = document.createElement('div');
+    card.className = 'cloze-card cloze-empty';
+    card.innerHTML =
+        `<div class="cloze-hint">📝 例句</div>` +
+        `<p class="cloze-en cloze-empty-text">暂无例句</p>`;
     q.appendChild(card);
 }
 
@@ -1250,16 +1308,22 @@ function setupClozeForCurrent(): void {
         .then(r => r.json())
         .then(d => {
             if (seq !== clozeSeq || appState.currentQuizWord !== wd) return;
-            if (d && d.success && Array.isArray(d.data) && d.data.length > 0) {
-                const e = d.data[Math.floor(Math.random() * d.data.length)];
+            const list = (d && d.success && Array.isArray(d.data)) ? d.data : [];
+            const usable = list.filter((e: { text?: string }) => e && String(e.text || '').trim());
+            if (usable.length > 0) {
+                const e = usable[Math.floor(Math.random() * usable.length)];
                 const ex = { en: String(e.text || ''), zh: String(e.translation || ''), source: '例句' };
-                if (!ex.en) return;
                 currentClozeExample = ex;
                 renderCloze(ex, wd, doMask);
+            } else {
+                renderClozeEmpty();
             }
         })
-        .catch(() => { /* 无例句则不显示 */ });
+        .catch(() => { if (seq === clozeSeq && appState.currentQuizWord === wd) renderClozeEmpty(); });
 }
+
+// 中文 IME 组字标志（英译中辅助拼写实时标色时跳过组字阶段）
+let zhComposing = false;
 
 let lastWrongCount = 0;
 // 拼写 / 中译英：逐字符即时反馈（正确前缀绿色、首个错误位起全部红色），完整正确后自动提交
@@ -1269,15 +1333,25 @@ function updateSpellingFeedback(): void {
     const area = document.getElementById('quiz-type-area');
     if (!input || !feedback || !area) return;
 
+    // 用户一旦修改输入，退出中文逐义项纠错态（恢复原生输入显示、清除红绿）
+    area.classList.remove('zh-checking');
+
     area.classList.toggle('has-value', input.value.length > 0);
     area.classList.toggle('is-disabled', !!input.disabled);
+    area.classList.toggle('is-waiting', !!appState.isWaitingForNextQuestion);
 
     const wd = appState.currentQuizWord as QuizWordData | null;
     const m = appState.currentQuizMode;
     const en = isEnglishInputMode(m) && !!wd;
 
     if (!en || !wd) {
-        feedback.innerHTML = '';
+        // 英译中 + 辅助拼写：实时逐义项标色（IME 组字期间保持上一态）
+        if (m === QuizMode.EnToZh && !!appState.settings.assistSpelling && !input.disabled && !zhComposing) {
+            renderZhLive();
+        } else {
+            feedback.innerHTML = '';
+            area.classList.remove('zh-checking');
+        }
         if (spellingAutoSubmitTimer) { clearTimeout(spellingAutoSubmitTimer); spellingAutoSubmitTimer = null; }
         return;
     }
@@ -1303,16 +1377,38 @@ function updateSpellingFeedback(): void {
         if (hit) target = hit;
     }
 
+    const caretHtml = '<span class="tc tc-caret"></span>';
+    const charSpan = (ch: string, cls: string): string =>
+        `<span class="${cls}">${escapeHtml(ch === ' ' ? '\u00A0' : ch)}</span>`;
+
     let wrong = 0;
     let html = '';
-    for (let i = 0; i < value.length; i++) {
-        const ch = value[i];
-        const tc = target[i];
-        if (!(wrong === 0 && tc && ch.toLowerCase() === tc.toLowerCase())) wrong++;
-        const cls = wrong === 0 ? 'tc tc-ok' : 'tc tc-bad';
-        html += `<span class="${cls}">${escapeHtml(ch === ' ' ? '\u00A0' : ch)}</span>`;
+    if (m === QuizMode.Spelling) {
+        // 跟练模式：以完整目标词为骨架，未输入位用浅色 ghost 铺底，已输入位实化（对绿 / 错红），光标停在分界处
+        const L = Math.max(target.length, value.length);
+        for (let i = 0; i < L; i++) {
+            if (!input.disabled && i === value.length) html += caretHtml;
+            if (i < value.length) {
+                const ch = value[i];
+                const tc = target[i];
+                if (!(wrong === 0 && tc && ch.toLowerCase() === tc.toLowerCase())) wrong++;
+                html += charSpan(ch, wrong === 0 ? 'tc tc-ok' : 'tc tc-bad');
+            } else if (!appState.isWaitingForNextQuestion) {
+                // 答案揭晓 / 等待下一题时不再铺浅色提示，避免与上方正确答案重复
+                html += charSpan(target[i], 'tc tc-ghost');
+            }
+        }
+        if (!input.disabled && value.length >= target.length) html += caretHtml;
+    } else {
+        // 中译英：仅回显已输入字符的红绿前缀
+        for (let i = 0; i < value.length; i++) {
+            const ch = value[i];
+            const tc = target[i];
+            if (!(wrong === 0 && tc && ch.toLowerCase() === tc.toLowerCase())) wrong++;
+            html += charSpan(ch, wrong === 0 ? 'tc tc-ok' : 'tc tc-bad');
+        }
+        if (!input.disabled) html += caretHtml;
     }
-    if (!input.disabled) html += `<span class="tc tc-caret"></span>`;
     feedback.innerHTML = html;
 
     // 错误字符新增时整行轻抖一次
@@ -1364,16 +1460,21 @@ export async function checkAnswer(): Promise<void> {
         return;
     }
 
-    let result = { isCorrect: false, isPartial: false };
+    let result: CheckAnswerResult = { isCorrect: false, isPartial: false };
 
-    // 统一调用 checkQuizAnswer 处理所有模式的答案检查（含 EnToZh 句子的字符重叠度判断 + 语义相似度兜底）
+    // 逐片段语义判别可能耗时数秒：先给「正在判别」反馈，结果出来后被成功 / 部分 / 错误分支覆盖
+    feedback.textContent = '正在判别答案…';
+    feedback.className = 'quiz-feedback-partial';
+
+    // 统一调用 checkQuizAnswer 处理所有模式的答案检查
     result = await checkQuizAnswer(
         answer,
         appState.currentQuizWord.word,
         appState.currentQuizWord.meanings || [],
         appState.currentQuizMode,
         isSentence,
-        (appState.currentQuizWord as QuizWordData).answers
+        (appState.currentQuizWord as QuizWordData).answers,
+        (appState.currentQuizWord as QuizWordData).extraMeanings
     );
 
     if (result.isCorrect) {
@@ -1437,6 +1538,9 @@ export async function checkAnswer(): Promise<void> {
         // 部分正确，用户还可以继续尝试，不算答过
         feedback.textContent = '对了一部分哦，再检查检查';
         feedback.className = 'quiz-feedback-partial';
+        if (appState.currentQuizMode === QuizMode.EnToZh && !isSentence) {
+            renderZhCheck(result);
+        }
 
         appState.isProcessingAnswer = false;
     } else {
@@ -1502,6 +1606,10 @@ export async function checkAnswer(): Promise<void> {
         pulseTypeArea(false);
         playWrongSound();
 
+        if (appState.currentQuizMode === QuizMode.EnToZh && !isSentence) {
+            renderZhCheck(result);
+        }
+
         appState.isProcessingAnswer = false;
     }
 }
@@ -1528,11 +1636,75 @@ function linkifyWords(text: string): string {
         `<a href="#" onclick="g('jumpToWord','${escapeForJsString(m.toLowerCase())}');return false;" class="quiz-clickable-word">${m}</a>`);
 }
 
+// 英译中（EnToZh）逐义项红绿纠错：把用户输入按分隔符切成多个中文释义，
+// 命中正确释义标绿、未命中标红；用户一旦修改输入即由 updateSpellingFeedback 清除
+// 收集某词全部正确中文释义（词书 meanings + ECDict extraMeanings，去重）
+function collectCorrectMeanings(wd: QuizWordData): string[] {
+    const arr: string[] = [];
+    const push = (p: string): void => { const t = (p || '').trim(); if (t && !arr.includes(t)) arr.push(t); };
+    (wd.meanings || []).forEach(m => m.definition.split(/[；;，,]/).forEach(push));
+    (wd.extraMeanings || []).forEach(push);
+    return arr;
+}
+
+// 生成逐义项红绿 HTML。live=true（辅助拼写实时）时，最后一个仍在输入、
+// 后面无分隔符的片段视为进行中（中性），避免未打完就标红。
+function buildZhFeedbackHtml(value: string, wd: QuizWordData, live: boolean, verdictCorrect?: string[]): string {
+    const correct = collectCorrectMeanings(wd);
+    // 提交判分态传入：checkQuizAnswer.zhCorrect（含语义模型判对的片段），避免展示层只按字面把近义说法标红
+    const verdictSet = verdictCorrect ? new Set(verdictCorrect.map(x => x.trim())) : null;
+    const segs = value.split(/([，,；;\s]+)/);
+    let lastSegIdx = -1;
+    if (live && !/[，,；;\s]$/.test(value)) {
+        for (let i = segs.length - 1; i >= 0; i--) {
+            if (segs[i] && !/^[，,；;\s]+$/.test(segs[i])) { lastSegIdx = i; break; }
+        }
+    }
+    return segs.map((seg, idx) => {
+        if (!seg) return '';
+        if (/^[，,；;\s]+$/.test(seg)) return `<span class="tc tc-zh tc-zh-sep">${escapeHtml(seg)}</span>`;
+        if (idx === lastSegIdx) return `<span class="tc tc-zh tc-neutral">${escapeHtml(seg)}</span>`;
+        const t = seg.trim();
+        // 提交判分态：字面命中或语义判对（verdictSet）都标绿；实时态 verdictSet=null 仅按字面
+        const ok = correct.some(cm => zhMeaningMatch(t, cm)) || (verdictSet !== null && verdictSet.has(t));
+        return `<span class="tc tc-zh ${ok ? 'tc-ok' : 'tc-bad'}">${escapeHtml(seg)}</span>`;
+    }).join('');
+}
+
+// 提交错误后：按当前输入逐义项红绿（最后片段也判定）
+function renderZhCheck(verdict?: CheckAnswerResult): void {
+    const area = document.getElementById('quiz-type-area');
+    const display = document.getElementById('quiz-spelling-feedback');
+    const input = document.getElementById('quiz-answer') as HTMLInputElement | null;
+    if (!area || !display || !input) return;
+    const wd = appState.currentQuizWord as QuizWordData | null;
+    if (!wd) return;
+    display.innerHTML = buildZhFeedbackHtml(input.value, wd, false, verdict?.zhCorrect);
+    area.classList.add('zh-checking');
+}
+
+// 辅助拼写实时：边输入边标色（最后在输片段中性）
+function renderZhLive(): void {
+    const area = document.getElementById('quiz-type-area');
+    const display = document.getElementById('quiz-spelling-feedback');
+    const input = document.getElementById('quiz-answer') as HTMLInputElement | null;
+    if (!area || !display || !input) return;
+    const wd = appState.currentQuizWord as QuizWordData | null;
+    if (!wd) return;
+    if (!input.value) { display.innerHTML = ''; area.classList.remove('zh-checking'); return; }
+    display.innerHTML = buildZhFeedbackHtml(input.value, wd, true);
+    area.classList.add('zh-checking');
+}
+
 // 结构化词书附加内容：记忆法 / 四级真题 / 书中例句 / 派生词
 function buildBookExtraHtml(wd: QuizWordData): string {
     const be = wd.bookExtra;
     if (!be) return '';
     const blocks: string[] = [];
+
+    if (be.derivedFrom) {
+        blocks.push(`<div class="be-block be-derived-from"><div class="be-h">🔗 派生词</div><p>自主词 <a class="quiz-clickable-word" href="#" onclick="g('jumpToWord','${escapeForJsString(be.derivedFrom.toLowerCase())}');return false;">${escapeHtml(be.derivedFrom)}</a> 派生，结合词根对照记忆</p></div>`);
+    }
 
     if (be.mem && be.mem.trim()) {
         blocks.push(`<div class="be-block be-memory"><div class="be-h">🧠 记忆法</div><p>${escapeHtml(be.mem)}</p></div>`);
@@ -1549,7 +1721,7 @@ function buildBookExtraHtml(wd: QuizWordData): string {
     if (be.real) blocks.push(exampleBlock('be-real', '📝 四级真题', be.real));
     if (be.ex) blocks.push(exampleBlock('be-example', '📖 书中例句', be.ex));
 
-    if (be.der && be.der.length > 0) {
+    if (be.der && be.der.length > 0 && !appState.settings.includeDerivations) {
         const items = be.der.map(d => {
             const def = (d.pos || []).map(x => `${x.p ? escapeHtml(x.p) + '. ' : ''}${escapeHtml(x.d)}`).join('；');
             return `<span class="be-der-item"><a class="be-der-w quiz-clickable-word" href="#" onclick="g('jumpToWord','${escapeForJsString(d.w.toLowerCase())}');return false;">${escapeHtml(d.w)}</a>${d.ph ? ` <span class="be-der-ph">/${escapeHtml(d.ph)}/</span>` : ''}${def ? ` <span class="be-der-d">${def}</span>` : ''}</span>`;
@@ -1642,6 +1814,9 @@ export function showAnswer(manual: boolean = false): void {
         feedback.className = 'quiz-feedback-info';
     }
 
+    // 先置“等待下一题”状态，使下方 applyTypeArea/updateSpellingFeedback 刷新字符层时
+    // 跟练模式能收起浅色 ghost（避免与上方刚揭晓的正确答案重复）
+    appState.isWaitingForNextQuestion = true;
     // 清空输入框，保持启用状态，修改提示词并聚焦
     quizAnswerInput.value = '';
     quizAnswerInput.disabled = false;
@@ -1651,7 +1826,6 @@ export function showAnswer(manual: boolean = false): void {
     updateSpellingFeedback();
     requestAnimationFrame(() => quizAnswerInput.focus());
 
-    appState.isWaitingForNextQuestion = true;
     quizAnswerSubmitted = true;
     quizLastAnswerCorrect = false;
     commitCurrentAnswer(false); // 手动揭晓视为答错；答对路径已在 checkAnswer 提交，guard 防双写
@@ -1721,7 +1895,7 @@ export async function endQuiz(): Promise<void> {
 async function hydrateSessionWords(state: SessionState): Promise<void> {
     if (!isStructuredSource(state.source)) return;
     try {
-        const bookWords = await collectBookWords(state.source);
+        const bookWords = await collectBookWords(state.source, !!appState.settings.includeDerivations);
         const map = new Map(bookWords.map(bw => [bw.w.toLowerCase(), bw]));
         state.words = state.words.map(sw => {
             const bw = map.get(sw.word.toLowerCase());
@@ -1799,6 +1973,8 @@ function buildCurrentRoundStuckWordsHtml(): string {
 function showQuizResult(): void {
     if (!quizSession) return;
     endSessionComplete(quizSession);
+    // 一轮完成：立即备份最终状态
+    backupNow();
     // 清理可能残留的结果快捷键
     hideQuizResult();
 

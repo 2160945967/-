@@ -530,3 +530,61 @@ html.dark-mode .asset-progress-bar,
 body.dark-mode .asset-progress-bar {
     background: var(--border-color);
 }
+
+/* ==================== 数据备份与恢复 ==================== */
+.backup-container {
+    grid-template-columns: 1fr;
+    gap: 18px;
+}
+.backup-title {
+    grid-column: 1 / -1;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin: 0;
+}
+.backup-label {
+    font-weight: 600;
+    color: var(--text-dark);
+    white-space: nowrap;
+}
+.backup-list {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+.backup-empty {
+    font-size: 13px;
+    color: var(--text-gray);
+}
+.backup-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-white);
+}
+.backup-item-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--text-dark);
+    word-break: break-all;
+}
+.backup-item-meta {
+    font-size: 12px;
+    color: var(--text-gray);
+}
+.backup-item-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+    .backup-item-actions { margin-left: 0; width: 100%; }
+}

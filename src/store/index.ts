@@ -82,6 +82,12 @@ export interface AppState {
         playbackRate: number;
         // 语义相似度模型开关：仅在「看英文写中文」(EnToZh) 模式下字符串匹配失败时启用本地模型兜底
         semanticSimilarityEnabled: boolean;
+        // 答题时显示例句（目标词挖空）
+        showExampleInQuiz: boolean;
+        // 中译英/拼写逐字符辅助着色
+        assistSpelling: boolean;
+        // 词书派生词一并练习
+        includeDerivations: boolean;
         quizMode?: QuizMode;
         wordSource?: WordSource;
         quizCount?: number;
@@ -163,6 +169,9 @@ function getDefaultState(): AppState {
             soundEnabled: true,
             playbackRate: 1.0,
             semanticSimilarityEnabled: true,
+            showExampleInQuiz: false,
+            assistSpelling: true,
+            includeDerivations: false,
         },
         quizWords: [],
         currentQuizWord: null,

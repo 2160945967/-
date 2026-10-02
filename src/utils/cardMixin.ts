@@ -2,6 +2,7 @@
 import { animateCardFlip, animateCardExit } from './gsap';
 import { apiTranslate } from './api';
 import { buildTranslationHtml } from './translation';
+import { CARD_GAP } from '../constants';
 
 export const cardMixin = {
     data() {
@@ -13,6 +14,8 @@ export const cardMixin = {
             loadingDefinitions: {} as Record<string, boolean>,
             loadingExamples: {} as Record<string, boolean>,
             cachedHeights: {} as Record<string, number>,
+            // 翻转背面按需挂载：未翻转的卡片不渲染背面，避免背面内容在某些渲染环境下穿透
+            backMountMap: {} as Record<string, boolean>,
             collapsedHeight: 140,
             loadingHtml: '<p style="color: var(--primary-blue); margin: 0;">正在加载释义...</p>',
         };
@@ -30,6 +33,7 @@ export const cardMixin = {
             if ((this as any).flippedMap[word]) {
                 (this as any).flippedMap[word] = false;
                 animateCardFlip(cardEl, false);
+                (this as any)._scheduleAfterFlip(word);
                 if (!(this as any).expandedMap[word]) {
                     (this as any).expandedMap[word] = true;
                     if (!(this as any).cachedHeights[word]) {
@@ -55,6 +59,8 @@ export const cardMixin = {
             if ((this as any).flippedMap[word]) {
                 (this as any).flippedMap[word] = false;
                 animateCardFlip(cardEl, false);
+                // 翻回正面的动画（0.35s）结束后再卸载背面、重测槽位高度
+                (this as any)._scheduleAfterFlip(word);
             } else {
                 // 如果卡片处于展开态，先收起，避免正面展开内容把翻转后的卡片撑大
                 if ((this as any).expandedMap[word]) {
@@ -69,6 +75,7 @@ export const cardMixin = {
                 if (!(this as any).examples[word]) {
                     (this as any).loadExample(word);
                 }
+                (this as any).backMountMap[word] = true;
                 (this as any).flippedMap[word] = true;
                 animateCardFlip(cardEl, true);
             }
@@ -79,6 +86,13 @@ export const cardMixin = {
         toggleExpand(word: string) {
             if ((this as any).expandedMap[word]) {
                 (this as any).expandedMap[word] = false;
+                // 收起后按收起态重测虚拟列表槽位高度
+                (this as any).$nextTick(() => { (this as any).measureWordHeight(word); });
+                setTimeout(() => {
+                    if (!(this as any).expandedMap[word] && !(this as any).flippedMap[word]) {
+                        (this as any).measureWordHeight(word);
+                    }
+                }, 320);
             } else {
                 (this as any).expandedMap[word] = true;
                 if (!(this as any).cachedHeights[word]) {
@@ -108,7 +122,7 @@ export const cardMixin = {
 
                 let html = '';
                 if (data.success && data.data) {
-                    html = buildTranslationHtml(data.data.translation, data.data.phonetic, data.data.definition);
+                    html = buildTranslationHtml(data.data.translation, data.data.phonetic, data.data.definition, { pos: data.data.pos, word: data.data.word });
                     if (!html) html = '<p style="color: var(--text-gray); margin: 0;">暂无释义</p>';
                 } else {
                     const td = await apiTranslate(word);
@@ -169,16 +183,14 @@ export const cardMixin = {
             const el = (this as any)._wordEl(word);
             if (!el) {
                 setTimeout(() => {
-                    const el2 = (this as any)._wordEl(word);
-                    if (el2) {
-                        (this as any).cachedHeights[word] = el2.offsetHeight + 50;
-                    }
+                    if ((this as any)._wordEl(word)) (this as any).measureWordHeight(word);
                 }, 100);
                 return;
             }
 
             const flipCard = el.querySelector('.flip-card') as HTMLElement | null;
             const back = el.querySelector('.flip-card-back') as HTMLElement | null;
+            const isOpen = !!(this as any).expandedMap[word] || !!(this as any).flippedMap[word];
 
             if ((this as any).flippedMap[word] && back && flipCard) {
                 const originalBackHeight = back.style.height;
@@ -192,16 +204,56 @@ export const cardMixin = {
                 if (back) back.style.alignItems = '';
             }
 
-            (this as any).cachedHeights[word] = el.offsetHeight + 50;
+            if (isOpen) {
+                // 内容（释义/例句）尚在异步加载时预留 50px 防止下方卡片上顶；
+                // 加载完成后按真实高度收槽，避免卡片下方长期留 50px 空白
+                const openReserve = () => {
+                    const defPending = !!(this as any).loadingDefinitions?.[word] || !(this as any).definitions?.[word];
+                    const needExample = !!(this as any).expandedMap[word];
+                    const exPending = needExample &&
+                        (!!(this as any).loadingExamples?.[word] || !(this as any).examples?.[word]);
+                    return (defPending || exPending) ? 50 : CARD_GAP;
+                };
+                (this as any).cachedHeights[word] = el.offsetHeight + openReserve();
+                setTimeout(() => {
+                    const el2 = (this as any)._wordEl(word);
+                    if (el2 && ((this as any).expandedMap[word] || (this as any).flippedMap[word])) {
+                        (this as any).cachedHeights[word] = el2.offsetHeight + openReserve();
+                    }
+                }, 100);
+            } else {
+                // 收起态：按卡片真实高度 + 统一间距记录槽位，替代固定 140 导致的宽窄屏间距失调/重叠
+                (this as any).setCollapsedHeight(word, el.offsetHeight + CARD_GAP);
+                setTimeout(() => {
+                    const el2 = (this as any)._wordEl(word);
+                    if (el2 && !(this as any).expandedMap[word] && !(this as any).flippedMap[word]) {
+                        (this as any).setCollapsedHeight(word, el2.offsetHeight + CARD_GAP);
+                    }
+                }, 100);
+            }
+        },
+        // 翻回正面动画结束后卸载背面，并按当前状态重测高度
+        _scheduleAfterFlip(word: string) {
             setTimeout(() => {
-                const el2 = (this as any)._wordEl(word);
-                if (el2) {
-                    (this as any).cachedHeights[word] = el2.offsetHeight + 50;
+                if (!(this as any).flippedMap[word]) {
+                    (this as any).backMountMap[word] = false;
                 }
-            }, 100);
+                (this as any).measureWordHeight(word);
+            }, 400);
         },
         measureVisibleHeights() {
             const items = ((this as any).visibleItems || []) as Array<{ word: string }>;
+            let dirty = false;
+            for (const item of items) {
+                const word = item.word;
+                const isOpen = !!((this as any).expandedMap[word] || (this as any).flippedMap[word]);
+                // 展开/翻转卡内容异步变化，每次可见都重测；收起卡只测未测量过的
+                if (isOpen || !(this as any).collapsedHeights[word]) {
+                    dirty = true;
+                    break;
+                }
+            }
+            if (!dirty) return;
             items.forEach((item: { word: string }) => {
                 (this as any).measureWordHeight(item.word);
             });

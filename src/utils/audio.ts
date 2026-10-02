@@ -11,7 +11,72 @@ interface AudioTask {
 let activeCount = 0;
 const queue: AudioTask[] = [];
 // 缓存 blob URL，避免重复网络请求；存储的是 objectURL 字符串而非 Audio 实例
+// 上限 32 个的 LRU：超限时淘汰最久未使用的 blob URL 并 URL.revokeObjectURL 释放内存
+const AUDIO_CACHE_MAX = 32;
 const audioCache = new Map<string, string>();
+// 受保护的 blob URL 集合：当前正在播放 / 刚交给 play 的发音，淘汰时绝不能 revoke，
+// 否则正在响的音频会突然中断。播放结束或被新发音顶替后移出保护集。
+const protectedBlobUrls = new Set<string>();
+
+// 命中缓存时刷新 LRU 顺序（移到队尾，标记为最近使用）
+function touchAudioCache(src: string): void {
+    const url = audioCache.get(src);
+    if (url !== undefined) {
+        audioCache.delete(src);
+        audioCache.set(src, url);
+    }
+}
+
+// LRU 淘汰：超出上限时从队首（最久未使用）淘汰，revoke 未受保护的 blob URL；
+// 受保护项（正在播放）跳过，此时缓存可临时略超上限，待播放结束后再被正常淘汰
+function evictAudioCacheIfNeeded(): void {
+    let over = audioCache.size - AUDIO_CACHE_MAX;
+    if (over <= 0) return;
+    for (const [src, url] of audioCache) {
+        if (over <= 0) break;
+        if (protectedBlobUrls.has(url)) continue;
+        audioCache.delete(src);
+        try { URL.revokeObjectURL(url); } catch { /* 已失效的 URL 忽略 */ }
+        over--;
+    }
+}
+
+// 写入缓存：同 key 覆盖时先回收旧 blob；写入后触发 LRU 淘汰
+function setAudioCache(src: string, blobUrl: string): void {
+    const old = audioCache.get(src);
+    if (old !== undefined && old !== blobUrl) {
+        audioCache.delete(src);
+        if (!protectedBlobUrls.has(old)) {
+            try { URL.revokeObjectURL(old); } catch { /* ignore */ }
+        }
+    }
+    audioCache.set(src, blobUrl);
+    evictAudioCacheIfNeeded();
+}
+
+// 当前正在播放的单词/句子发音；新发音开始前先停掉旧的，避免快速连续点击/自动连播时声音重叠
+let currentWordAudio: HTMLAudioElement | null = null;
+
+function playAudioExclusive(audio: HTMLAudioElement): Promise<void> {
+    if (currentWordAudio && currentWordAudio !== audio) {
+        try {
+            currentWordAudio.pause();
+            currentWordAudio.currentTime = 0;
+        } catch { /* 旧 Audio 可能已销毁，忽略 */ }
+        // 旧发音被新发音顶替：其 blob 不再受保护，可被 LRU 正常淘汰
+        if (currentWordAudio.src) protectedBlobUrls.delete(currentWordAudio.src);
+    }
+    currentWordAudio = audio;
+    // 本次即将播放的 blob 进入保护集，淘汰时绝不 revoke
+    if (audio.src) protectedBlobUrls.add(audio.src);
+    audio.onended = () => {
+        if (currentWordAudio === audio) {
+            currentWordAudio = null;
+            if (audio.src) protectedBlobUrls.delete(audio.src);
+        }
+    };
+    return audio.play();
+}
 
 /**
  * 执行队列中的下一个任务
@@ -25,7 +90,7 @@ function processQueue(): void {
     loadWithFetch(task)
         .then((url) => {
             activeCount--;
-            audioCache.set(task.src, url);
+            setAudioCache(task.src, url);
             const audio = new Audio(url);
             task.resolve(audio);
             processQueue();
@@ -61,6 +126,7 @@ function loadAudio(src: string): Promise<HTMLAudioElement> {
     // 缓存命中：直接从 blob URL 创建新 Audio 实例，不发网络请求
     const cachedUrl = audioCache.get(src);
     if (cachedUrl) {
+        touchAudioCache(src); // 刷新 LRU 顺序，避免刚被取走就被淘汰
         const audio = new Audio(cachedUrl);
         audio.playbackRate = getPlaybackRate();
         return Promise.resolve(audio);
@@ -135,7 +201,7 @@ export async function playPronunciation(
 
     try {
         const audio = await loadAudio(src);
-        await audio.play();
+        await playAudioExclusive(audio);
         console.log('Pronunciation played:', word);
 
         // 播放成功后就近预加载
@@ -165,7 +231,7 @@ async function tryGenerateAndPlay(type: string, word: string): Promise<void> {
         if (data.success) {
             const cacheSrc = `/api/audio/cache/${type}/${encodeURIComponent(word)}.mp3`;
             const audio = await loadAudio(cacheSrc);
-            await audio.play();
+            await playAudioExclusive(audio);
             console.log('Generated pronunciation played:', word);
         }
     } catch (err: unknown) {
@@ -183,7 +249,7 @@ export async function playSentencePronunciation(type: string, sentence: string):
 
     try {
         const audio = await loadAudio(src);
-        await audio.play();
+        await playAudioExclusive(audio);
     } catch {
         await tryGenerateAndPlay(type, sentence);
     }

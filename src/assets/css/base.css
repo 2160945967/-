@@ -1778,7 +1778,9 @@ body.dark-mode .usage-guide-content code {
  * 这里补齐按钮、链接、以及 role=button 伪按钮的键盘焦点环，避免 Tab 时无视觉焦点。 */
 button:focus-visible,
 a:focus-visible,
-[role="button"]:focus-visible {
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible,
+summary:focus-visible {
     outline: 2px solid var(--primary-blue);
     outline-offset: 2px;
     border-radius: 4px;
