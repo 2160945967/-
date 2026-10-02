@@ -100,11 +100,14 @@ Gitee 普通项目配额：仓库单文件 50MB、单仓库约 1GB；**Release �
 
 下载同一资源的全部分卷放入同一目录，用 7-Zip 解压 `.001` 即自动合并还原。
 
-**四级听力音频（约 8GB，100 套 wav）无法通过 Gitee 分发**：单仓库附件总容量上限 1GB，分卷只能解决单文件 100MB 限制、无法突破总容量。可选替代方式：
+**四级听力音频（约 8.14GB、100 套 wav，压缩分卷后约 3.56GB / 39 卷）**：单仓库 Release 附件上限 1GB，因此分卷分散在 4 个如实标注的配套资源仓库（各含 Release v1.0 与说明）：
 
-- 网盘中转（百度网盘 / 阿里云盘等）；
-- 移动硬盘 / U 盘在本机间直接拷贝；
-- 升级 Gitee 至推荐项目（附件 5GB）/ GVP（20GB），但仍需配合压缩才可能容纳 8GB。
+- 第 1 部分（卷 001–010）：<https://gitee.com/yangs-project/pick-up-words-audio-1>
+- 第 2 部分（卷 011–020）：<https://gitee.com/yangs-project/pick-up-words-audio-2>
+- 第 3 部分（卷 021–030）：<https://gitee.com/yangs-project/pick-up-words-audio-3>
+- 第 4 部分（卷 031–039）：<https://gitee.com/yangs-project/pick-up-words-audio-4>
+
+下载全部 39 卷放入同一目录，用 7-Zip 解压 `.001` 合并，将还原出的 `CET4_Listening_Bank` 放入 `resource/模拟题/`。
 
 单词发音不随仓库分发，运行 `scripts/download_pronunciations.py` 自行下载（多线程、断点续传、自动去重）。
 
