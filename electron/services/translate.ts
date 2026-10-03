@@ -301,7 +301,7 @@ function hasChinese(text: string): boolean {
  * 自动判断翻译方向：含中文则中译英，否则英译中。
  * Tries Tencent Cloud -> Youdao -> MyMemory. Returns empty string as last resort.
  * Results are cached via LRU cache.
- * 可选传入 secretId/secretKey 使用自定义腾讯云密钥，否则使用默认配置。
+ * 可选传入 secretId/secretKey 使用腾讯云密钥；未配置时腾讯自动跳过，降级到有道 / MyMemory。
  */
 export async function translateText(text: string, secretId?: string, secretKey?: string): Promise<string> {
   if (!text) return text;
