@@ -1,28 +1,38 @@
-name: ci
-displayName: 持续集成
-triggers:
-  push:
-    branches:
-      precise:
-        - main
-  pr:
-    branches:
-      precise:
-        - main
+version: "1.0"
+name: 构建、部署到自有主机
+displayName: 构建、部署到自有主机
 stages:
-  - stage:
-      name: check
-      displayName: 类型检查与单元测试
-      strategy: naturally
-      trigger: auto
-      steps:
-        - step: build@nodejs
-          name: node_check
-          displayName: 类型检查与单元测试
-          nodeVersion: '20.18.0'
-          commands:
-            - export ELECTRON_SKIP_BINARY_DOWNLOAD=1
-            - npm config set registry https://registry.npmmirror.com
-            - npm ci || npm install
-            - npm run typecheck
-            - npm test
+- name: 构建
+  displayName: 构建
+  strategy: naturally
+  trigger: auto
+  steps:
+  - step: build@nodejs
+    name: ""
+    displayName: Nodejs 构建
+    nodeVersion: 20.20.1
+    commands:
+    - export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+    - npm config set registry https://registry.npmmirror.com
+    - npm ci || npm install
+    - npm run typecheck
+    - npm test
+    artifacts:
+    - name: BUILD_ARTIFACT
+      path:
+      - ./dist
+      type: .tar.gz
+    caches:
+    - "~/.npm"
+    - "~/.yarn"
+    notify: []
+    strategy:
+      retry: "0"
+      resource:
+        cpu: "2"
+        memory: "4"
+triggers:
+  trigger: manual
+notify: []
+strategy:
+  blocking: true
