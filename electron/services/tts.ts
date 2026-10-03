@@ -517,6 +517,7 @@ export class TencentTTS {
     codec: string = 'mp3',
     sampleRate: number = 16000
   ): Promise<Buffer | null> {
+    if (!this.secretId || !this.secretKey) return null; // 未配置腾讯密钥，跳过
     const action = 'TextToVoice';
     const version = '2019-08-23';
     const region = 'ap-guangzhou';

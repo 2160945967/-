@@ -131,6 +131,7 @@ async function tencentTranslate(text: string, secretId?: string, secretKey?: str
   const timestamp = Math.floor(Date.now() / 1000);
   const sid = secretId || TENCENT_SECRET_ID;
   const skey = secretKey || TENCENT_SECRET_KEY;
+  if (!sid || !skey) return null; // 未配置腾讯密钥，直接交由降级链
 
   const payload = JSON.stringify({
     SourceText: text,
