@@ -1,8 +1,13 @@
-import { app, BrowserWindow, session, ipcMain } from 'electron';
+import { app, BrowserWindow, session, ipcMain, crashReporter } from 'electron';
 import * as path from 'path';
 import { fork, ChildProcess } from 'child_process';
 import * as os from 'os';
 import { ROOT_DIR, APP_ROOT_DIR, USER_DATA_DIR, CACHE_DIR } from './utils/helpers';
+import { initProcessLogging, log } from './services/logger';
+
+// 崩溃仅本地收集（Crashpad dump 写入 userData/Crashpad），不上传第三方
+crashReporter.start({ uploadToServer: false, compress: true });
+initProcessLogging('main');
 
 // Electron 在某些 Windows 环境下会默认降级 GPU，导致页面切换动画掉帧，强制开启 GPU 光栅化
 app.commandLine.appendSwitch('enable-gpu-rasterization');
@@ -46,6 +51,15 @@ app.whenReady().then(async () => {
     if (process.platform !== 'win32' || win.isDestroyed() || win.isMinimized()) return;
     win.blur();
     win.focus();
+  });
+
+  // 渲染进程报错 / 未处理 Promise（由 preload 转发），写入本地日志
+  ipcMain.on('renderer-error', (_event, info: any) => {
+    log(
+      'ERROR',
+      `[renderer] ${info?.message || ''} @ ${info?.source || ''}:${info?.line || ''}:${info?.col || ''}` +
+        (info?.stack ? `\n${info.stack}` : ''),
+    );
   });
 
   // 最小化还原后强制置顶，Windows 下有时还原后 Z-order 不对
@@ -99,6 +113,7 @@ app.whenReady().then(async () => {
 
   serverProcess.on('exit', (code) => {
     console.log(`Server process exited with code ${code}`);
+    log(code === 0 ? 'INFO' : 'ERROR', `后端子进程退出，code=${code}`);
     if (code !== 0 && !win.isDestroyed()) {
       win.loadURL(`data:text/html,<h1 style="color:red;text-align:center;margin-top:40vh">后端服务异常退出，请重启应用</h1>`);
     }

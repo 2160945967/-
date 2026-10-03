@@ -245,14 +245,6 @@ declare module 'better-sqlite3' {
   export = Database;
 }
 
-declare module 'compromise' {
-  function nlp(text: string): any;
-  namespace nlp {
-    export { nlp };
-  }
-  export default nlp;
-}
-
 declare module 'edge-tts' {
   interface EdgeTTSOptions {
     voice?: string;

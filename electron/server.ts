@@ -9,6 +9,10 @@ import { ROOT_DIR, APP_ROOT_DIR, CACHE_DIR, USER_DATA_DIR, ASSETS_DIR, resolveAs
 import { downloadRequiredAssets } from './services/asset-manager';
 import { autoResumePronunciationDownloads } from './services/pronunciation-downloader';
 import { preloadModel as preloadSemanticModel } from './services/semanticSimilarity';
+import { initProcessLogging } from './services/logger';
+
+// 捕获子进程未捕获异常 / 未处理 Promise，写入 userData/logs/app.log
+initProcessLogging('server');
 
 // 将子进程 stdout/stderr 重定向到日志文件，避免 GUI 模式下无 stdout 导致 EPIPE 弹窗
 const SERVER_LOG_PATH = path.join(USER_DATA_DIR, 'server.log');

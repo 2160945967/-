@@ -5,6 +5,7 @@
 import { escapeHtml, switchPage } from '../global';
 import { searchWord } from './dictionary';
 import { apiGet } from '../utils/api';
+import { gradeQuestions } from '../utils/examGrade';
 import { PageSection } from '../types/enums';
 
 const BASE_URL = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
@@ -138,14 +139,15 @@ function answeredCount(): number {
     return Object.keys(answers).length;
 }
 function correctCount(): number {
-    let c = 0;
-    const each = (q: { n: number; a: string }) => { if (answers[q.n] === q.a) c++; };
     if (view === 'reading') {
-        readingCache[readingLevel]?.articles[readingPos].q.forEach(each);
-    } else if (currentTest) {
-        currentTest.sections.forEach(s => s.clips.forEach(c => c.questions.forEach(each)));
+        const qs = readingCache[readingLevel]?.articles[readingPos].q ?? [];
+        return gradeQuestions(qs, answers).correct;
     }
-    return c;
+    if (currentTest) {
+        const qs = currentTest.sections.flatMap(s => s.clips.flatMap(c => c.questions));
+        return gradeQuestions(qs, answers).correct;
+    }
+    return 0;
 }
 function resetAnswers(): void {
     answers = {};

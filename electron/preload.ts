@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fixFocus: () => ipcRenderer.send('fix-focus'),
   /** 请求主进程重启应用 */
   restartApp: () => ipcRenderer.send('app-restart'),
+  /** 渲染进程错误上报到主进程写入本地日志 */
+  reportError: (info: { message: string; source?: string; line?: number; col?: number; stack?: string }) =>
+    ipcRenderer.send('renderer-error', info),
 });
 
 // Windows 下原生 alert/confirm 关闭后，窗口焦点可能丢失，导致输入框无法响应键盘。

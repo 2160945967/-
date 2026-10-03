@@ -182,6 +182,7 @@ function findListeningWav(id: string): string | null {
   if (!/^Test_\d{3}$/.test(id)) return null; // 严格校验，防路径穿越
   const rel = path.join(LISTENING_BANK_REL, id, 'complete_test.wav');
   const candidates = [
+    path.join(ASSETS_DIR, 'CET4_Listening_Bank', id, 'complete_test.wav'),
     path.join(ASSETS_DIR, rel),
     path.join(ROOT_DIR, rel),
     path.join(ROOT_DIR, 'resource', rel),

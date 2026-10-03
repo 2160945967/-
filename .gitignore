@@ -5,8 +5,11 @@ bower_components/
 # Build outputs
 dist/
 dist-ssr/
-build/
+build/*
+!build/license.txt
 electron-dist/
+release-final4/
+release/
 *.local
 
 # Database files

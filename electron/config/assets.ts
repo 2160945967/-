@@ -1,12 +1,14 @@
 /**
- * 可选/可下载资源清单
+ * 可选 / 可下载资源清单
  *
  * 说明：
  * - required: 应用启动必需，缺失时自动下载（如词典数据库）
- * - optional: 使用到对应功能时才下载（如例句库、语音识别模型）
+ * - optional: 使用到对应功能时才下载（如听力音频、例句库、语音识别模型）
  *
- * 当前资源已按 Gitee Release 附件 100MB 限制做成分卷 7z 包。
- * 上传时请把 gitee-assets/ 目录下的 .7z.001、.7z.002 ... 全部上传到同一个 Release 下。
+ * 资源按 Gitee Release 附件 100MB 限制做成分卷 7z：
+ * - 词典 / 例句 / 模型位于主仓库 V2.0 Release；
+ * - 四级听力 3.56GB 超过单仓库附件 1GB 上限，分卷位于 4 个配套资源仓库
+ *   （pick-up-words-audio-1..4，每个仓库 Release v1.0）。
  */
 
 export interface AssetPart {
@@ -46,12 +48,31 @@ export interface AssetGroup {
   items: AssetItem[];
 }
 
-// 默认 CDN 基地址，可在环境变量 ASSETS_BASE_URL 中覆盖
-const BASE_URL = process.env.ASSETS_BASE_URL || 'https://gitee.com/yangs-project/download/releases/download/v1.0.0';
+// 主资源 Release 基地址，可在环境变量 ASSETS_BASE_URL 中整体替换（如自建镜像）
+const MAIN_BASE =
+  process.env.ASSETS_BASE_URL ||
+  'https://gitee.com/yangs-project/pick-up-words/releases/download/V2.0';
 
-function url(path: string): string {
-  if (!BASE_URL) return '';
-  return `${BASE_URL.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+function mainUrl(file: string): string {
+  return `${MAIN_BASE.replace(/\/$/, '')}/${file}`;
+}
+
+const VOL = 99_614_720; // 标准分卷 95MB
+
+/** 四级听力 39 卷，每 10 卷一个配套资源仓库 */
+function listeningParts(): AssetPart[] {
+  const parts: AssetPart[] = [];
+  for (let n = 1; n <= 39; n++) {
+    const vol = String(n).padStart(3, '0');
+    const repo = Math.floor((n - 1) / 10) + 1;
+    const file = `cet4-listening.7z.${vol}`;
+    parts.push({
+      filename: file,
+      url: `https://gitee.com/yangs-project/pick-up-words-audio-${repo}/releases/download/v1.0/${file}`,
+      size: n === 39 ? 35_226_703 : VOL,
+    });
+  }
+  return parts;
 }
 
 export const ASSET_GROUPS: AssetGroup[] = [
@@ -67,9 +88,24 @@ export const ASSET_GROUPS: AssetGroup[] = [
         required: true,
         size: 156_594_244,
         parts: [
-          { filename: 'stardict.7z.001', url: url('stardict.7z.001'), size: 99_614_720 },
-          { filename: 'stardict.7z.002', url: url('stardict.7z.002'), size: 56_979_524 },
+          { filename: 'stardict.7z.001', url: mainUrl('stardict.7z.001'), size: VOL },
+          { filename: 'stardict.7z.002', url: mainUrl('stardict.7z.002'), size: 56_979_524 },
         ],
+      },
+    ],
+  },
+  {
+    id: 'listening',
+    name: '四级听力音频',
+    description: '四级听力 100 套录音（约 3.56GB 分卷，4 个资源仓库）',
+    items: [
+      {
+        id: 'cet4-listening',
+        name: '四级听力音频',
+        localPath: 'CET4_Listening_Bank',
+        required: false,
+        size: 3_820_586_063,
+        parts: listeningParts(),
       },
     ],
   },
@@ -85,9 +121,9 @@ export const ASSET_GROUPS: AssetGroup[] = [
         required: false,
         size: 205_499_801,
         parts: [
-          { filename: 'examples.7z.001', url: url('examples.7z.001'), size: 99_614_720 },
-          { filename: 'examples.7z.002', url: url('examples.7z.002'), size: 99_614_720 },
-          { filename: 'examples.7z.003', url: url('examples.7z.003'), size: 6_270_361 },
+          { filename: 'examples.7z.001', url: mainUrl('examples.7z.001'), size: VOL },
+          { filename: 'examples.7z.002', url: mainUrl('examples.7z.002'), size: VOL },
+          { filename: 'examples.7z.003', url: mainUrl('examples.7z.003'), size: 6_270_361 },
         ],
       },
     ],
@@ -104,8 +140,8 @@ export const ASSET_GROUPS: AssetGroup[] = [
         required: false,
         size: 154_374_057,
         parts: [
-          { filename: 'sherpa-model.7z.001', url: url('sherpa-model.7z.001'), size: 99_614_720 },
-          { filename: 'sherpa-model.7z.002', url: url('sherpa-model.7z.002'), size: 54_759_337 },
+          { filename: 'sherpa-model.7z.001', url: mainUrl('sherpa-model.7z.001'), size: VOL },
+          { filename: 'sherpa-model.7z.002', url: mainUrl('sherpa-model.7z.002'), size: 54_759_337 },
         ],
       },
     ],
@@ -113,19 +149,19 @@ export const ASSET_GROUPS: AssetGroup[] = [
   {
     id: 'semantic',
     name: '语义相似度模型',
-    description: '英译中测验模式的中文同义词模糊判断模型（text2vec-base-chinese）',
+    description: '多释义智能判别的中文语义模型（text2vec-base-chinese）',
     items: [
       {
         id: 'semantic-model',
         name: '语义相似度模型',
         localPath: 'semantic-model-files',
         required: false,
-        size: 407_613_994,
+        size: 374_570_780,
         parts: [
-          { filename: 'semantic-model.7z.001', url: url('semantic-model.7z.001'), size: 104_857_600 },
-          { filename: 'semantic-model.7z.002', url: url('semantic-model.7z.002'), size: 104_857_600 },
-          { filename: 'semantic-model.7z.003', url: url('semantic-model.7z.003'), size: 104_857_600 },
-          { filename: 'semantic-model.7z.004', url: url('semantic-model.7z.004'), size: 59_997_980 },
+          { filename: 'semantic-model.7z.001', url: mainUrl('semantic-model.7z.001'), size: 104_857_600 },
+          { filename: 'semantic-model.7z.002', url: mainUrl('semantic-model.7z.002'), size: 104_857_600 },
+          { filename: 'semantic-model.7z.003', url: mainUrl('semantic-model.7z.003'), size: 104_857_600 },
+          { filename: 'semantic-model.7z.004', url: mainUrl('semantic-model.7z.004'), size: 59_997_980 },
         ],
       },
     ],

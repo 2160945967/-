@@ -23,12 +23,13 @@
 
 ## 技术栈
 
-- **桌面框架**：Electron
+- **桌面框架**：Electron 44
 - **前端**：Vue 3 + TypeScript（通过 CDN 引入）
 - **构建工具**：Vite
-- **后端服务**：Express + better-sqlite3
+- **后端服务**：Express + better-sqlite3 13
 - **动画**：GSAP
 - **打包**：electron-builder
+- **测试**：Vitest（80 用例）
 
 ## 快速开始
 
@@ -67,7 +68,7 @@ npm run dev
 npm test
 ```
 
-覆盖判题、测验会话、释义解析与备份逻辑（Vitest + happy-dom）。
+80 个用例（8 个测试文件），覆盖判题、测验会话、释义解析、正则清洗、随机生成器、模拟题判分与备份逻辑（Vitest + happy-dom）。
 
 ### 打包
 
@@ -83,7 +84,7 @@ npm run package:win
 npm run package:dir
 ```
 
-编译产物位于 `electron-dist/`，electron-builder 产物位于 `release/`（或 builder 配置指定目录）。注意听力音频（约 6.6GB）默认不打入安装包，缺失时程序会提示，题目与原文仍可练习。
+编译产物位于 `electron-dist/`，electron-builder 产物位于 `release-final4/`。打包配置 `npmRebuild: false`：原生模块先用 `npx electron-builder install-app-deps` 针对 Electron 预编译，打包时不再从源码重编译（无需本机安装 Visual Studio）。**发音文件（约 800MB）与听力音频默认不打入安装包**，改为设置页按需下载；缺失时发音自动降级到在线 TTS，听力题目与原文仍可练习。
 
 ### 资源分发
 
@@ -98,7 +99,7 @@ Gitee 普通项目配额：仓库单文件 50MB、单仓库约 1GB；**Release �
 | sherpa-model.7z | 2 | SenseVoice 语音识别模型 | 可选 |
 | examples.7z | 3 | examples.db（例句库） | 可选 |
 
-下载同一资源的全部分卷放入同一目录，用 7-Zip 解压 `.001` 即自动合并还原。
+**推荐**：在应用内「设置 → 数据资源下载」一键下载（自动逐卷、断点续传、校验并合并解压到用户数据目录，已接通以下 Release）。也可手动下载同一资源的全部分卷放入同一目录，用 7-Zip 解压 `.001` 自动合并还原。
 
 **四级听力音频（约 8.14GB、100 套 wav，压缩分卷后约 3.56GB / 39 卷）**：单仓库 Release 附件上限 1GB，因此分卷分散在 4 个如实标注的配套资源仓库（各含 Release v1.0 与说明）：
 
@@ -107,9 +108,17 @@ Gitee 普通项目配额：仓库单文件 50MB、单仓库约 1GB；**Release �
 - 第 3 部分（卷 021–030）：<https://gitee.com/yangs-project/pick-up-words-audio-3>
 - 第 4 部分（卷 031–039）：<https://gitee.com/yangs-project/pick-up-words-audio-4>
 
-下载全部 39 卷放入同一目录，用 7-Zip 解压 `.001` 合并，将还原出的 `CET4_Listening_Bank` 放入 `resource/模拟题/`。
+**推荐**在应用内「设置 → 数据资源下载」一键下载（自动跨 4 个仓库取卷、合并解压）。手动方式：下载全部 39 卷放入同一目录，用 7-Zip 解压 `.001` 合并，将还原出的 `CET4_Listening_Bank` 放入用户数据目录的 `assets/`（或 `resource/模拟题/`）。
 
-单词发音不随仓库分发，运行 `scripts/download_pronunciations.py` 自行下载（多线程、断点续传、自动去重）。
+单词发音不随仓库分发，可在应用内设置页下载，或运行 `tools/download_pronunciations.py` 自行下载（多线程、断点续传、自动去重）。
+
+## 安全与工程质量
+
+- **内容安全策略（CSP）**：页面通过 CSP meta 限制脚本 / 样式 / 连接来源，外部请求统一走后端同源接口。
+- **本地崩溃与日志**：原生崩溃由 Crashpad 本地收集（不上传）；主 / 后端 / 渲染进程的未捕获异常与未处理 Promise 写入 `%APPDATA%/拾词/logs/app.log`（2MB 轮转）。
+- **类型检查卡点**：`npm run build` 前置 `tsc --noEmit`，类型错误即中断构建。
+- **依赖审计**：生产依赖 `npm audit --omit=dev` 为 0 漏洞。
+- **持续集成**：`.workflow/ci.yml`（Gitee Go，推送 / PR 时运行类型检查与测试；需在 Gitee 界面开通 Gitee Go）。
 
 ## 项目结构
 

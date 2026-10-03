@@ -34,6 +34,7 @@ import { initBookPicker } from './modules/bookPicker';
 import { initExam } from './modules/exam';
 import { warmupStructuredBook } from './utils/structuredBook';
 import { initPopupSelects } from './utils/popupSelect';
+import { initErrorReport } from './utils/errorReport';
 
 // 毛玻璃滚动降级（停止滚动 150ms 后恢复）
 function initGlassScrollDegradation(): void {
@@ -132,6 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 0.5 注入 appState 到音频模块（供预加载使用）
     setAppState(appState);
+
+    // 0.8 全局错误捕获上报
+    initErrorReport();
 
     // 1. 应用主题
     applyTheme();
