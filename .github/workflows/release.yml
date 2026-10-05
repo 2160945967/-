@@ -66,7 +66,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # —— 离线全包：tag 触发时一并构建并发布（体积较大，公开仓库 CI 免费）——
+      # —— 离线全包：先下载并解压数 GB 大资源，再构建并发布 ——
+      - name: 准备离线大资源（下载并解压 stardict/examples/sherpa/semantic）
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node tools/prepare-offline-resources.cjs
+
       - name: 打包并发布（离线全包 / tag）
         if: startsWith(github.ref, 'refs/tags/')
         run: npx cross-env BUILD_VARIANT=offline electron-builder ${{ matrix.target }} --config electron-builder.config.cjs --publish always
@@ -91,7 +95,11 @@ jobs:
             release-final4/**/*.deb
           if-no-files-found: error
 
-      # —— 离线全包：仅手动触发（体积大），产物上传为 Artifact ——
+      # —— 离线全包：手动触发，先准备大资源，产物上传为 Artifact ——
+      - name: 准备离线大资源（手动）
+        if: github.event_name == 'workflow_dispatch' && inputs.variant == 'offline'
+        run: node tools/prepare-offline-resources.cjs
+
       - name: 打包（离线全包 / 手动）
         if: github.event_name == 'workflow_dispatch' && inputs.variant == 'offline'
         run: npx cross-env BUILD_VARIANT=offline electron-builder ${{ matrix.target }} --config electron-builder.config.cjs --publish never
