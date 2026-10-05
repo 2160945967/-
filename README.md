@@ -89,7 +89,7 @@ npm test
 
 ### 打包
 
-打包配置独立为 `electron-builder.config.cjs`：环境变量 `BUILD_VARIANT` 区分在线 / 离线形态，`--win / --mac / --linux` 选择目标平台。
+打包采用两份静态 YAML 配置（加载可靠、不受 `type: module` 下 JS 配置加载影响）：`electron-builder.online.yml`（在线小包，仅内置约 3MB 文本，大资源首次运行按需下载）与 `electron-builder.offline.yml`（离线全包，内置全部资源）；`--win / --mac / --linux` 选择目标平台。
 
 Windows 在线小安装包：
 
