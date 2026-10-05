@@ -6178,8 +6178,10 @@ EnToZh 单词分支改为：先把词书 meanings 与 ECDict `extraMeanings` 合
 
 ### 36.2 打包配置（双静态 YAML）
 - 采用两份静态 YAML：`electron-builder.online.yml`（输出 `release-final4`，仅内置 resemble / lemma / wordroot 三文本约 3MB，stardict / examples / sherpa / semantic 首次运行按需下载）与 `electron-builder.offline.yml`（输出 `release-offline`，extraResources 内置全部大资源，产物名加 `-Offline`）。
-- 早期用单一 `electron-builder.config.cjs` + 环境变量 `BUILD_VARIANT` 切换；实测 CI（GitHub Actions，三平台均然）上 electron-builder 未加载该 JS 配置、回退默认（productName 取 package.json `name=shici`、默认 `files=**/*`），导致在线 / 离线同名，且离线准备脚本放进工作目录的数 GB 资源被默认 files 一并打进 app（产出 1.1GB 的 shici 包并覆盖在线）。改为静态 YAML 后由 read-config-file 直接 js-yaml 加载，彻底规避 JS / require / ESM 加载差异。
-- 包体积实测（Windows）：在线 NSIS 约 236MB（Electron / Chromium 运行时固有体积 + 小文本，大资源未内置），离线 NSIS 约 1.1GB（在线基础 + 全部大资源）。
+- 早期用单一 `electron-builder.config.cjs` + 环境变量 `BUILD_VARIANT` 切换，CI 上该 JS 配置加载不稳定；改为静态 YAML 后由 read-config-file 直接 js-yaml 加载，规避 JS / require / ESM 加载差异。
+- **「Release 资产名变 shici」最终根因（经日志逐行核对）**：workflow_dispatch（`--publish never`）日志确认 YAML 正常加载（`loaded configuration ...online.yml`）、磁盘产物名正确（`building target=nsis file=release-final4\拾词-Setup-2.0.2.exe`）。但 tag run（`--publish always`）上传到 Release 时资产变成 `shici-setup-2.0.2.exe`——GitHub publisher 对上传文件名做 **ASCII 清洗**：文件名宏 `${productName}` 是 "sanitized product name"，非 ASCII 的中文「拾词」被 sanitize 后回退到 package.json 的 ASCII `name`（当时为 `shici`）；`--publish never` 不上传、故不暴露。
+- **命名决策**：package.json `name` 由 `shici` 改为 `pick-up-words`，`appId` 改为 `com.pickupwords.app`，两 YAML 的 `artifactName` 统一为英文 `PickUpWords-Setup-${version}.${ext}` / `PickUpWords-${version}-${arch}.${ext}`（离线加 `-Offline`）；`productName` 仍为「拾词」，故安装后桌面 / 开始菜单快捷方式与窗口标题照常显示中文，仅 Release 安装包文件名为英文（跨平台 URL 与自动更新链路要求 ASCII）。
+- 包体积实测（Windows）：在线 NSIS 约 236MB（Electron / Chromium 运行时固有体积 + 小文本，大资源未内置；这是 Electron 应用的体积下限，与是否内置词库无关），离线 NSIS 约 1.1GB（在线基础 + 全部大资源）。
 - 平台 target：Win = NSIS(x64)；mac = dmg + zip（x64、arm64）；linux = AppImage + deb(x64)。
 - 图标：`logo.ico` 仅 Windows；`tools/gen-icons.cjs`（sharp）把矢量 `public/logo.svg` 渲染为 `build/icon.png`(1024) 与 `build/icons/16..1024.png`，mac/linux 由 electron-builder 自动生成 icns / 多尺寸；`.gitignore` 已放行这两处。
 - `npmRebuild: false`：better-sqlite3 13 依赖 node-addon-api、`gypfile:false`、自带全平台 prebuilds，运行时直接加载，不需 node-gyp / Visual Studio。

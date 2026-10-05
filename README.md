@@ -8,12 +8,13 @@
 
 | 平台 | 在线小安装包（推荐：体积小，首次运行按需下载资源） | 完整离线包（内置全部资源，断网可用） |
 | --- | --- | --- |
-| Windows 10/11 (x64) | [拾词-Setup-2.0.2.exe](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-Setup-2.0.2.exe) | [拾词-Offline-Setup-2.0.2.exe](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-Offline-Setup-2.0.2.exe) |
-| macOS · Apple Silicon (M 系列) | [拾词-2.0.2-arm64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-2.0.2-arm64.dmg) | [拾词-Offline-2.0.2-arm64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-Offline-2.0.2-arm64.dmg) |
-| macOS · Intel | [拾词-2.0.2-x64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-2.0.2-x64.dmg) | [拾词-Offline-2.0.2-x64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-Offline-2.0.2-x64.dmg) |
-| Linux (x64) | [拾词-2.0.2-x64.AppImage](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-2.0.2-x64.AppImage) · [.deb](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-2.0.2-x64.deb) | [拾词-Offline-2.0.2-x64.AppImage](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-Offline-2.0.2-x64.AppImage) · [.deb](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/拾词-Offline-2.0.2-x64.deb) |
+| Windows 10/11 (x64) | [PickUpWords-Setup-2.0.2.exe](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-Setup-2.0.2.exe) | [PickUpWords-Offline-Setup-2.0.2.exe](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-Offline-Setup-2.0.2.exe) |
+| macOS · Apple Silicon (M 系列) | [PickUpWords-2.0.2-arm64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-2.0.2-arm64.dmg) | [PickUpWords-Offline-2.0.2-arm64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-Offline-2.0.2-arm64.dmg) |
+| macOS · Intel | [PickUpWords-2.0.2-x64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-2.0.2-x64.dmg) | [PickUpWords-Offline-2.0.2-x64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-Offline-2.0.2-x64.dmg) |
+| Linux (x64) | [PickUpWords-2.0.2-x64.AppImage](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-2.0.2-x64.AppImage) · [.deb](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-2.0.2-x64.deb) | [PickUpWords-Offline-2.0.2-x64.AppImage](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-Offline-2.0.2-x64.AppImage) · [.deb](https://github.com/2160945967/pick-up-words/releases/download/v2.0.2/PickUpWords-Offline-2.0.2-x64.deb) |
 
-- **在线小安装包**：仅含约 3MB 文本资源；首次启动自动下载词典（约 150MB），例句库 / 语音识别 / 语义模型在用到时按需下载，需联网。
+- 安装包文件名为英文 **PickUpWords**（跨平台文件名与自动更新链路要求 ASCII）；安装后，桌面 / 开始菜单快捷方式与应用窗口标题均显示中文「拾词」。
+- **在线小安装包**：安装包约 236MB，其中绝大多数是 Electron / Chromium 运行时（所有 Electron 应用的固有体积），应用自身仅内置约 3MB 文本资源；首次启动自动下载词典（约 150MB），例句库 / 语音识别 / 语义模型在用到时按需下载，需联网。
 - **完整离线包**：内置词典、例句、语音识别、语义模型等全部资源，安装后断网可用，体积较大。
 - macOS 暂未做 Apple 签名 / 公证：首次打开若提示「无法验证开发者」，在 Finder 中对应用**右键 → 打开**一次，或在「系统设置 → 隐私与安全性」点「仍要打开」。
 - 全部安装包与源码见 [GitHub Releases](https://github.com/2160945967/pick-up-words/releases/tag/v2.0.2)。

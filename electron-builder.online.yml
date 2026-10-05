@@ -1,4 +1,4 @@
-appId: com.shici.app
+appId: com.pickupwords.app
 productName: 拾词
 npmRebuild: false
 compression: maximum
@@ -46,7 +46,7 @@ win:
     - target: nsis
       arch: [x64]
   icon: logo.ico
-  artifactName: 拾词-Setup-${version}.${ext}
+  artifactName: PickUpWords-Setup-${version}.${ext}
 
 nsis:
   oneClick: false
@@ -68,10 +68,10 @@ mac:
   category: public.app-category.education
   hardenedRuntime: false
   gatekeeperAssess: false
-  artifactName: 拾词-${version}-${arch}.${ext}
+  artifactName: PickUpWords-${version}-${arch}.${ext}
 
 dmg:
-  artifactName: 拾词-${version}-${arch}.${ext}
+  artifactName: PickUpWords-${version}-${arch}.${ext}
 
 linux:
   target:
@@ -83,4 +83,4 @@ linux:
   category: Education
   maintainer: yangs-project
   synopsis: 拾词 - 离线背单词桌面应用
-  artifactName: 拾词-${version}-${arch}.${ext}
+  artifactName: PickUpWords-${version}-${arch}.${ext}
