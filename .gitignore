@@ -7,6 +7,7 @@ dist/
 dist-ssr/
 build/*
 !build/license.txt
+!build/uninstaller.nsh
 !build/icon.png
 !build/icons/
 !build/icons/**
@@ -77,8 +78,11 @@ gitee-assets/
 # package-lock.json
 测试.docx
 
-# 本地大资源 / 素材（不入库，随 resource 目录或资源包提供）
-/resource/
+# 本地大资源 / 素材：仅内置约 3MB 小文本入库，大资源（db/模型/音频）不入库、随资源包或按需下载提供
+/resource/*
+!/resource/resemble.txt
+!/resource/lemma.en.txt
+!/resource/wordroot.txt
 
 # 冗余旧构建拷贝 / 临时目录
 /static/
