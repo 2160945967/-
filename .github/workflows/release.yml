@@ -59,6 +59,16 @@ jobs:
       - name: 编译主进程
         run: npm run prepackage && npm run electron:compile
 
+      - name: 诊断打包配置
+        shell: bash
+        run: |
+          echo "PWD=$(pwd)"
+          ls -la | grep -i 'electron-builder' || echo "NO electron-builder file in cwd"
+          echo "--- online.yml head ---"
+          head -6 electron-builder.online.yml 2>&1 || echo "cannot read online.yml"
+          echo "--- electron-builder version (local) ---"
+          npx --no-install electron-builder --version
+
       # —— 在线小包：tag 触发时构建并发布到 GitHub Release（多平台汇聚到同一 tag）——
       - name: 打包并发布（在线小包 / tag）
         if: startsWith(github.ref, 'refs/tags/')
