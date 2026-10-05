@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  checks:
+    name: 类型检查 / 单测 / 构建（Linux）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安装依赖
+        run: npm ci || npm install
+
+      - name: 类型检查（渲染层）
+        run: npm run typecheck
+
+      - name: 类型检查（主进程）
+        run: npm run typecheck:electron
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 构建渲染层
+        run: npm run build
+
+      - name: 编译主进程
+        run: npm run prepackage && npm run electron:compile

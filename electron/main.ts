@@ -1,18 +1,42 @@
 import { app, BrowserWindow, session, ipcMain, crashReporter } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { fork, ChildProcess } from 'child_process';
 import * as os from 'os';
 import { ROOT_DIR, APP_ROOT_DIR, USER_DATA_DIR, CACHE_DIR } from './utils/helpers';
 import { initProcessLogging, log } from './services/logger';
 
+// macOS / Linux 上 sherpa-onnx 的原生 .node 依赖同目录的 onnxruntime 动态库。
+// 在加载原生模块前把平台包目录加入动态库搜索路径作为兜底（CI 还会用 install_name_tool/patchelf 做 rpath 修复）。
+function setupNativeLibPath(): void {
+  if (process.platform === 'win32') return;
+  const plat = process.platform === 'darwin' ? 'darwin' : 'linux';
+  const dirName = `sherpa-onnx-${plat}-${process.arch}`;
+  const candidates = [
+    path.join(__dirname, '..', 'node_modules', dirName),                    // dev: electron-dist/../node_modules
+    path.join(__dirname, '..', 'app.asar.unpacked', 'node_modules', dirName), // packaged
+  ];
+  const dir = candidates.find((d) => fs.existsSync(d));
+  if (!dir) return;
+  if (process.platform === 'darwin') {
+    process.env.DYLD_LIBRARY_PATH = `${dir}${path.delimiter}${process.env.DYLD_LIBRARY_PATH || ''}`;
+  } else {
+    process.env.LD_LIBRARY_PATH = `${dir}${path.delimiter}${process.env.LD_LIBRARY_PATH || ''}`;
+  }
+}
+setupNativeLibPath();
+
 // 崩溃仅本地收集（Crashpad dump 写入 userData/Crashpad），不上传第三方
 crashReporter.start({ uploadToServer: false, compress: true });
 initProcessLogging('main');
 
-// Electron 在某些 Windows 环境下会默认降级 GPU，导致页面切换动画掉帧，强制开启 GPU 光栅化
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('ignore-gpu-blocklist');
+// 某些 Windows 环境下 Chromium 会默认降级 GPU，导致页面动画掉帧，强制开启 GPU 光栅化。
+// 仅 Windows 处理：macOS / Linux 的 Chromium 默认 GPU 支持成熟，无需强制开关。
+// 不使用 enable-zero-copy：它在部分 NVIDIA + Windows 环境会触发 GPU 命令缓冲区错误（崩溃），收益有限。
+if (os.platform() === 'win32') {
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+}
 
 // Windows 控制台默认 GBK，后端输出中文容易乱码，启动时切到 UTF-8
 if (os.platform() === 'win32') {

@@ -2,6 +2,22 @@
 
 > 一个用拼写检验真实掌握程度的背单词桌面应用。
 
+## 下载安装
+
+**最新版本 v2.0.0**（由 GitHub Actions 在 Windows / macOS / Linux 上自动构建并校验）：
+
+| 平台 | 在线小安装包（推荐：体积小，首次运行按需下载资源） | 完整离线包（内置全部资源，断网可用） |
+| --- | --- | --- |
+| Windows 10/11 (x64) | [拾词-Setup-2.0.0.exe](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-Setup-2.0.0.exe) | [拾词-Offline-Setup-2.0.0.exe](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-Offline-Setup-2.0.0.exe) |
+| macOS · Apple Silicon (M 系列) | [拾词-2.0.0-arm64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-2.0.0-arm64.dmg) | [拾词-Offline-2.0.0-arm64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-Offline-2.0.0-arm64.dmg) |
+| macOS · Intel | [拾词-2.0.0-x64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-2.0.0-x64.dmg) | [拾词-Offline-2.0.0-x64.dmg](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-Offline-2.0.0-x64.dmg) |
+| Linux (x64) | [拾词-2.0.0-x64.AppImage](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-2.0.0-x64.AppImage) · [.deb](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-2.0.0-x64.deb) | [拾词-Offline-2.0.0-x64.AppImage](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-Offline-2.0.0-x64.AppImage) · [.deb](https://github.com/2160945967/pick-up-words/releases/download/v2.0.0/拾词-Offline-2.0.0-x64.deb) |
+
+- **在线小安装包**：仅含约 3MB 文本资源；首次启动自动下载词典（约 150MB），例句库 / 语音识别 / 语义模型在用到时按需下载，需联网。
+- **完整离线包**：内置词典、例句、语音识别、语义模型等全部资源，安装后断网可用，体积较大。
+- macOS 暂未做 Apple 签名 / 公证：首次打开若提示「无法验证开发者」，在 Finder 中对应用**右键 → 打开**一次，或在「系统设置 → 隐私与安全性」点「仍要打开」。
+- 全部安装包与源码见 [GitHub Releases](https://github.com/2160945967/pick-up-words/releases/tag/v2.0.0)。
+
 ## 简介
 
 市面上的背单词软件大多是“四选一”选择题，训练的是“认得出”，但考试要的是“写得出”。**拾词** 改变这个模式：它只给你中文释义，要求你**完整拼写出英文单词**。答对才算会，错了自动加入错题本，按艾宾浩斯遗忘曲线安排复习。
@@ -29,13 +45,14 @@
 - **后端服务**：Express + better-sqlite3 13
 - **动画**：GSAP
 - **打包**：electron-builder
-- **测试**：Vitest（80 用例）
+- **测试**：Vitest（97 用例）
+- **CI/CD**：GitHub Actions（Windows / macOS / Linux 三平台自动构建、测试与发布）
 
 ## 快速开始
 
 ### 环境要求
 
-- Node.js >= 18
+- Node.js >= 22（better-sqlite3 13 要求）
 - npm 或 pnpm
 
 ### 安装依赖
@@ -68,27 +85,45 @@ npm run dev
 npm test
 ```
 
-80 个用例（8 个测试文件），覆盖判题、测验会话、释义解析、正则清洗、随机生成器、模拟题判分与备份逻辑（Vitest + happy-dom）。
+97 个用例（10 个测试文件），覆盖判题、测验会话、释义解析、正则清洗、随机生成器、模拟题判分与备份逻辑（Vitest + happy-dom）。
 
 ### 打包
 
-生成 Windows 安装包：
+打包配置独立为 `electron-builder.config.cjs`：环境变量 `BUILD_VARIANT` 区分在线 / 离线形态，`--win / --mac / --linux` 选择目标平台。
+
+Windows 在线小安装包：
 
 ```bash
-npm run package:win
+npm run dist:win
 ```
 
-仅生成免安装的解包目录（便于快速验证）：
+Windows 完整离线包：
 
 ```bash
-npm run package:dir
+npm run dist:win:offline
 ```
 
-编译产物位于 `electron-dist/`，electron-builder 产物位于 `release-final4/`。打包配置 `npmRebuild: false`：原生模块先用 `npx electron-builder install-app-deps` 针对 Electron 预编译，打包时不再从源码重编译（无需本机安装 Visual Studio）。**发音文件（约 800MB）与听力音频默认不打入安装包**，改为设置页按需下载；缺失时发音自动降级到在线 TTS，听力题目与原文仍可练习。
+仅生成免安装解包目录（快速验证）：
+
+```bash
+npm run dist:dir
+```
+
+在对应操作系统上也可直接产出当前平台的在线 / 离线包（**macOS 的 dmg 只能在 macOS 上构建**）：
+
+```bash
+npm run pack:online      # 当前平台在线小包
+npm run pack:offline     # 当前平台离线全包
+```
+
+编译产物位于 `electron-dist/`；在线包输出到 `release-final4/`、离线包输出到 `release-offline/`。配置 `npmRebuild: false`：better-sqlite3 13 自带 Node-API 全平台 prebuilds，打包时不从源码重编译（无需本机安装 Visual Studio）。**发音文件与听力音频默认不打入安装包**，改为设置页按需下载；缺失时发音自动降级到在线 TTS，听力题目与原文仍可练习。日常发布无需本地打包：推送 `v*` 标签后由 GitHub Actions 在三平台自动构建在线 + 离线包并发布 Release。
 
 ### 资源分发
 
-源码仓库（Gitee）：<https://gitee.com/yangs-project/pick-up-words> 。
+源码仓库：
+
+- GitHub（主仓库，含三平台 CI 与安装包 Release）：<https://github.com/2160945967/pick-up-words>
+- Gitee（镜像）：<https://gitee.com/yangs-project/pick-up-words>
 
 Gitee 普通项目配额：仓库单文件 50MB、单仓库约 1GB；**Release 附件单文件 100MB、单仓库附件总容量 1GB**。因此大资源不入库，词典 / 模型 / 例句按约 100MB 分卷，发布在 [V2.0 Release](https://gitee.com/yangs-project/pick-up-words/releases/tag/V2.0)：
 
@@ -118,7 +153,7 @@ Gitee 普通项目配额：仓库单文件 50MB、单仓库约 1GB；**Release �
 - **本地崩溃与日志**：原生崩溃由 Crashpad 本地收集（不上传）；主 / 后端 / 渲染进程的未捕获异常与未处理 Promise 写入 `%APPDATA%/拾词/logs/app.log`（2MB 轮转）。
 - **类型检查卡点**：`npm run build` 前置 `tsc --noEmit`，类型错误即中断构建。
 - **依赖审计**：生产依赖 `npm audit --omit=dev` 为 0 漏洞。
-- **持续集成**：`.workflow/ci.yml`（Gitee Go，推送 / PR 时运行类型检查与测试；需在 Gitee 界面开通 Gitee Go）。
+- **持续集成 / 持续发布**：`.github/workflows/ci.yml` 在推送 / PR 时运行类型检查、单测与构建；`.github/workflows/release.yml` 在推送 `v*` 标签时于 Windows / macOS (x64 + arm64) / Linux 上分别构建在线与离线安装包并发布 GitHub Release，也支持手动触发。
 
 ## 项目结构
 

@@ -7,8 +7,12 @@ dist/
 dist-ssr/
 build/*
 !build/license.txt
+!build/icon.png
+!build/icons/
+!build/icons/**
 electron-dist/
 release-final4/
+release-offline/
 release/
 *.local
 

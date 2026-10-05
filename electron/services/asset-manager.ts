@@ -10,7 +10,7 @@ import * as https from 'https';
 import * as http from 'http';
 import { createWriteStream, createReadStream } from 'fs';
 import { pipeline } from 'stream/promises';
-import { execSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
 import { path7za } from '7zip-bin';
 import { ASSETS_DIR, ensureDirExists, resolveAssetPath } from '../utils/helpers';
@@ -449,11 +449,16 @@ async function verifyChecksum(filePath: string, asset: AssetItem): Promise<void>
 function extractZip(zipPath: string): void {
   const targetDir = zipPath.replace(/\.zip$/, '');
   ensureDirExists(targetDir);
+  // 统一用 7zip-bin 的 7za 解压（7za 支持 zip），三平台通用，不依赖 Windows powershell
+  const bin = path7za;
+  if (!bin || !fs.existsSync(bin)) {
+    throw new Error('找不到 7za 解压工具，无法解压 zip');
+  }
   try {
-    execSync(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${targetDir}' -Force"`, {
-      stdio: 'ignore',
-      timeout: 120000,
-    });
+    const result = spawnSync(bin, ['x', '-y', `-o${targetDir}`, zipPath], { stdio: 'ignore' });
+    if (result.status !== 0) {
+      throw new Error(`7za 解压 zip 失败，退出码 ${result.status}`);
+    }
     // 解压成功后可以删除 zip 节省空间
     try { fs.unlinkSync(zipPath); } catch {}
   } catch (e: any) {

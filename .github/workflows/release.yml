@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: '打包形态：online（在线小安装包）或 offline（完整离线安装包）'
+        type: choice
+        options:
+          - online
+          - offline
+        default: online
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows-x64
+            target: '--win --x64'
+          - os: ubuntu-latest
+            label: Linux-x64
+            target: '--linux --x64'
+          - os: macos-13
+            label: macOS-x64
+            target: '--mac --x64'
+          - os: macos-latest
+            label: macOS-arm64
+            target: '--mac --arm64'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安装依赖
+        run: npm ci || npm install
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 构建渲染层
+        run: npm run build
+
+      - name: 编译主进程
+        run: npm run prepackage && npm run electron:compile
+
+      # —— 在线小包：tag 触发时构建并发布到 GitHub Release（多平台汇聚到同一 tag）——
+      - name: 打包并发布（在线小包 / tag）
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npx electron-builder ${{ matrix.target }} --config electron-builder.config.cjs --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # —— 离线全包：tag 触发时一并构建并发布（体积较大，公开仓库 CI 免费）——
+      - name: 打包并发布（离线全包 / tag）
+        if: startsWith(github.ref, 'refs/tags/')
+        run: npx cross-env BUILD_VARIANT=offline electron-builder ${{ matrix.target }} --config electron-builder.config.cjs --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # —— 在线小包：手动触发时仅构建，产物上传为 Artifact ——
+      - name: 打包（在线小包 / 手动）
+        if: github.event_name == 'workflow_dispatch' && inputs.variant == 'online'
+        run: npx electron-builder ${{ matrix.target }} --config electron-builder.config.cjs --publish never
+
+      - name: 上传在线小包（Artifact）
+        if: github.event_name == 'workflow_dispatch' && inputs.variant == 'online'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 拾词-online-${{ matrix.label }}
+          path: |
+            release-final4/**/*.exe
+            release-final4/**/*.dmg
+            release-final4/**/*.zip
+            release-final4/**/*.AppImage
+            release-final4/**/*.deb
+          if-no-files-found: error
+
+      # —— 离线全包：仅手动触发（体积大），产物上传为 Artifact ——
+      - name: 打包（离线全包 / 手动）
+        if: github.event_name == 'workflow_dispatch' && inputs.variant == 'offline'
+        run: npx cross-env BUILD_VARIANT=offline electron-builder ${{ matrix.target }} --config electron-builder.config.cjs --publish never
+
+      - name: 上传离线全包（Artifact）
+        if: github.event_name == 'workflow_dispatch' && inputs.variant == 'offline'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 拾词-offline-${{ matrix.label }}
+          path: |
+            release-offline/**/*.exe
+            release-offline/**/*.dmg
+            release-offline/**/*.zip
+            release-offline/**/*.AppImage
+            release-offline/**/*.deb
+          if-no-files-found: error

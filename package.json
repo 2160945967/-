@@ -15,96 +15,15 @@
     "test:watch": "vitest",
     "electron:compile": "tsc -p tsconfig.electron.json",
     "electron:dev": "npm run electron:compile && chcp 65001 >nul && electron .",
-    "electron:start": "npm run build && node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && chcp 65001 >nul && electron .",
-    "postinstall": "electron-builder install-app-deps",
-    "package:win": "npm run build && node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64",
-    "package:dir": "npm run build && node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\" && npm run electron:compile && electron-builder --win --x64 --dir"
-  },
-  "build": {
-    "appId": "com.shici.app",
-    "productName": "拾词",
-    "npmRebuild": false,
-    "directories": {
-      "output": "release-final4"
-    },
-    "extraResources": [
-      {
-        "from": "stardict.db",
-        "to": "stardict.db"
-      },
-      {
-        "from": "resource/examples.db",
-        "to": "examples.db"
-      },
-      {
-        "from": "resource/sherpa-onnx-sense-voice-zh-en-ja-ko-yue",
-        "to": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue"
-      },
-      {
-        "from": "resource/semantic-model-files",
-        "to": "semantic-model-files"
-      },
-      {
-        "from": "resource/resemble.txt",
-        "to": "resemble.txt"
-      },
-      {
-        "from": "resource/lemma.en.txt",
-        "to": "lemma.en.txt"
-      },
-      {
-        "from": "resource/wordroot.txt",
-        "to": "wordroot.txt"
-      }
-    ],
-    "compression": "maximum",
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/better-sqlite3/**/*.node",
-      "node_modules/sherpa-onnx-win-x64/**/*.node",
-      "node_modules/sherpa-onnx-win-x64/**/*.dll",
-      "node_modules/7zip-bin/**/*"
-    ],
-    "files": [
-      "electron-dist/**/*",
-      "!electron-dist/**/*.map",
-      "dist/**/*",
-      "node_modules/**/*",
-      "wordbooks.json",
-      "logo.ico",
-      "package.json",
-      "!node_modules/**/*.d.ts",
-      "!node_modules/**/*.map",
-      "!node_modules/**/test/**/*",
-      "!node_modules/**/tests/**/*",
-      "!node_modules/**/docs/**/*",
-      "!node_modules/**/README*",
-      "!node_modules/**/CHANGELOG*",
-      "!node_modules/**/LICENSE*"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "logo.ico",
-      "artifactName": "拾词-Setup-${version}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "拾词",
-      "include": "build/uninstaller.nsh",
-      "license": "build/license.txt",
-      "artifactName": "拾词-Setup-${version}.${ext}"
-    }
+    "electron:start": "npm run build && npm run prepackage && npm run electron:compile && chcp 65001 >nul && electron .",
+    "postinstall": "electron-builder install-app-deps || echo skip-native-rebuild-prebuilds-bundled",
+    "gen:icons": "node tools/gen-icons.cjs",
+    "prepackage": "node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\"",
+    "pack:online": "electron-builder --config electron-builder.config.cjs",
+    "pack:offline": "cross-env BUILD_VARIANT=offline electron-builder --config electron-builder.config.cjs",
+    "dist:win": "npm run build && npm run prepackage && npm run electron:compile && electron-builder --win --x64 --config electron-builder.config.cjs",
+    "dist:win:offline": "npm run build && npm run prepackage && npm run electron:compile && cross-env BUILD_VARIANT=offline electron-builder --win --x64 --config electron-builder.config.cjs",
+    "dist:dir": "npm run build && npm run prepackage && npm run electron:compile && electron-builder --win --x64 --dir --config electron-builder.config.cjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -126,6 +45,7 @@
     "@types/express": "^4.17.0",
     "@types/node": "^20.0.0",
     "@vitejs/plugin-vue": "^5.0.0",
+    "cross-env": "^7.0.3",
     "electron": "^44.5.1",
     "electron-builder": "^24.0.0",
     "electron-rebuild": "^3.2.9",
@@ -139,6 +59,10 @@
     "vitest": "^2.1.9"
   },
   "optionalDependencies": {
-    "sherpa-onnx-win-x64": "^1.13.3"
+    "sherpa-onnx-win-x64": "^1.13.8",
+    "sherpa-onnx-darwin-x64": "^1.13.8",
+    "sherpa-onnx-darwin-arm64": "^1.13.8",
+    "sherpa-onnx-linux-x64": "^1.13.8",
+    "sherpa-onnx-linux-arm64": "^1.13.8"
   }
 }
