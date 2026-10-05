@@ -1244,3 +1244,118 @@ html.dark-mode .cloze-empty { background: transparent; border-color: rgba(255,25
 }
 .tc-zh-sep { color: #9aa5b1; }
 html.dark-mode .tc-zh-sep { color: #78848f; }
+
+/* ============ 测验页激励面板：连胜 / 保护卡 / 今日进度 ============ */
+.quiz-streak-panel {
+    display: grid; grid-template-columns: auto auto 1fr;
+    align-items: center; gap: 16px;
+    margin: 0 0 16px; padding: 12px 18px;
+    background: var(--bg-white); border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+.quiz-streak-panel:empty { display: none; }
+.sp-item { display: flex; align-items: center; gap: 6px; }
+.sp-icon { font-size: 18px; }
+.sp-num { font-size: 20px; font-weight: 800; color: var(--text-dark); line-height: 1; }
+.sp-label { font-size: 12.5px; color: var(--text-gray); }
+.sp-progress { min-width: 0; }
+.sp-progress-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-gray); margin-bottom: 5px; }
+.sp-progress-track { height: 8px; border-radius: 5px; background: var(--box-bg-subtle); overflow: hidden; }
+.sp-progress-fill {
+    height: 100%; border-radius: 5px;
+    background: linear-gradient(90deg, var(--primary-blue), #6fb8e8);
+    transition: width .4s cubic-bezier(.22,1,.36,1);
+}
+@media (max-width: 640px) {
+    .quiz-streak-panel { grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 14px; }
+    .sp-progress { grid-column: 1 / -1; }
+}
+
+/* ============ 记忆数据看板（零依赖 SVG） ============ */
+.mc-svg { width: 100%; height: auto; display: block; }
+.mc-grid { stroke: var(--border-color); stroke-width: 1; opacity: .55; }
+.mc-axis { fill: var(--text-gray); font-size: 11px; }
+.mc-bar { opacity: .9; transition: opacity .15s ease; }
+.mc-bar:hover { opacity: 1; }
+.mc-line { stroke: var(--primary-blue); stroke-width: 2.2; }
+.mc-area { fill: var(--primary-blue); opacity: .14; }
+.mc-target-line { stroke: #e8a33d; stroke-width: 1.6; }
+/* 遗忘曲线（可滚动） */
+.mc-curve-area { fill: var(--primary-blue); opacity: .12; }
+.mc-curve-line { fill: none; stroke: var(--primary-blue); stroke-width: 2.2; }
+.mc-eb-line { stroke: var(--primary-blue); stroke-width: 1; stroke-dasharray: 3 4; opacity: .45; }
+.mc-eb-lbl { fill: var(--primary-blue); font-size: 10.5px; font-weight: 600; }
+.mc-ring-bg { stroke: var(--box-bg-subtle); }
+.mc-ring-fg { stroke: var(--primary-blue); transition: stroke-dashoffset .8s cubic-bezier(.22,1,.36,1); }
+.mc-ring-num { fill: var(--text-dark); font-size: 30px; font-weight: 800; }
+.mc-ring-cap { fill: var(--text-gray); font-size: 13px; }
+.mc-ring-host { display: flex; align-items: center; justify-content: center; }
+.mc-ring-svg { width: 190px; height: 190px; max-width: 100%; }
+
+.md-board { padding: 22px; border-radius: var(--radius-lg); }
+.md-title { margin: 0 0 16px; font-size: 19px; color: var(--text-dark); }
+.md-card {
+    border: 1px solid var(--border-color); border-radius: var(--radius-md);
+    padding: 14px 16px; margin-bottom: 16px; background: var(--bg-white);
+}
+.md-card h4 { margin: 0 0 10px; font-size: 15px; color: var(--text-dark); }
+.md-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.md-card-head h4 { margin: 0; }
+.md-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+.md-row-rr { grid-template-columns: 1fr 1.6fr; }
+.md-row .md-card { margin-bottom: 16px; min-width: 0; }
+.md-retention-card { display: flex; flex-direction: column; }
+.md-toggle { display: inline-flex; border: 1px solid var(--border-color); border-radius: 7px; overflow: hidden; }
+.md-toggle-btn { border: none; background: transparent; padding: 5px 14px; font-size: 12.5px; color: var(--text-gray); cursor: pointer; }
+.md-toggle-btn.is-active { background: var(--primary-blue); color: #fff; }
+@media (max-width: 760px) { .md-row, .md-row-rr { grid-template-columns: 1fr; } }
+
+/* 每日练习折线（按月查看 + 横向拖动） */
+.md-head-tools { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.md-month { display: inline-flex; align-items: center; gap: 6px; }
+.md-month-btn {
+    width: 26px; height: 26px; border: 1px solid var(--border-color); background: transparent;
+    border-radius: 6px; color: var(--text-dark); cursor: pointer; font-size: 15px; line-height: 1; padding: 0;
+}
+.md-month-btn:disabled { opacity: .4; cursor: not-allowed; }
+.md-month-name { font-size: 13px; color: var(--text-dark); min-width: 92px; text-align: center; }
+.md-line-wrap {
+    display: flex; align-items: stretch;
+    border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden;
+}
+.mc-lc-y { flex: 0 0 44px; width: 44px; background: var(--bg-white); border-right: 1px solid var(--border-color); }
+.md-scroll { flex: 1; overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-width: thin; }
+.md-scroll.is-dragging { cursor: grabbing; user-select: none; }
+.mc-lc-svg { display: block; max-width: none; }
+.mc-day-lbl { fill: var(--text-gray); font-size: 10.5px; }
+.mc-day-month { fill: var(--text-dark); font-weight: 700; }
+.mc-daily-line { stroke: var(--primary-blue); stroke-width: 2; fill: none; }
+.mc-pt { fill: var(--primary-blue); stroke: var(--bg-white); stroke-width: 1.5; cursor: pointer; }
+.mc-pt-today { fill: var(--accent-green); }
+.mc-pt:hover { r: 7; }
+.mc-today-line { stroke: var(--accent-green); stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; }
+.md-scroll-hint { margin: 8px 2px 0; font-size: 11.5px; color: var(--text-gray); }
+
+/* 到期词分布（全宽柱状） */
+.mc-due-bar { fill: var(--accent-soft, #7cd9a3); cursor: pointer; transition: fill .13s ease; }
+.mc-due-bar:hover { fill: var(--primary-blue); }
+.mc-due-val { fill: var(--text-dark); font-size: 11px; font-weight: 600; }
+.mc-due-lbl { fill: var(--text-gray); font-size: 11px; }
+.mc-due-date { fill: var(--text-dark); font-size: 10.5px; }
+
+/* 图表悬浮提示（明暗主题通用深色气泡） */
+.mc-tip {
+    position: fixed; z-index: 10060; pointer-events: none;
+    max-width: 260px; padding: 7px 11px;
+    background: rgba(28, 32, 40, .96); color: #fff;
+    border: 1px solid rgba(255, 255, 255, .14); border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; line-height: 1.45; white-space: nowrap;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .32);
+    opacity: 0; transform: translateY(3px);
+    transition: opacity .12s ease, transform .12s ease;
+}
+.mc-tip.is-show { opacity: 1; transform: translateY(0); }
+@media (max-width: 640px) {
+    .md-card-head { align-items: flex-start; }
+    .md-head-tools { width: 100%; justify-content: space-between; }
+}

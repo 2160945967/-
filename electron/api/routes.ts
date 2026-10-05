@@ -1983,19 +1983,29 @@ export function setupRoutes(app: any) {
   const BACKUPS_DIR = path.join(USER_DATA_DIR, 'backups');
   const BACKUP_KEEP = 10;
 
-  function backupStamp(): string {
+  // 普通人可读的备份文件名：拾词备份_2026-10-05_18-53-43.json；同秒多次则追加 _2、_3
+  function backupReadableName(): string {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, '0');
-    const p3 = (n: number) => String(n).padStart(3, '0');
-    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.${p3(d.getMilliseconds())}`;
+    const base = `拾词备份_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+    let name = `${base}.json`;
+    let i = 2;
+    while (fs.existsSync(path.join(BACKUPS_DIR, name))) {
+      name = `${base}_${i}.json`;
+      i++;
+    }
+    return name;
   }
   function safeBackupName(name: string): string | null {
-    return /^[\w.\-]+\.json$/.test(name) ? name : null;
+    return /^[\w.\-\u4e00-\u9fa5]+\.json$/.test(name) ? name : null;
+  }
+  function isBackupFile(f: string): boolean {
+    return f.endsWith('.json') && (f.startsWith('拾词备份_') || f.startsWith('auto-'));
   }
   function pruneAutoBackups(): void {
     try {
       const old = fs.readdirSync(BACKUPS_DIR)
-        .filter(f => f.startsWith('auto-') && f.endsWith('.json'))
+        .filter(f => isBackupFile(f))
         .map(f => ({ f, t: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs }))
         .sort((a, b) => b.t - a.t)
         .slice(BACKUP_KEEP);
@@ -2016,7 +2026,7 @@ export function setupRoutes(app: any) {
         const wb = loadWordbooks();
         if (wb && Object.keys(wb).length) body.data.wordbooks = JSON.stringify(wb);
       } catch {}
-      const file = path.join(BACKUPS_DIR, `auto-${backupStamp()}.json`);
+      const file = path.join(BACKUPS_DIR, backupReadableName());
       fs.writeFileSync(file + '.tmp', JSON.stringify(body), 'utf-8');
       fs.renameSync(file + '.tmp', file);
       pruneAutoBackups();
@@ -2030,7 +2040,7 @@ export function setupRoutes(app: any) {
     try {
       ensureDirExists(BACKUPS_DIR);
       const items = fs.readdirSync(BACKUPS_DIR)
-        .filter(f => f.endsWith('.json'))
+        .filter(f => isBackupFile(f))
         .map(f => {
           const st = fs.statSync(path.join(BACKUPS_DIR, f));
           return { name: f, size: st.size, mtime: st.mtime.toISOString() };

@@ -17,11 +17,11 @@ import {
 } from './global';
 
 import { initSearch, searchWord, initKeyboardShortcuts, translateText, showSearchHistory, removeFromSearchHistory, refreshResultWordbookSelector } from './modules/dictionary';
-import { initQuiz, showLearningHistory, toggleHistoryDay, toggleDueWords, showDueWordsCondition, removeDueWord, toggleHistoryPanel, cleanupShowAnswerEnterHandler } from './modules/quiz';
+import { initQuiz, showLearningHistory, toggleHistoryDay, toggleDueWords, showDueWordsCondition, removeDueWord, toggleHistoryPanel, cleanupShowAnswerEnterHandler, updateStreakPanel } from './modules/quiz';
 import { initWordbookManagement, loadWordbooks, abortLoadWordbooks, abortWordbookRendering, saveWordbookScroll, restoreWordbookScroll, renameWordbook, updateSelectedWordbookDisplay, updateWordbookSelect } from './modules/wordbook';
 import { initSettings, startSettingsPolling, stopSettingsPolling } from './modules/settings';
 import { initBackupUI, initAutoBackup } from './utils/backup';
-import { initStudyStats } from './modules/stats';
+import { initStudyStats, renderStatOverview } from './modules/stats';
 import { initStudyTimer, startStudyTimer, stopStudyTimer, recordActivity } from './modules/timer';
 import { initReviewQuiz } from './modules/review';
 import { updateFavoritesDisplay, removeFromFavorites, setFavoritesFilter, setFavoritesSort } from './modules/favorites';
@@ -32,6 +32,8 @@ import { playPronunciation, playSentencePronunciation, setAppState } from './uti
 import { initGsapAnimations, setupGsapGlobal } from './utils/gsap';
 import { initBookPicker } from './modules/bookPicker';
 import { initExam } from './modules/exam';
+import { initGradeModal } from './modules/gradeModal';
+import { initMemoryDashboard, refreshMemoryDashboard } from './utils/charts';
 import { warmupStructuredBook } from './utils/structuredBook';
 import { initPopupSelects } from './utils/popupSelect';
 import { initErrorReport } from './utils/errorReport';
@@ -118,6 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (page === 'settings') {
             startSettingsPolling();
         }
+        // 进入测验页刷新激励面板，进入统计页刷新数据概览与记忆看板（保证数据最新）
+        if (page === 'quiz') updateStreakPanel();
+        if (page === 'statistics') { renderStatOverview(); refreshMemoryDashboard(); }
         recordActivity();
     };
     pageHandlers.onPageLeave = (page: string) => {
@@ -226,6 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 19. 初始化使用说明弹窗
     initUsageGuide();
+
+    // 21. 复习页「记忆数据看板」
+    initMemoryDashboard();
+    // 22. 测验页激励面板（连胜 / 保护卡 / 今日进度）
+    updateStreakPanel();
+    // 23. 首次进入学段选择弹窗（内部依据标记判断是否需要弹出）
+    initGradeModal();
 
     // 20. 启动始终停在词典首页，不恢复上次访问的页面
 

@@ -36,11 +36,6 @@
 </head>
 <body>
     <div id="bg-under" aria-hidden="true"></div>
-    <div id="bg-over" aria-hidden="true"></div>
-    <div id="ripple-layer-1" class="theme-ripple" aria-hidden="true"></div>
-    <div id="ripple-layer-2" class="theme-ripple" aria-hidden="true"></div>
-    <div id="ripple-layer-3" class="theme-ripple" aria-hidden="true"></div>
-    <div id="theme-mask" aria-hidden="true"></div>
 
     <!-- 侧边栏 -->
     <div class="sidebar" id="sidebar">
@@ -149,6 +144,9 @@
                         <a href="#" class="nav-link" data-section="exam">模拟题</a>
                     </li>
                     <li class="nav-item">
+                        <a href="#" class="nav-link" data-section="statistics">统计</a>
+                    </li>
+                    <li class="nav-item">
                         <a href="#" class="nav-link" data-section="settings">设置</a>
                     </li>
                 </ul>
@@ -240,6 +238,7 @@
 
                 <div id="quiz-answer-area">
                     <div id="quiz-container">
+                        <div id="quiz-streak-panel" class="quiz-streak-panel"></div>
                         <div id="quiz-progress" class="quiz-progress-bar" style="display:none;">
                             <div class="quiz-progress-track">
                                 <div class="quiz-progress-fill" id="quiz-progress-fill"></div>
@@ -519,6 +518,13 @@
 
             <div id="exam-page" class="content-page"></div>
 
+            <!-- 统计页：学习数据概览 + 记忆数据看板 -->
+            <div id="statistics-page" class="content-page">
+                <h1>学习统计</h1>
+                <div class="stat-overview" id="stat-overview"></div>
+                <div id="memory-dashboard" style="margin-top: 10px;"></div>
+            </div>
+
             <div id="settings-page" class="content-page">
                 <h1>设置</h1>
 
@@ -563,6 +569,35 @@
                             <input type="checkbox" id="include-derivations"> 词书附带练习派生词
                         </label>
                         <span class="setting-desc">仅对《英语四级·你还在背单词吗》生效：开启后每个主词的派生词（如 space → spacious、spatial）作为独立单词紧跟主词进入练习；全本去重后 4499 个主词 + 1528 个派生词 = 共 6027 词</span>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="grade-level">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="grade-level">学习类别：</label>
+                        <select id="grade-level">
+                            <option value="xx">小学</option>
+                            <option value="zk">中考</option>
+                            <option value="gk">高考</option>
+                            <option value="cet4">四级</option>
+                            <option value="cet6">六级</option>
+                            <option value="tem4">专四</option>
+                            <option value="tem8">专八</option>
+                            <option value="ky">考研</option>
+                            <option value="toefl">托福</option>
+                            <option value="ielts">雅思</option>
+                            <option value="gre">GRE</option>
+                        </select>
+                        <span class="setting-desc">首次进入时选择；与侧边栏学习类别同步，决定默认词库与难度，可随时在此修改</span>
+                    </div>
+
+                    <div class="setting-item" draggable="true" data-setting-key="scheduler-algo">
+                        <span class="drag-handle" title="拖动排序">⋮⋮</span>
+                        <label for="scheduler-algo">复习调度算法：</label>
+                        <select id="scheduler-algo">
+                            <option value="ebbinghaus">固定艾宾浩斯间隔</option>
+                            <option value="fsrs">ts-fsrs 智能调度</option>
+                        </select>
+                        <span class="setting-desc">艾宾浩斯按 1/2/4/7/15/30/60/90 天固定安排；FSRS 依据每次评分动态预测到期时间，公开基准显示同等记忆量下复习次数更少。切换不丢失历史</span>
                     </div>
 
                     <div class="setting-item" draggable="true" data-setting-key="answer-key">
@@ -908,6 +943,50 @@
 </div>
 </script>
 
+    <!-- 首次进入：学段选择弹窗 -->
+    <div id="grade-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="grade-modal-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10050; justify-content: center; align-items: center;">
+        <div class="modal-content glass grade-modal-content">
+            <h2 class="modal-title" id="grade-modal-title">选择你的学习类别</h2>
+            <p class="grade-modal-sub">选择学习类别可获得更贴合的默认词库与难度；之后可随时在侧边栏或「设置」中修改。</p>
+            <div class="grade-options grade-options-grid">
+                <button type="button" class="grade-option" data-category="xx">
+                    <span class="grade-emoji">🧒</span><span class="grade-name">小学</span>
+                </button>
+                <button type="button" class="grade-option" data-category="zk">
+                    <span class="grade-emoji">📝</span><span class="grade-name">中考</span>
+                </button>
+                <button type="button" class="grade-option" data-category="gk">
+                    <span class="grade-emoji">🎓</span><span class="grade-name">高考</span>
+                </button>
+                <button type="button" class="grade-option" data-category="cet4">
+                    <span class="grade-emoji">📘</span><span class="grade-name">四级</span>
+                </button>
+                <button type="button" class="grade-option" data-category="cet6">
+                    <span class="grade-emoji">📗</span><span class="grade-name">六级</span>
+                </button>
+                <button type="button" class="grade-option" data-category="tem4">
+                    <span class="grade-emoji">📙</span><span class="grade-name">专四</span>
+                </button>
+                <button type="button" class="grade-option" data-category="tem8">
+                    <span class="grade-emoji">📕</span><span class="grade-name">专八</span>
+                </button>
+                <button type="button" class="grade-option" data-category="ky">
+                    <span class="grade-emoji">🎯</span><span class="grade-name">考研</span>
+                </button>
+                <button type="button" class="grade-option" data-category="toefl">
+                    <span class="grade-emoji">🌎</span><span class="grade-name">托福</span>
+                </button>
+                <button type="button" class="grade-option" data-category="ielts">
+                    <span class="grade-emoji">🇬🇧</span><span class="grade-name">雅思</span>
+                </button>
+                <button type="button" class="grade-option" data-category="gre">
+                    <span class="grade-emoji">🔤</span><span class="grade-name">GRE</span>
+                </button>
+            </div>
+            <button type="button" id="grade-skip" class="grade-skip">跳过，默认使用小学</button>
+        </div>
+    </div>
+
     <div id="ebbinghaus-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ebbinghaus-title" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
         <div class="modal-content glass" style="padding: 30px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -1084,6 +1163,7 @@
                     <button class="usage-tab" data-tab="errorbook">❌ 错题本</button>
                     <button class="usage-tab" data-tab="review">🔄 复习模式</button>
                     <button class="usage-tab" data-tab="exam">🎧 模拟题</button>
+                    <button class="usage-tab" data-tab="statistics">📈 统计</button>
                     <button class="usage-tab" data-tab="settings">⚙️ 设置</button>
                     <button class="usage-tab" data-tab="sidebar">📊 侧边栏</button>
                     <button class="usage-tab" data-tab="shortcuts">⌨️ 快捷键</button>
@@ -1133,6 +1213,7 @@
                         </ul>
                         <p><strong>测验设置：</strong>可设置测验个数（1-100）和出题顺序（随机/顺序），各设置项支持拖拽排序。选择四级词书后，可在选书窗口底部切换「顺序 / 乱序」：顺序按单元、课程、词群的原始排列出题，乱序则随机打乱；该选择会自动记住。</p>
                         <p><strong>艾宾浩斯遗忘曲线：</strong>启用后系统根据遗忘规律安排复习，答错的单词会在特定时间点重复出现。</p>
+                        <p><strong>连胜与每日目标：</strong>测验页顶部显示 🔥 连续学习天数、🧊 保护卡数量与今日目标进度。每天完成「每日学习单词数」即达成目标并累积连胜；达成 3 / 7 / 30 / 100 / 365 天里程碑会奖励保护卡。若中断一天，保护卡会自动消耗一张补上连胜。</p>
                     </div>
                     <!-- 单词本 -->
                     <div class="usage-section" data-section="wordbook">
@@ -1186,6 +1267,7 @@
                             <li>答错的单词缩短复习间隔，加强记忆。</li>
                             <li>可在侧边栏查看「明日学习单词数」。</li>
                         </ul>
+                        <p><strong>记忆数据看板：</strong>复习页底部以图表展示每日练习折线（X 轴为日期、Y 轴为当日单词数，各点用直线连接，没学的日子记 0；可切换「学习时长」）、到期词分布、答题留存率与遗忘曲线。每日练习按月长期保留，用 ‹ › 切换月份，按住图表左右拖动可查看月内日期；到期词分布与遗忘曲线也可按住拖动横向查看，遗忘曲线覆盖 0~90 天、按程序实际遗忘公式绘制，竖线标出艾宾浩斯复习节点（1/2/4/7/15/30/60/90 天），橙色虚线为目标记忆率。</p>
                     </div>
                     <!-- 模拟题 -->
                     <div class="usage-section" data-section="exam">
@@ -1195,14 +1277,39 @@
                             <li><strong>听力（仅四级）：</strong>100 套完整模拟，每套含新闻、长对话、短文共 25 题，配原声音频（0.7–1.5 倍共九档调速；答题阶段只能顺序播放，不能拖动或回退进度，交卷后可自由回听）、听力原文、参考答案与四级核心词。</li>
                             <li><strong>阅读理解：</strong>共 399 篇，已按难度分开——四级 199 篇、六级 200 篇；每篇 5 题，含全文翻译、题目翻译、答案解析与四级核心词。</li>
                         </ul>
-                        <p><strong>做题流程：</strong></p>
+                        <p><strong>阅读三阶段（先读后做）：</strong></p>
                         <ul>
-                            <li>先作答全部题目（交卷前可随时修改），全部答完后点击「交卷并判分」，系统自动判分，标出每道题的对错、正确答案并给出正确率。</li>
-                            <li>交卷后可按需展开「显示答案与解析」「显示中文翻译」（听力为「查看听力原文」），也可「重新做一遍」。</li>
+                            <li><strong>阶段 1 · 注释阅读：</strong>正文标注生词注释、<span class="ex-target-eg">高亮本篇四级核心词</span>，任意单词可点击或悬浮查词；可先通读文章，也可直接点「确认选这篇，开始答题」。</li>
+                            <li><strong>阶段 2 · 作答：</strong>核心词注释已隐藏（超纲词注释保留以帮助理解），据理解作答，交卷前可随时修改。</li>
+                            <li><strong>阶段 3 · 无注释回看：</strong>交卷后自动进入，注释全部隐藏，题目着对错色，可对照解析与翻译复习。</li>
+                        </ul>
+                        <p><strong>判分与复习：</strong></p>
+                        <ul>
+                            <li>全部答完后点击「交卷并判分」，系统自动判分，标出每道题的对错、正确答案并给出正确率；做过的篇目 / 套卷在列表序号圆圈标绿。</li>
+                            <li>交卷后可按需展开「显示答案与解析」「显示中文翻译」（听力为「查看听力原文」，原文同样高亮核心词），也可「重新做一遍」。</li>
                             <li>下方列出本篇 / 本套的「四级核心词」，点击任意词可直接跳转词典，查看音标、释义、词根并发音。</li>
                             <li>列表支持上一篇 / 下一篇（套）、随机一篇（套）以及按编号跳转。</li>
+                            <li>题库列表中，<strong>左键</strong>点击题目为重新做题，<strong>右键</strong>点击题目查看上次答题情况（直接恢复到交卷后的对错与解析，便于复习）。</li>
+                        </ul>
+                        <p><strong>模拟模式（限时模拟真实考试）：</strong></p>
+                        <ul>
+                            <li>在模拟题首页勾选「模拟模式」并设置阅读限时（默认 10 分钟，按一篇约 10 分钟设定）。阅读在你点「开始答题」后开始倒计时（阅读文章阶段不计时），答题区显示剩余时间，最后 1 分钟变红提醒，时间到自动交卷（未答完的题判错）。</li>
+                            <li>听力开启模拟模式后，音频播放结束会立即自动交卷。</li>
                         </ul>
                         <p><strong>资源提示：</strong>听力音频体积较大，默认不随安装包内置。若某套显示「未检测到音频」，将 <code>CET4_Listening_Bank</code> 放入 <code>resource/模拟题</code> 目录或安装听力资源包即可；音频缺失时题目与原文仍可正常练习。</p>
+                    </div>
+                    <!-- 统计 -->
+                    <div class="usage-section" data-section="statistics">
+                        <h3 style="margin-top: 0;">📈 学习统计</h3>
+                        <p>顶部导航点「统计」进入，集中查看学习数据与记忆图表。</p>
+                        <p><strong>数据概览：</strong>顶部 8 张卡片展示总学习单词数、查词总数、学习天数、今日学习单词、错题数、明日计划、今日 / 累计学习时长。</p>
+                        <p><strong>记忆数据看板：</strong></p>
+                        <ul>
+                            <li><strong>每日练习折线：</strong>横轴为日期、纵轴为当日所学单词数（可切换为学习时长），每天一个点、点间连线，未学习的日子记为 0；数据按月保留，用 ‹ › 切换月份，也可按住图表左右拖动查看月内日期。把鼠标停在某个点上，会弹出该日期的详细数据（如「4分46秒」）。</li>
+                            <li><strong>到期词分布：</strong>按「已逾期 / 今天 / 明天 / 2-3 天 / 4-7 天 / 7 天后」展示待复习单词数量；鼠标停在柱子上可查看该区间的具体日期与单词数。</li>
+                            <li><strong>答题留存率：</strong>环形显示答对 / 答错比例。</li>
+                            <li><strong>遗忘曲线：</strong>展示 0~90 天的回忆概率变化，竖线标出艾宾浩斯复习节点，橙色虚线为目标记忆率；可左右拖动查看完整曲线。</li>
+                        </ul>
                     </div>
                     <!-- 设置 -->
                     <div class="usage-section" data-section="settings">
@@ -1217,11 +1324,12 @@
                             <li><strong>错题答对次数：</strong>连续答对几次后自动移出错题本。</li>
                             <li><strong>多词性/同词性概率：</strong>调整测验中多词性单词和同词性单词的出现比例。</li>
                             <li><strong>查词历史数量：</strong>设置保存的查词历史条数。</li>
-                            <li><strong>艾宾浩斯遗忘曲线：</strong>开启/关闭智能复习功能。</li>
+                            <li><strong>复习调度算法：</strong>可选固定「艾宾浩斯」间隔，或启用「FSRS」（有公开实验支撑的自适应间隔算法，在记忆更牢的同时减少复习次数）；切换不丢失学习历史。</li>
+                            <li><strong>学习类别：</strong>首次进入时选择（小学 / 中考 / 高考 / 四级 / 六级 / 专四 / 专八 / 考研 / 托福 / 雅思 / GRE），与侧边栏学习类别同步，决定默认词库与难度；可在此修改。</li>
                             <li><strong>API设置：</strong>可配置自定义腾讯云翻译API密钥，留空使用默认密钥。</li>
                             <li><strong>每日学习单词数：</strong>设置每日新学单词目标。</li>
                             <li><strong>数据资源管理：</strong>管理词库、例句库、语音识别模型、离线发音包的下载和删除。</li>
-                            <li><strong>数据备份与恢复：</strong>可手动导出 / 导入全部学习数据；默认开启磁盘自动备份（定时 + 退出前落盘，保留最近 10 份），可查看、恢复、下载或删除历史备份。</li>
+                            <li><strong>数据备份与恢复：</strong>可手动导出 / 导入全部学习数据；默认开启磁盘自动备份（定时 + 退出前落盘，保留最近 10 份），备份文件按「拾词备份_年-月-日_时-分-秒」命名，可查看、恢复、下载或删除历史备份。</li>
                         </ul>
                         <p><strong>清除数据：</strong>可清除本地存储数据、翻译缓存和音频缓存。</p>
                     </div>

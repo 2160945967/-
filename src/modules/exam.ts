@@ -52,17 +52,41 @@ let showTranslation = false;
 let showTranscript = false;
 let keywords: Keyword[] = [];
 let keywordsState: 'idle' | 'loading' | 'done' | 'error' = 'idle';
+// 阅读三阶段：1 注释阅读 → 2 作答 → 3 无注释回看
+let readingStage: 1 | 2 | 3 = 1;
+// 本篇 / 本套靶词（四级核心词）集合，小写；用于正文高亮与注释清洗
+let targetWords: Set<string> = new Set();
 
 // ---- 已交卷完成状态（持久化，用于列表序号圆圈标绿） ----
 const COMPLETED_KEY = 'examCompleted';
-function loadCompleted(): Record<string, boolean> {
-    try { return JSON.parse(localStorage.getItem(COMPLETED_KEY) || '{}') as Record<string, boolean>; }
+interface ExamRecord { done: true; answers: Record<number, string>; }
+type CompletedMap = Record<string, boolean | ExamRecord>;
+
+function loadCompleted(): CompletedMap {
+    try { return JSON.parse(localStorage.getItem(COMPLETED_KEY) || '{}') as CompletedMap; }
     catch { return {}; }
 }
-function isCompleted(key: string): boolean { return !!loadCompleted()[key]; }
-function markCompleted(key: string): void {
+function isCompleted(key: string): boolean {
+    const v = loadCompleted()[key];
+    return v === true || (!!v && typeof v === 'object' && (v as ExamRecord).done === true);
+}
+/** 交卷时保存答案，便于右键“查看上次答题情况” */
+function markCompleted(key: string, answers?: Record<number, string>): void {
     const m = loadCompleted();
-    if (!m[key]) { m[key] = true; localStorage.setItem(COMPLETED_KEY, JSON.stringify(m)); }
+    if (!isCompleted(key)) {
+        m[key] = answers ? { done: true, answers: { ...answers } } : true;
+        localStorage.setItem(COMPLETED_KEY, JSON.stringify(m));
+    } else if (answers) {
+        // 已完成但重做后再次交卷：更新答案
+        m[key] = { done: true, answers: { ...answers } };
+        localStorage.setItem(COMPLETED_KEY, JSON.stringify(m));
+    }
+}
+/** 读取某篇 / 套上次交卷的答案；无记录返回 null */
+function getSavedAnswers(key: string): Record<number, string> | null {
+    const v = loadCompleted()[key];
+    if (v && typeof v === 'object' && (v as ExamRecord).answers) return { ...(v as ExamRecord).answers };
+    return null;
 }
 function readingDoneKey(level: string, n: number | string): string { return `reading:${level}:${n}`; }
 function listeningDoneKey(id: string): string { return `listening:${id}`; }
@@ -103,18 +127,72 @@ function el(): HTMLElement {
 function esc(s: unknown): string {
     return escapeHtml(s == null ? '' : String(s));
 }
-// 把英文正文逐词包成“隐藏式”超链接：默认外观与正文一致，hover 高光，点击跳词典
+// 把英文正文逐词包成“隐藏式”超链接：默认外观与正文一致，hover 高光，点击跳词典；
+// 靶词（本篇四级核心词）额外加 ex-target 高亮。
 function linkifyEnglish(text: string): string {
     if (!text) return '';
     const parts = text.split(/([A-Za-z][A-Za-z'’\-]*)/g);
     return parts.map(p => {
         if (/^[A-Za-z][A-Za-z'’\-]*$/.test(p)) {
-            const w = p.replace(/[’]/g, "'");
-            return `<a class="ex-word" data-action="lookup-word" data-word="${esc(w)}">${esc(p)}</a>`;
+            return wordAnchor(p, targetWords.has(p.toLowerCase()));
         }
         return esc(p);
     }).join('');
 }
+
+// ---- 三阶段正文管线 ----
+// 括号注释：英文词 + 全角/半角括号内的中文释义
+const NOTE_RE = /([A-Za-z][A-Za-z'’\-]*)\s*[（(]([^）)]*)[）)]/g;
+
+/** 把一个英文词包成查词链接；靶词额外加 ex-target 高亮 */
+function wordAnchor(word: string, isTarget: boolean): string {
+    const w = word.replace(/[’]/g, "'");
+    return `<a class="ex-word${isTarget ? ' ex-target' : ''}" data-action="lookup-word" data-word="${esc(w)}">${esc(word)}</a>`;
+}
+
+/** 注释是否在某阶段显示：阶段1 全显示；阶段2 仅超纲词（非靶词）显示；阶段3 全隐藏 */
+function noteVisible(stage: 1 | 2 | 3, isTarget: boolean): boolean {
+    if (stage === 1) return true;
+    if (stage === 2) return !isTarget;
+    return false;
+}
+
+/**
+ * 统一正文转换：三阶段注释处理 + 靶词高亮 + 学习中即可悬浮查词。
+ * 普通文本走 linkifyEnglish；命中「词+括号注释」的词单独处理高亮与注释显隐。
+ */
+function processPassage(text: string, stage: 1 | 2 | 3): string {
+    if (!text) return '';
+    NOTE_RE.lastIndex = 0;
+    let out = '';
+    let last = 0;
+    let m: RegExpExecArray | null;
+    while ((m = NOTE_RE.exec(text))) {
+        out += linkifyEnglish(text.slice(last, m.index));
+        const word = m[1];
+        const note = m[2];
+        const isTarget = targetWords.has(word.toLowerCase());
+        out += wordAnchor(word, isTarget);
+        if (noteVisible(stage, isTarget)) {
+            out += `<span class="ex-inline-note">（${esc(note)}）</span>`;
+        }
+        last = NOTE_RE.lastIndex;
+    }
+    out += linkifyEnglish(text.slice(last));
+    return out;
+}
+
+/** 听力原文转换：保留括号（选项标记 / 说话人 / 舞台说明），靶词高亮 + 查词链接 */
+function processTranscript(text: string): string {
+    if (!text) return '';
+    return text.split(/([A-Za-z][A-Za-z'’\-]*)/g).map(p => {
+        if (/^[A-Za-z][A-Za-z'’\-]*$/.test(p)) {
+            return wordAnchor(p, targetWords.has(p.toLowerCase()));
+        }
+        return esc(p);
+    }).join('');
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
     const r = await fetch(url);
     if (!r.ok) throw new Error(`资源加载失败 (${r.status})`);
@@ -150,6 +228,7 @@ function correctCount(): number {
     return 0;
 }
 function resetAnswers(): void {
+    stopSimTimer();
     answers = {};
     submitted = false;
     showAnswers = false;
@@ -157,6 +236,15 @@ function resetAnswers(): void {
     showTranscript = false;
     keywords = [];
     keywordsState = 'idle';
+    readingStage = 1;
+    targetWords = new Set();
+}
+/** 恢复到上次交卷状态（右键“查看上次答题情况”） */
+function applyReviewState(saved: Record<number, string>): void {
+    resetAnswers();
+    answers = { ...saved };
+    submitted = true;
+    readingStage = 3;
 }
 
 // ---------------- 首页 ----------------
@@ -166,6 +254,17 @@ function renderHome(): void {
     <div class="ex-home">
       <h1>模拟题</h1>
       <p class="ex-home-sub">阅读理解按四级、六级分开；听力为四级完整模拟套卷。做题交卷后可查看翻译、答案解析、听力原文与四级核心词。</p>
+      <div class="ex-sim glass">
+        <label class="ex-sim-toggle">
+          <input type="checkbox" id="sim-mode-toggle" ${isSimMode() ? 'checked' : ''}>
+          <span><strong>模拟模式</strong> · 限时作答，模拟真实考试节奏</span>
+        </label>
+        <div class="ex-sim-duration">
+          阅读限时
+          <input type="number" id="sim-duration" min="5" max="180" step="5" value="${Math.round(simDurationSec() / 60)}">
+          分钟（点「开始答题」后倒计时，到点自动交卷）；听力开启后音频播放完立即自动交卷
+        </div>
+      </div>
       <div class="ex-cards">
         <div class="ex-card glass">
           <div class="ex-card-head">
@@ -294,17 +393,45 @@ function wrapList(title: string, meta: string, randomBtn: string, jumpId: string
         <label>跳转到第 <input type="number" id="${jumpId}" min="1" class="ex-jump-input"> 篇/套</label>
         <button class="btn ex-secondary" data-action="jump" data-target="${jumpId}">前往</button>
       </div>
+      <div class="ex-list-hint">左键点击题目重新做题 · 右键点击题目查看上次答题情况（用于复习）</div>
       <div class="ex-list-grid">${items}</div>
     </div>`;
 }
 
 // ---------------- 阅读做题页 ----------------
-async function openReading(pos: number): Promise<void> {
-    const f = readingCache[readingLevel];
-    if (!f) { await openReadingList(readingLevel); return; }
+async function openReading(pos: number, review: boolean = false): Promise<void> {
+    let f = readingCache[readingLevel];
+    if (!f) { await openReadingList(readingLevel); f = readingCache[readingLevel]; if (!f) return; }
     readingPos = Math.max(0, Math.min(pos, f.articles.length - 1));
-    resetAnswers();
+    const key = readingDoneKey(readingLevel, f.articles[readingPos].n);
+    if (review) {
+        const saved = getSavedAnswers(key);
+        if (saved) applyReviewState(saved); else resetAnswers();
+    } else {
+        resetAnswers();
+    }
     renderReading();
+    void ensureKeywords();
+    if (review && submitted) requestAnimationFrame(() => renderExtra());
+}
+
+function stageBannerHtml(stage: 1 | 2 | 3): string {
+    if (stage === 1) {
+        return `<div class="ex-stage-banner">
+          <span class="ex-stage-tag">阶段 1 · 注释阅读</span>
+          <p>正文已标注生词注释，并高亮本篇四级核心词；可点击任意单词查词。你可以先通读文章，也可直接开始答题。</p>
+        </div>`;
+    }
+    if (stage === 2) {
+        return `<div class="ex-stage-banner ex-stage-quiz">
+          <span class="ex-stage-tag">阶段 2 · 作答</span>
+          <p>核心词注释已隐藏，请根据对文章的理解作答；需要时仍可点击单词查词。</p>
+        </div>`;
+    }
+    return `<div class="ex-stage-banner ex-stage-done">
+      <span class="ex-stage-tag">阶段 3 · 无注释回看</span>
+      <p>已隐藏全部注释，可对照题目、解析与翻译复习本篇。</p>
+    </div>`;
 }
 
 function renderReading(): void {
@@ -312,29 +439,41 @@ function renderReading(): void {
     const f = readingCache[readingLevel];
     if (!f) return;
     const a = f.articles[readingPos];
+    const stage = readingStage;
+    const passage = `
+      <div class="ex-passage glass">
+        <h2 class="ex-passage-title">${esc(a.t)}</h2>
+        <div class="ex-word-hint">💡 点击任意单词可查看释义；<span class="ex-target-eg">高亮词</span>为本篇四级核心词</div>
+        ${stageBannerHtml(stage)}
+        ${a.p.map(para => `<p class="ex-passage-p">${processPassage(para, stage)}</p>`).join('')}
+        ${stage === 1
+            ? '<button type="button" class="btn ex-primary ex-stage-go" data-action="reading-start-quiz">确认选这篇，开始答题</button>'
+            : ''}
+      </div>`;
+    const quizArea = stage === 1
+        ? ''
+        : `<div class="ex-questions glass">
+             <h3>题目（共 ${a.q.length} 题）</h3>
+             ${isSimMode() && stage === 2 ? '<div class="ex-sim-bar"><span id="sim-countdown" class="ex-sim-clock">⏱ --:--</span><span class="ex-sim-note">模拟模式 · 到点自动交卷</span></div>' : ''}
+             ${a.q.map(q => questionHtml(q)).join('')}
+           </div>
+           ${submitBarHtml(a.q.length)}`;
     render(`
       <div class="ex-practice" data-kind="reading">
         ${topbarHtml(`${f.label} · 第 ${a.n} 篇`, readingPos > 0, readingPos < f.articles.length - 1)}
-        <div class="ex-passage glass">
-          <h2 class="ex-passage-title">${esc(a.t)}</h2>
-          ${submitted ? '<div class="ex-word-hint">💡 提示：将鼠标移到正文单词上，该词会高光，点击即可查看它的详细释义</div>' : ''}
-          ${a.p.map(para => `<p class="ex-passage-p">${submitted ? linkifyEnglish(para) : esc(para)}</p>`).join('')}
-        </div>
-        <div class="ex-questions glass">
-          <h3>题目（共 ${a.q.length} 题）</h3>
-          ${a.q.map(q => questionHtml(q)).join('')}
-        </div>
-        ${submitBarHtml(a.q.length)}
+        ${passage}
+        ${quizArea}
         <div id="ex-result"></div>
       </div>`);
 }
 
 // ---------------- 听力做题页 ----------------
-async function openListening(pos: number): Promise<void> {
+async function openListening(pos: number, review: boolean = false): Promise<void> {
     if (!listeningIndex) { await openListeningList(); return; }
     listeningPos = Math.max(0, Math.min(pos, listeningIndex.tests.length - 1));
     const meta = listeningIndex.tests[listeningPos];
-    resetAnswers();
+    const saved = review ? getSavedAnswers(listeningDoneKey(meta.id)) : null;
+    if (!review) resetAnswers();
     render('<div class="ex-loading">正在加载听力题目…</div>');
     try {
         let test = testCache[meta.id];
@@ -343,7 +482,10 @@ async function openListening(pos: number): Promise<void> {
             testCache[meta.id] = test;
         }
         currentTest = test;
+        if (saved) applyReviewState(saved);
         renderListening();
+        void ensureKeywords(); // 预加载本套靶词，供听力原文高亮
+        if (review && submitted) requestAnimationFrame(() => renderExtra());
     } catch (e) {
         console.error('加载听力套卷失败', e);
         renderError('听力套卷加载失败', '题目资源缺失，请重新运行 tools/exam/build_listening.py。');
@@ -387,6 +529,7 @@ function renderListening(): void {
         </div>
         <div class="ex-questions glass">
           <h3>题目（共 ${total} 题）</h3>
+          ${isSimMode() && !submitted ? '<div class="ex-sim-bar"><span class="ex-sim-clock">⏱ 模拟模式</span><span class="ex-sim-note">音频播放结束将自动交卷</span></div>' : ''}
           ${sectionsHtml}
         </div>
         ${submitBarHtml(total)}
@@ -403,6 +546,10 @@ function renderListening(): void {
         rateSel?.addEventListener('change', () => {
             const v = parseFloat(rateSel.value);
             if (Number.isFinite(v)) audio.playbackRate = v;
+        });
+        // 模拟模式：音频播放完立即自动交卷
+        audio.addEventListener('ended', () => {
+            if (isSimMode() && !submitted) submit(true);
         });
         if (!submitted) {
             // 答题阶段锁进度：只允许顺序播放，任何前进 / 回退拖动都弹回到已播放到的最大位置
@@ -585,45 +732,89 @@ function transcriptBlockHtml(): string {
     const html = test.transcript.map(b => `
       <div class="ex-tr-block">
         <h5>${esc(b.heading)}</h5>
-        ${b.paras.map(p => `<p>${linkifyEnglish(p)}</p>`).join('')}
+        ${b.paras.map(p => `<p>${processTranscript(p)}</p>`).join('')}
       </div>`).join('');
-    return `<div class="ex-block ex-transcript"><h4>听力原文</h4><div class="ex-word-hint">💡 提示：将鼠标移到原文单词上，该词会高光，点击即可查看它的详细释义</div>${html}</div>`;
+    return `<div class="ex-block ex-transcript"><h4>听力原文</h4><div class="ex-word-hint">💡 提示：<span class="ex-target-eg">高亮词</span>为本套四级核心词；点击任意单词可查看它的详细释义</div>${html}</div>`;
 }
 
-async function loadKeywords(): Promise<void> {
-    keywordsState = 'loading';
-    keywords = [];
+/**
+ * 加载本篇 / 本套核心词并建立靶词集合（targetWords）。
+ * 进入做题页即预加载（三阶段高亮 / 清洗都要用）；交卷后复用于附加区。
+ */
+async function ensureKeywords(): Promise<void> {
+    if (keywordsState === 'loading' || keywordsState === 'done') return;
     let url = '';
     if (view === 'reading') {
         const a = readingCache[readingLevel]!.articles[readingPos];
         url = `/api/exam/keywords?type=reading&level=${readingLevel}&n=${a.n}`;
-    } else if (currentTest) {
+    } else if (view === 'listening' && currentTest) {
         url = `/api/exam/keywords?type=listening&id=${currentTest.id}`;
-    }
+    } else return;
+
+    keywordsState = 'loading';
     try {
         const res = await apiGet<{ data: { keywords: Keyword[] } }>(url);
         keywords = (res && res.data && res.data.keywords) || [];
         keywordsState = 'done';
+        targetWords = new Set(keywords.map(k => (k.w || '').toLowerCase()).filter(Boolean));
     } catch (e) {
         console.error('核心词加载失败', e);
         keywordsState = 'error';
     }
-    if (submitted) {
-        renderExtra();
-        const host = document.getElementById('ex-extra');
-        host?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (view === 'reading') {
+        if (!submitted) renderReading();   // 补正文靶词高亮
+        else renderExtra();
+    } else if (view === 'listening' && submitted && showTranscript) {
+        renderExtra();                     // 听力原文补高亮
     }
 }
 
 // ---------------- 交卷 / 重做 ----------------
-function submit(): void {
-    if (answeredCount() < totalQuestions()) return;
+// ---------------- 模拟模式 ----------------
+const SIM_MODE_KEY = 'examSimMode';
+const SIM_DURATION_KEY = 'examSimDurationMin';
+function isSimMode(): boolean { return localStorage.getItem(SIM_MODE_KEY) === '1'; }
+function simDurationSec(): number {
+    const m = parseInt(localStorage.getItem(SIM_DURATION_KEY) || '10', 10);
+    return (Number.isFinite(m) && m >= 1 ? m : 10) * 60;
+}
+let simTimer: number | null = null;
+let simRemaining = 0;
+function stopSimTimer(): void {
+    if (simTimer !== null) { clearInterval(simTimer); simTimer = null; }
+}
+function startSimTimer(totalSec: number): void {
+    stopSimTimer();
+    simRemaining = Math.max(1, Math.round(totalSec));
+    renderSimTimer();
+    simTimer = window.setInterval(() => {
+        simRemaining--;
+        renderSimTimer();
+        if (simRemaining <= 0) {
+            stopSimTimer();
+            if (!submitted) submit(true);
+        }
+    }, 1000);
+}
+function renderSimTimer(): void {
+    const t = document.getElementById('sim-countdown');
+    if (!t) return;
+    const m = Math.floor(simRemaining / 60), s = simRemaining % 60;
+    t.textContent = `⏱ ${m}:${String(s).padStart(2, '0')}`;
+    t.classList.toggle('sim-urgent', simRemaining <= 60);
+}
+
+function submit(force: boolean = false): void {
+    if (!force && answeredCount() < totalQuestions()) return;
+    stopSimTimer();
     submitted = true;
     // 标记本篇 / 本套已完成（列表序号圆圈标绿）
     if (view === 'reading') {
-        markCompleted(readingDoneKey(readingLevel, readingCache[readingLevel]!.articles[readingPos].n));
+        readingStage = 3; // 交卷后进入「无注释回看」
+        markCompleted(readingDoneKey(readingLevel, readingCache[readingLevel]!.articles[readingPos].n), answers);
     } else if (currentTest) {
-        markCompleted(listeningDoneKey(currentTest.id));
+        markCompleted(listeningDoneKey(currentTest.id), answers);
     }
     // 重渲染整页（题目着对错色 + 交卷条变结果条）
     if (view === 'reading') renderReading();
@@ -631,7 +822,7 @@ function submit(): void {
     // 交卷后附加区挂在结果条内
     requestAnimationFrame(() => {
         renderExtra();
-        void loadKeywords();
+        void ensureKeywords(); // 已预加载则直接复用，否则加载后补渲染
         document.querySelector('.ex-result-bar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 }
@@ -715,6 +906,14 @@ async function onClick(e: MouseEvent): Promise<void> {
             if (view === 'reading') await openReading(readingPos + 1);
             else if (view === 'listening') await openListening(listeningPos + 1);
             break;
+        case 'reading-start-quiz':
+            readingStage = 2;
+            renderReading();
+            if (isSimMode()) startSimTimer(simDurationSec());
+            requestAnimationFrame(() => {
+                document.querySelector('.ex-questions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            break;
         case 'pick':
             onPick(node);
             break;
@@ -770,6 +969,25 @@ export function initExam(): void {
     renderHome();
     box.addEventListener('click', (e: MouseEvent) => {
         void onClick(e);
+    });
+    // 题库列表右键：查看上次答题情况（左键为重新做）
+    box.addEventListener('contextmenu', (e: MouseEvent) => {
+        const item = (e.target as HTMLElement).closest('.ex-list-item') as HTMLElement | null;
+        if (!item || !box.contains(item)) return;
+        e.preventDefault();
+        const pos = Number(item.dataset.pos);
+        if (item.dataset.action === 'open-reading') void openReading(pos, true);
+        else if (item.dataset.action === 'open-listening') void openListening(pos, true);
+    });
+    // 模拟模式设置持久化
+    box.addEventListener('change', (e: Event) => {
+        const t = e.target as HTMLElement;
+        if (t.id === 'sim-mode-toggle') {
+            localStorage.setItem(SIM_MODE_KEY, (t as HTMLInputElement).checked ? '1' : '0');
+        } else if (t.id === 'sim-duration') {
+            const v = parseInt((t as HTMLInputElement).value, 10);
+            if (Number.isFinite(v) && v >= 1) localStorage.setItem(SIM_DURATION_KEY, String(v));
+        }
     });
     // 隐藏式单词链接：hover 高光 + 随鼠标移动的查词提示框
     box.addEventListener('mousemove', (e: MouseEvent) => {

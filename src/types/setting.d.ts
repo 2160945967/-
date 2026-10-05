@@ -33,4 +33,8 @@ interface SettingsData {
   assistSpelling: boolean;
   // 词书派生词开关：开启后《英语四级·你还在背单词吗》每个主词的派生词作为独立词条一并练习
   includeDerivations: boolean;
+  // 学段（首次进入弹窗选择，可在设置页修改；影响默认词库与难度）
+  grade: GradeLevel;
+  // 复习调度算法：固定艾宾浩斯间隔（ebbinghaus）或 ts-fsrs 概率调度（fsrs）
+  scheduler: SchedulerAlgo;
 }

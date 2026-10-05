@@ -198,7 +198,9 @@ export function initScrollAnimations(): void {
                     gsapCore.fromTo(target,
                         { opacity: 0, y: 25 },
                         {
-                            opacity: 1, y: 0, duration: 0.42, ease: 'power2.out', clearProps: 'opacity, transform'
+                            opacity: 1, y: 0, duration: 0.42, ease: 'power2.out', clearProps: 'opacity, transform',
+                            // 被其他动画中断时也要复位，避免内联半透明 opacity 永久残留（卡片随机透明/缺块）
+                            onInterrupt: () => gsapCore.set(target, { opacity: 1, y: 0, clearProps: 'opacity, transform' })
                         }
                     );
                     observer.unobserve(target);
@@ -339,7 +341,7 @@ function pressDown(btn: HTMLElement): void {
         scale: 0.95,
         duration: 0.1,
         ease: 'power2.in',
-        overwrite: true
+        overwrite: 'auto'
     });
 }
 
@@ -350,7 +352,7 @@ function pressRelease(btn: HTMLElement): void {
         scale: 1,
         duration: 0.18,
         ease: 'back.out(2)',
-        overwrite: true,
+        overwrite: 'auto',
         onComplete: () => {
             btn.style.transform = '';
         }
@@ -364,7 +366,7 @@ function pressCancel(btn: HTMLElement): void {
         scale: 1,
         duration: 0.18,
         ease: 'power2.out',
-        overwrite: true,
+        overwrite: 'auto',
         onComplete: () => {
             btn.style.transform = '';
         }
@@ -412,25 +414,25 @@ export function initSearchBoxAnim(): void {
         input.addEventListener('focus', () => {
             const container = input.closest('.search-container');
             if (container) return;
-            gsapCore.to(input, { scale: 1.01, duration: 0.25, ease: 'power2.out', overwrite: true });
+            gsapCore.to(input, { scale: 1.01, duration: 0.25, ease: 'power2.out', overwrite: 'auto' });
         });
         input.addEventListener('blur', () => {
-            gsapCore.to(input, { scale: 1, duration: 0.25, ease: 'power2.out', overwrite: true });
+            gsapCore.to(input, { scale: 1, duration: 0.25, ease: 'power2.out', overwrite: 'auto' });
         });
     });
 
     const selects = document.querySelectorAll('select') as NodeListOf<HTMLElement>;
     selects.forEach(sel => {
         sel.addEventListener('focus', () => {
-            gsapCore.to(sel, { scale: 1.01, duration: 0.2, ease: 'power2.out', overwrite: true });
+            gsapCore.to(sel, { scale: 1.01, duration: 0.2, ease: 'power2.out', overwrite: 'auto' });
         });
         sel.addEventListener('blur', () => {
-            gsapCore.to(sel, { scale: 1, duration: 0.2, ease: 'power2.out', overwrite: true });
+            gsapCore.to(sel, { scale: 1, duration: 0.2, ease: 'power2.out', overwrite: 'auto' });
         });
         sel.addEventListener('change', () => {
             gsapCore.fromTo(sel,
                 { scale: 1.02 },
-                { scale: 1, duration: 0.3, ease: 'back.out(2)', overwrite: true }
+                { scale: 1, duration: 0.3, ease: 'back.out(2)', overwrite: 'auto' }
             );
         });
     });
@@ -440,10 +442,10 @@ export function initSearchBoxAnim(): void {
         const input = container.querySelector('input') as HTMLElement | null;
         if (!input) return;
         input.addEventListener('focus', () => {
-            gsapCore.to(container, { y: -2, duration: 0.3, ease: 'power2.out', overwrite: true });
+            gsapCore.to(container, { y: -2, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
         });
         input.addEventListener('blur', () => {
-            gsapCore.to(container, { y: 0, duration: 0.3, ease: 'power2.out', overwrite: true });
+            gsapCore.to(container, { y: 0, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
         });
     });
 }
@@ -476,7 +478,7 @@ export function initNavHoverAnim(): void {
                 y: -1,
                 duration: 0.2,
                 ease: 'power2.out',
-                overwrite: true
+                overwrite: 'auto'
             });
         });
         link.addEventListener('mouseleave', () => {
@@ -484,7 +486,7 @@ export function initNavHoverAnim(): void {
                 y: 0,
                 duration: 0.2,
                 ease: 'power2.out',
-                overwrite: true
+                overwrite: 'auto'
             });
         });
     });
@@ -500,7 +502,7 @@ export function initStatItemAnim(): void {
                 x: 6,
                 duration: 0.3,
                 ease: 'back.out(2)',
-                overwrite: true
+                overwrite: 'auto'
             });
         });
         item.addEventListener('mouseleave', () => {
@@ -508,7 +510,7 @@ export function initStatItemAnim(): void {
                 x: 0,
                 duration: 0.3,
                 ease: 'power2.out',
-                overwrite: true
+                overwrite: 'auto'
             });
         });
     });
@@ -524,7 +526,7 @@ export function initFilterBtnAnim(): void {
         if (!btn) return;
         gsapCore.fromTo(btn,
             { scale: 0.9 },
-            { scale: 1, duration: 0.35, ease: 'back.out(2.5)', overwrite: true }
+            { scale: 1, duration: 0.35, ease: 'back.out(2.5)', overwrite: 'auto' }
         );
     }, true);
 }
@@ -557,7 +559,7 @@ export function initSettingItemAnim(): void {
                 y: -2,
                 duration: 0.25,
                 ease: 'power2.out',
-                overwrite: true
+                overwrite: 'auto'
             });
         });
         item.addEventListener('mouseleave', () => {
@@ -565,7 +567,7 @@ export function initSettingItemAnim(): void {
                 y: 0,
                 duration: 0.25,
                 ease: 'power2.out',
-                overwrite: true
+                overwrite: 'auto'
             });
         });
     });
@@ -644,7 +646,7 @@ export function initThemeToggleAnim(): void {
     btn.addEventListener('click', () => {
         gsapCore.fromTo(btn,
             { rotation: 0 },
-            { rotation: 360, duration: 0.6, ease: 'power2.inOut', overwrite: true }
+            { rotation: 360, duration: 0.6, ease: 'power2.inOut', overwrite: 'auto' }
         );
     });
 }

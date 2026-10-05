@@ -2,7 +2,7 @@
 
 import { appState, hasChinese, openModal, closeModal, showAlert, showConfirm, switchPage } from '../global';
 import { showToast } from '../utils/gsap';
-import { PronunciationType, QuizMode, QuizOrder, WordSource } from '../types/enums';
+import { PronunciationType, QuizMode, QuizOrder, WordSource, GradeLevel, SchedulerAlgo } from '../types/enums';
 import { playPronunciation } from '../utils/audio';
 import { updateTomorrowWords, updateStudyStats } from './stats';
 import { updateWordbookSelect, updateSelectedWordbookDisplay } from './wordbook';
@@ -295,6 +295,8 @@ export function loadSettings(): void {
             soundEnabled: true,
             semanticSimilarityEnabled: true,
             includeDerivations: false,
+            grade: GradeLevel.Primary,
+            scheduler: SchedulerAlgo.Ebbinghaus,
             ...parsed
         });
     }
@@ -330,6 +332,14 @@ export function loadSettings(): void {
     if (showExampleInQuizLoad) showExampleInQuizLoad.checked = !!appState.settings.showExampleInQuiz;
     const includeDerivationsLoad = document.getElementById('include-derivations') as HTMLInputElement | null;
     if (includeDerivationsLoad) includeDerivationsLoad.checked = !!appState.settings.includeDerivations;
+    const gradeLevelSel = document.getElementById('grade-level') as HTMLSelectElement | null;
+    if (gradeLevelSel) {
+        // 与侧边栏学习类别（exam-category）保持一致
+        gradeLevelSel.value = localStorage.getItem('exam-category')
+            || (document.getElementById('exam-category') as HTMLSelectElement | null)?.value || 'xx';
+    }
+    const schedulerAlgoSel = document.getElementById('scheduler-algo') as HTMLSelectElement | null;
+    if (schedulerAlgoSel) schedulerAlgoSel.value = appState.settings.scheduler || SchedulerAlgo.Ebbinghaus;
     const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
     const playbackRateValue = document.getElementById('playback-rate-value');
     if (playbackRateSlider) {
@@ -444,6 +454,21 @@ export function saveSettings(): void {
     if (showExampleInQuizSave) appState.settings.showExampleInQuiz = showExampleInQuizSave.checked;
     const includeDerivationsSave = document.getElementById('include-derivations') as HTMLInputElement | null;
     if (includeDerivationsSave) appState.settings.includeDerivations = includeDerivationsSave.checked;
+    const gradeLevelSave = document.getElementById('grade-level') as HTMLSelectElement | null;
+    if (gradeLevelSave) {
+        const cat = gradeLevelSave.value;
+        // 同步侧边栏学习类别并持久化、触发联动
+        const examSel = document.getElementById('exam-category') as HTMLSelectElement | null;
+        if (examSel) { examSel.value = cat; examSel.dispatchEvent(new Event('change', { bubbles: true })); }
+        localStorage.setItem('exam-category', cat);
+        // 同步粗粒度 grade
+        appState.settings.grade = cat === 'xx' ? GradeLevel.Primary
+            : cat === 'zk' ? GradeLevel.Junior
+                : cat === 'gk' ? GradeLevel.Senior
+                    : GradeLevel.College;
+    }
+    const schedulerAlgoSave = document.getElementById('scheduler-algo') as HTMLSelectElement | null;
+    if (schedulerAlgoSave) appState.settings.scheduler = schedulerAlgoSave.value as SchedulerAlgo;
     const playbackRateSlider = document.getElementById('playback-rate') as HTMLInputElement;
     if (playbackRateSlider) {
         appState.settings.playbackRate = parseFloat(playbackRateSlider.value) || 1.0;

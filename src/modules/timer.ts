@@ -4,6 +4,7 @@
 
 import { appState } from '../store';
 import { formatDuration } from './stats';
+import { addStudySeconds, flushDailyLog } from '../utils/gamification';
 
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 let isRunning = false;
@@ -45,10 +46,12 @@ function tick(): void {
 
     appState.studyStats.todaySeconds = (appState.studyStats.todaySeconds || 0) + 1;
     appState.studyStats.totalSeconds = (appState.studyStats.totalSeconds || 0) + 1;
+    addStudySeconds(1);
     updateStudyTimerDisplay();
     // 每 10 秒持久化一次，避免频繁写 storage
     if (appState.studyStats.todaySeconds % 10 === 0) {
         localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
+        flushDailyLog();
     }
 }
 
@@ -80,6 +83,7 @@ export function stopStudyTimer(): void {
     }
     // 停止时持久化一次
     localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
+    flushDailyLog();
 }
 
 /** 用户活动事件监听（mousemove/keydown/click） */

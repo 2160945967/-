@@ -76,18 +76,19 @@ export function applyTheme(): void {
 }
 
 let lastThemeToggleAt = 0;
+let themeAnimating = false;
+
 export function toggleTheme(event?: MouseEvent): void {
     const themeBtn = document.getElementById('theme-toggle');
     if (!themeBtn) return;
     const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    // 双保险防连点：动画进行中（可见窗口）或距上次切换不足 480ms（后台标签 / reduced-motion /
-    // 不支持 View Transitions 时动画会被跳过、data-animating 提前释放）均忽略，避免主题来回横跳
-    if (themeBtn.getAttribute('data-animating') === '1' || nowMs - lastThemeToggleAt < 480) return;
+    // 防连点：揭示动画进行中或距上次切换不足 480ms 均忽略，避免主题来回横跳
+    if (themeAnimating || nowMs - lastThemeToggleAt < 480) return;
     lastThemeToggleAt = nowMs;
 
     const newDarkMode = !appState.isDarkMode;
 
-    // 圆形揭示圆心：优先点击坐标，否则取主题按钮中心，再兜底右上角
+    // 圆形扩散圆心：优先点击坐标，否则取主题按钮中心，再兜底右上角
     let x = window.innerWidth - 90;
     let y = 70;
     if (event && typeof event.clientX === 'number' && (event.clientX !== 0 || event.clientY !== 0)) {
@@ -97,61 +98,76 @@ export function toggleTheme(event?: MouseEvent): void {
         const r = themeBtn.getBoundingClientRect();
         if (r.width > 0) { x = r.left + r.width / 2; y = r.top + r.height / 2; }
     }
-    const maxRadius = Math.hypot(
+    const endRadius = Math.ceil(Math.hypot(
         Math.max(x, window.innerWidth - x),
         Math.max(y, window.innerHeight - y)
-    );
+    )) + 20;
 
-    const apply = (): void => {
+    // 读取新 / 旧底层背景：先清 #bg-under inline（防上次残留），临时禁用过渡切到新 class 读 computed，
+    // 再切回；同一同步任务、无中间绘制，用户看不到临时切换。
+    const root = document.documentElement;
+    const body = document.body;
+    const underEl = document.getElementById('bg-under');
+    if (underEl) underEl.style.backgroundImage = '';
+    const noTr = document.createElement('style');
+    noTr.textContent = '*,*::before,*::after{transition:none!important;animation:none!important}';
+    document.head.appendChild(noTr);
+    root.classList.toggle('dark-mode', newDarkMode);
+    body.classList.toggle('dark-mode', newDarkMode);
+    const newUnderImg = underEl ? getComputedStyle(underEl).backgroundImage : '';
+    root.classList.toggle('dark-mode', appState.isDarkMode);
+    body.classList.toggle('dark-mode', appState.isDarkMode);
+    const oldUnderImg = underEl ? getComputedStyle(underEl).backgroundImage : '';
+    noTr.remove();
+
+    const commit = (): void => {
         appState.isDarkMode = newDarkMode;
         localStorage.setItem('darkMode', String(newDarkMode));
         applyTheme();
     };
 
-    // Electron 28 / Chromium 120 起支持 View Transitions：浏览器对切换前后整页各拍一张快照，
-    // 仅对 ::view-transition-new(root) 这一个合成层做 clip-path 圆形扩散，
-    // 无需创建遮罩 DOM、无需读取上百个元素的布局，主线程零强制回流，动画流畅不抖动。
-    const startVT = (document as any).startViewTransition
-        ? (document as any).startViewTransition.bind(document)
-        : null;
-
-    if (!prefersReducedMotion() && typeof startVT === 'function') {
-        themeBtn.setAttribute('data-animating', '1');
-        let transition: any;
-        try {
-            transition = startVT(() => { apply(); });
-        } catch {
-            apply();
-            themeBtn.removeAttribute('data-animating');
-            return;
-        }
-        transition.ready
-            .then(() => document.documentElement.animate(
-                {
-                    clipPath: [
-                        `circle(0px at ${x}px ${y}px)`,
-                        `circle(${Math.ceil(maxRadius) + 20}px at ${x}px ${y}px)`,
-                    ],
-                },
-                {
-                    duration: 520,
-                    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-                    pseudoElement: '::view-transition-new(root)',
-                }
-            ).finished)
-            .catch(() => {})
-            .finally(() => themeBtn.removeAttribute('data-animating'));
+    // 开启“减少动态”：直接切换，不做扩散
+    if (prefersReducedMotion()) {
+        commit();
         return;
     }
 
-    // 兜底（无 View Transitions 或开启“减少动态”）：直接切换 + 极短淡入，不创建遮罩、不操作布局
-    apply();
-    if (!prefersReducedMotion()) {
-        document.documentElement.animate(
-            { opacity: [0.94, 1] },
-            { duration: 200, easing: 'ease-out' }
-        );
-    }
+    themeAnimating = true;
+
+    // #bg-under 用 inline 固定为旧背景，防止 commit 加 class 后底层整体直接变新色
+    if (underEl) underEl.style.backgroundImage = oldUnderImg;
+
+    // #bg-over：fixed、z-index -1（常驻 #bg-under(-2) 之上、所有容器之下），不遮挡任何文字
+    const over = document.createElement('div');
+    over.id = 'bg-over';
+    over.setAttribute('aria-hidden', 'true');
+    over.style.cssText =
+        'position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;' +
+        'pointer-events:none;background-repeat:no-repeat;';
+    over.style.backgroundImage = newUnderImg;
+    over.style.clipPath = `circle(0px at ${x}px ${y}px)`;
+    document.body.appendChild(over);
+
+    // 立即提交：容器 / 文字靠现有 CSS transition 平滑渐变、全程可见
+    commit();
+
+    const cleanup = (): void => {
+        // over 已 clip 覆盖全屏显示新背景；清 #bg-under inline 交还 CSS（与 over 一致、无缝），移除 over
+        if (underEl) underEl.style.backgroundImage = '';
+        over.remove();
+        themeAnimating = false;
+    };
+
+    // 底层背景圆形扩散（视口坐标，滚动无关）
+    over.animate(
+        {
+            clipPath: [
+                `circle(0px at ${x}px ${y}px)`,
+                `circle(${endRadius}px at ${x}px ${y}px)`,
+            ],
+        },
+        { duration: 560, easing: 'cubic-bezier(0.33, 1, 0.68, 1)', fill: 'forwards' }
+    ).finished.then(cleanup).catch(cleanup);
 }
 
 // HTML转义函数

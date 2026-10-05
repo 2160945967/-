@@ -135,11 +135,15 @@
 
 /* 交卷条 / 结果条（吸底） */
 .ex-submit-bar, .ex-result-bar {
-    position: sticky; bottom: 14px; z-index: 6; display: flex; align-items: center;
+    z-index: 6; display: flex; align-items: center;
     gap: 16px; flex-wrap: wrap; padding: 14px 22px; margin: 22px 0;
     border-radius: var(--radius-lg); border: 1px solid var(--border-color);
     background: var(--box-bg-strong); box-shadow: var(--shadow-md); backdrop-filter: blur(8px);
 }
+/* 未交卷的交卷条很矮，常驻视口底部方便随时交卷 */
+.ex-submit-bar { position: sticky; bottom: 14px; }
+/* 交卷后的结果条内含答案 / 翻译 / 核心词等高附加区，按正常文档流排列，避免吸附遮挡正文 */
+.ex-result-bar { position: static; align-items: flex-start; }
 .ex-progress { color: var(--text-dark); }
 .ex-progress strong { color: var(--primary-blue); font-size: 16px; }
 .ex-submit-bar .ex-primary { margin-left: auto; }
@@ -232,3 +236,80 @@ html.dark-mode .ex-word:hover { background: rgba(52, 152, 219, .28); color: #7cc
     box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
     transition: opacity .12s ease;
 }
+
+/* ---- 靶词（本篇 / 本套四级核心词）高亮 ---- */
+.ex-word.ex-target {
+    color: var(--primary-blue);
+    background: rgba(52, 152, 219, .12);
+    box-shadow: inset 0 -2px 0 rgba(52, 152, 219, .55);
+    font-weight: 600;
+}
+.ex-word.ex-target:hover { background: rgba(52, 152, 219, .26); }
+html.dark-mode .ex-word.ex-target {
+    color: #7cc1ea; background: rgba(52, 152, 219, .2);
+    box-shadow: inset 0 -2px 0 rgba(124, 193, 234, .6);
+}
+/* 提示语里的「高亮词」小示例 */
+.ex-target-eg {
+    color: var(--primary-blue); font-weight: 700;
+    background: rgba(52, 152, 219, .14); padding: 0 5px; border-radius: 4px;
+}
+
+/* ---- 模拟模式设置区（首页） ---- */
+.ex-sim {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px;
+    padding: 16px 20px; margin: 4px 0 22px; border-radius: 14px;
+}
+.ex-sim-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.ex-sim-toggle input { width: 17px; height: 17px; accent-color: var(--primary-blue); cursor: pointer; }
+.ex-sim-toggle span { font-size: 14px; color: var(--text-dark); }
+.ex-sim-duration { font-size: 13px; color: var(--text-gray); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ex-sim-duration input {
+    width: 72px; padding: 5px 8px; border: 1px solid var(--border-color);
+    border-radius: 8px; background: var(--bg-card); color: var(--text-dark);
+    font-size: 14px; text-align: center;
+}
+/* number 加减箭头：默认可点，暗色模式反色为浅色保证清晰（Electron/Chromium） */
+.ex-sim-duration input[type=number]::-webkit-inner-spin-button,
+.ex-sim-duration input[type=number]::-webkit-outer-spin-button {
+    opacity: .8; cursor: pointer;
+}
+html.dark-mode .ex-sim-duration input[type=number]::-webkit-inner-spin-button,
+html.dark-mode .ex-sim-duration input[type=number]::-webkit-outer-spin-button {
+    opacity: .9; filter: invert(1);
+}
+
+/* ---- 做题页倒计时条 ---- */
+.ex-sim-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 14px; margin: 4px 0 16px; border-radius: 10px;
+    background: rgba(231, 126, 34, .1); border: 1px solid rgba(231, 126, 34, .3);
+}
+.ex-sim-clock { font-size: 18px; font-weight: 700; color: #e67e22; font-variant-numeric: tabular-nums; }
+.ex-sim-note { font-size: 12.5px; color: var(--text-gray); }
+.ex-sim-clock.sim-urgent { color: #e74c3c; animation: simPulse 1s ease-in-out infinite; }
+@keyframes simPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* ---- 列表左右键提示 ---- */
+.ex-list-hint { font-size: 12.5px; color: var(--text-gray); margin: 4px 2px 12px; }
+
+/* ---- 正文内联注释（生词中文释义，浅色小字） ---- */
+.ex-inline-note {
+    color: var(--text-gray); font-size: .82em;
+    background: var(--box-bg-subtle); border-radius: 4px;
+    padding: 0 4px; margin: 0 1px; white-space: nowrap;
+}
+
+/* ---- 阅读三阶段提示横幅 ---- */
+.ex-stage-banner {
+    margin: 6px 0 14px; padding: 10px 14px;
+    border-left: 3px solid var(--primary-blue);
+    background: var(--box-bg-subtle); border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.ex-stage-banner.ex-stage-quiz { border-left-color: #e8a33d; }
+.ex-stage-banner.ex-stage-done { border-left-color: #4caf7d; }
+.ex-stage-tag { display: inline-block; font-weight: 700; font-size: 13px; color: var(--primary-blue); margin-bottom: 3px; }
+.ex-stage-quiz .ex-stage-tag { color: #c9842a; }
+.ex-stage-done .ex-stage-tag { color: #3d9a68; }
+.ex-stage-banner p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-gray); }
+.ex-stage-go { display: block; margin: 18px auto 4px; min-width: 220px; }

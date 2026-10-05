@@ -588,3 +588,75 @@ body.dark-mode .asset-progress-bar {
 @media (max-width: 640px) {
     .backup-item-actions { margin-left: 0; width: 100%; }
 }
+
+/* 小按钮：导出 / 导入 / 刷新 / 试听 / 备份项操作。用主题变量，暗色自动适配（替代原生白底） */
+.btn-small {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-dark);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+.btn-small:hover {
+    border-color: var(--primary-blue);
+    color: var(--primary-blue);
+    transform: translateY(-1px);
+}
+.btn-small:active { transform: translateY(0); }
+.btn-small[data-act="delete"]:hover { border-color: #ef4444; color: #ef4444; }
+
+/* range 滑块：强调色着色，暗色下未填充轨道不再发白 */
+input[type="range"] { accent-color: var(--primary-blue); cursor: pointer; }
+
+/* 统计页：顶部数据概览卡片 */
+.stat-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+    margin: 18px 0 8px;
+}
+.stat-ov-card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 18px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-white);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.stat-ov-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary-blue);
+    box-shadow: 0 10px 24px rgba(52, 152, 219, .16);
+}
+.stat-ov-val { font-size: 23px; font-weight: 800; color: var(--primary-blue); line-height: 1.1; }
+.stat-ov-lbl { font-size: 13px; color: var(--text-gray); }
+
+/* ---- 首次进入学段选择弹窗 ---- */
+.grade-modal-content { max-width: 480px; width: 90%; padding: 28px 26px; border-radius: var(--radius-modal); }
+.grade-modal-sub { font-size: 13.5px; color: var(--text-gray); line-height: 1.7; margin: 8px 0 20px; }
+.grade-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.grade-options-grid { grid-template-columns: repeat(3, 1fr); }
+.grade-option {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 18px 8px; border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-md); background: var(--bg-white);
+    cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.grade-option:hover, .grade-option:focus-visible {
+    border-color: var(--primary-blue); transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(52, 152, 219, .18); outline: none;
+}
+.grade-emoji { font-size: 30px; line-height: 1; }
+.grade-name { font-size: 14px; font-weight: 700; color: var(--text-dark); }
+.grade-skip {
+    display: block; margin: 18px auto 0; padding: 6px 14px;
+    border: none; background: transparent; color: var(--text-gray);
+    font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.grade-skip:hover { color: var(--primary-blue); }
+@media (max-width: 480px) { .grade-options { grid-template-columns: repeat(2, 1fr); } }

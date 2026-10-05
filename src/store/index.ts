@@ -7,6 +7,8 @@ import {
     WordSource,
     ContentType,
     PageSection,
+    GradeLevel,
+    SchedulerAlgo,
 } from '../types/enums';
 
 export type StorePath = (string | number)[];
@@ -88,6 +90,10 @@ export interface AppState {
         assistSpelling: boolean;
         // 词书派生词一并练习
         includeDerivations: boolean;
+        // 学段（首次进入弹窗选择）
+        grade: GradeLevel;
+        // 复习调度算法：艾宾浩斯 / ts-fsrs
+        scheduler: SchedulerAlgo;
         quizMode?: QuizMode;
         wordSource?: WordSource;
         quizCount?: number;
@@ -172,6 +178,8 @@ function getDefaultState(): AppState {
             showExampleInQuiz: false,
             assistSpelling: true,
             includeDerivations: false,
+            grade: GradeLevel.Primary,
+            scheduler: SchedulerAlgo.Ebbinghaus,
         },
         quizWords: [],
         currentQuizWord: null,

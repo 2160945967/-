@@ -159,3 +159,24 @@ export function updateTomorrowWords(): void {
     }
 }
 
+/** 统计页顶部：学习数据概览卡片 */
+export function renderStatOverview(): void {
+    const host = document.getElementById('stat-overview');
+    if (!host) return;
+    updateStudyStats(); // 先汇总，保证数字最新
+    const s = appState.studyStats;
+    const cards: Array<{ label: string; value: string | number }> = [
+        { label: '总学习单词数', value: Number(s.learnedCount) || 0 },
+        { label: '查词总数', value: Number(s.searchCount) || 0 },
+        { label: '学习天数', value: Number(s.studyDays) || 0 },
+        { label: '今日学习单词', value: Number(s.todayWords) || 0 },
+        { label: '错题数', value: Number(s.errorWords) || 0 },
+        { label: '明日计划', value: `${Number(s.tomorrowWords) || 0} 词` },
+        { label: '今日学习时长', value: formatDuration(Number(s.todaySeconds) || 0) },
+        { label: '累计学习时长', value: formatDuration(Number(s.totalSeconds) || 0) },
+    ];
+    host.innerHTML = cards.map(c =>
+        `<div class="stat-ov-card"><span class="stat-ov-val">${c.value}</span><span class="stat-ov-lbl">${c.label}</span></div>`
+    ).join('');
+}
+

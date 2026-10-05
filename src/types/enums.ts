@@ -55,6 +55,7 @@ export const enum PageSection {
     Review = 'review',
     Settings = 'settings',
     Exam = 'exam',
+    Statistics = 'statistics',
 }
 
 /** 单词内容分类 */
@@ -62,4 +63,18 @@ export const enum ContentType {
     Word = 'word',
     Phrase = 'phrase',
     Sentence = 'sentence',
+}
+
+/** 学段（首次进入弹窗选择，影响默认词库与难度） */
+export const enum GradeLevel {
+    Primary = 'primary',   // 小学
+    Junior = 'junior',     // 初中
+    Senior = 'senior',     // 高中
+    College = 'college',   // 大学（大专 / 本科）
+}
+
+/** 复习调度算法：固定艾宾浩斯间隔 或 ts-fsrs 概率调度 */
+export const enum SchedulerAlgo {
+    Ebbinghaus = 'ebbinghaus',
+    Fsrs = 'fsrs',
 }

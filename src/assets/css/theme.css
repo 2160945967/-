@@ -129,6 +129,7 @@ pre,
 .translation-container,
 #search-history-items > div {
     transition: background-color 0.25s ease,
+                color 0.3s ease,
                 border-color 0.25s ease,
                 box-shadow 0.25s ease;
 }
@@ -490,49 +491,19 @@ body.dark-mode #bg-under {
         linear-gradient(135deg, #0f0f12 0%, #1a1d23 50%, #151920 100%);
 }
 
-/* 顶层背景层 - 待切换主题（颜色由 JS 动态设置，过渡由 clip-path 动画实现） */
+/* ===== 主题切换：底层背景圆形扩散（视口坐标，滚动无关） =====
+   global.toggleTheme 动态创建 #bg-over：fixed、z-index -1（在常驻底层 #bg-under(-2) 之上、
+   所有容器之下），不遮挡任何文字；Web Animations 驱动 clip-path 从点击位置圆形扩散揭示新背景。
+   容器 / 文字不在覆盖层内，切换时由各自 CSS color/background transition 平滑渐变。
+   不使用 View Transitions：其 new 快照在冷启动 / 长页面 / 滚动后捕获延迟可达约 2 秒，
+   期间真实 DOM 已变色且直接可见，导致圆形只覆盖一部分、其余直接变色。 */
 #bg-over {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     z-index: -1;
     pointer-events: none;
-    background: linear-gradient(135deg, #f0f4f8 0%, #e2eef5 50%, #dce8f0 100%);
-    clip-path: circle(0 at var(--x, 50px) var(--y, 50px));
-}
-
-/* 主题切换水波扩散层——在背景上面、内容下面
-   z-index: -1（和 #bg-over 同级，DOM 在它后面 → 覆盖它）
-   内容元素（static）在 stacking context 第3层，天然高于 z-index:-1 的第2层
-   clip-path 从点击位置向外扩散，GSAP 驱动 */
-#theme-mask {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -1;
-    pointer-events: none;
-    display: none;
-}
-
-/* ===== 主题切换：View Transitions 圆形揭示 =====
-   global.toggleTheme 用 Web Animations 驱动 ::view-transition-new(root) 的 clip-path，
-   从点击位置圆形扩散揭示新主题。Electron 28 / Chromium 120 原生合成、单伪元素动画，
-   旧实现为页面每个元素各建一个遮罩并读取布局，导致上百个 clip-path 动画与强制回流同时发生而掉帧，现已移除。 */
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation: none;
-    mix-blend-mode: normal;
-}
-::view-transition-old(root) { z-index: 1; }
-::view-transition-new(root) { z-index: 2; }
-
-@media (prefers-reduced-motion: reduce) {
-    ::view-transition-old(root),
-    ::view-transition-new(root) {
-        animation: none;
-    }
+    background-repeat: no-repeat;
 }

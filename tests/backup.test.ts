@@ -49,7 +49,7 @@ describe('parseBackup 校验', () => {
 });
 
 describe('fileTimestamp', () => {
-  it('格式为 YYYYMMDD-HHMMSS', () => {
-    expect(fileTimestamp(new Date(2026, 9, 2, 8, 5, 3))).toBe('20261002-080503');
+  it('格式为普通人可读的 YYYY-MM-DD_HH-MM-SS', () => {
+    expect(fileTimestamp(new Date(2026, 9, 2, 8, 5, 3))).toBe('2026-10-02_08-05-03');
   });
 });

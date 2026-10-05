@@ -15,6 +15,11 @@ import { playCorrectSound, playWrongSound, playCompleteSound, playClickSound } f
 import { apiTranslate } from '../utils/api';
 import { selectMeaningsForQuestion, buildMeaningDisplayHtml, checkQuizAnswer, zhMeaningMatch, splitEcdictTranslation, type CheckAnswerResult } from '../utils/quizHelper';
 import { safeParse } from '../utils/storage';
+import { computeFsrs, type FsrsGrade } from '../utils/scheduler';
+import {
+    recordWordLearned, getStreakData, getTodayEntry, fireCelebration,
+    type GamEvent,
+} from '../utils/gamification';
 import { fetchWordDefinitionsInBatches } from '../utils/quizCommon';
 import {
     SessionState,
@@ -245,17 +250,31 @@ export function recordLearningHistory(word: string, isCorrect: boolean): void {
         learningHistory[word].correctCount++;
     } else {
         learningHistory[word].errorCount++;
-        // 答错时重置正确计数，下次复习回到初始间隔（1天），符合艾宾浩斯遗忘曲线的复习逻辑
+        // 答错时重置正确计数，下次复习回到初始间隔，符合遗忘曲线的复习逻辑
         learningHistory[word].correctCount = 0;
     }
 
-    // 计算下一次复习时间（基于艾宾浩斯遗忘曲线）
-    // 时间间隔：1天、2天、4天、7天、15天、30天、60天、90天
-    const intervals = [24*60*60*1000, 48*60*60*1000, 96*60*60*1000, 168*60*60*1000, 360*60*60*1000, 720*60*60*1000, 1440*60*60*1000, 2160*60*60*1000];
+    if (appState.settings.scheduler === 'fsrs') {
+        // ts-fsrs 概率调度，本次表现映射为四级评分：
+        // 答错（含主动看答案揭晓）→ Again；本轮错过后才答对 → Hard；
+        // 一次答对且该卡已复习 3 次以上（成熟卡仍秒答）→ Easy；其余一次答对 → Good
+        const oldCard = learningHistory[word].card;
+        let grade: FsrsGrade;
+        if (!isCorrect) grade = 'again';
+        else if (appState.errorCount > 0) grade = 'hard';
+        else if (oldCard && Number(oldCard.reps) >= 3) grade = 'easy';
+        else grade = 'good';
 
-    // 基于正确次数选择间隔
-    let intervalIndex = Math.min(learningHistory[word].correctCount, intervals.length - 1);
-    learningHistory[word].nextReviewTime = now + intervals[intervalIndex];
+        const r = computeFsrs(oldCard, grade, now);
+        learningHistory[word].card = r.card;
+        learningHistory[word].nextReviewTime = r.nextReviewTime;
+    } else {
+        // 固定艾宾浩斯间隔：1天、2天、4天、7天、15天、30天、60天、90天
+        const intervals = [24*60*60*1000, 48*60*60*1000, 96*60*60*1000, 168*60*60*1000, 360*60*60*1000, 720*60*60*1000, 1440*60*60*1000, 2160*60*60*1000];
+        // 基于正确次数选择间隔
+        let intervalIndex = Math.min(learningHistory[word].correctCount, intervals.length - 1);
+        learningHistory[word].nextReviewTime = now + intervals[intervalIndex];
+    }
 
     localStorage.setItem('learningHistory', JSON.stringify(learningHistory));
 }
@@ -597,6 +616,8 @@ function commitCurrentAnswer(isCorrect: boolean): void {
     appState.studyStats.learnedCount++;
     updateStudyStats();
     localStorage.setItem('studyStats', JSON.stringify(appState.studyStats));
+    // 连胜 / 每日目标 / 里程碑
+    handleGamEvent(recordWordLearned(1));
     void updateWordSourceSelect();
     saveAnsweredWords();
     if (quizSession) {
@@ -609,6 +630,47 @@ function commitCurrentAnswer(isCorrect: boolean): void {
     }
     // 自动备份（节流）：答题进度定期落盘到用户数据目录
     notifyActivity();
+    updateStreakPanel();
+}
+
+// ---------------- 连胜 / 目标 / 里程碑 UI ----------------
+function handleGamEvent(ev: GamEvent): void {
+    if (ev.milestone !== undefined) {
+        fireCelebration();
+        showToast(
+            `达成 ${ev.milestone} 天连胜里程碑${ev.freezeReward ? `，获得 ${ev.freezeReward} 张保护卡` : ''}`,
+            'success', 3400);
+    } else if (ev.goalJustMet) {
+        fireCelebration();
+        showToast('今日学习目标已达成', 'success', 2600);
+    } else if (ev.streakFrozen) {
+        showToast('已自动使用 1 张保护卡，连胜未中断', 'info', 2800);
+    }
+}
+
+/** 刷新测验页激励面板（连胜 / 保护卡 / 今日进度） */
+export function updateStreakPanel(): void {
+    const host = document.getElementById('quiz-streak-panel');
+    if (!host) return;
+    const st = getStreakData();
+    const today = getTodayEntry();
+    const goal = Math.max(1, Number(appState.settings.dailyWordCount) || 20);
+    const pct = Math.min(100, Math.round((today.words / goal) * 100));
+    host.innerHTML = `
+      <div class="sp-item" title="连续学习天数">
+        <span class="sp-icon sp-flame">🔥</span>
+        <span class="sp-num">${st.current}</span>
+        <span class="sp-label">天连胜</span>
+      </div>
+      <div class="sp-item" title="错过一天时自动消耗一张，保住连胜">
+        <span class="sp-icon sp-freeze">🧊</span>
+        <span class="sp-num">${st.freezes}</span>
+        <span class="sp-label">张保护卡</span>
+      </div>
+      <div class="sp-progress">
+        <div class="sp-progress-head"><span>今日 ${today.words}/${goal} 词</span><span>${pct}%</span></div>
+        <div class="sp-progress-track"><div class="sp-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
 }
 
 const LOOP_COUNTS_KEY = 'quizLoopCounts';
