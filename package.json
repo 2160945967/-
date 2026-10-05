@@ -18,11 +18,11 @@
     "electron:start": "npm run build && npm run prepackage && npm run electron:compile && chcp 65001 >nul && electron .",
     "gen:icons": "node tools/gen-icons.cjs",
     "prepackage": "node -e \"require('fs').mkdirSync('electron-dist',{recursive:true});require('fs').writeFileSync('electron-dist/package.json',JSON.stringify({type:'commonjs'}))\"",
-    "pack:online": "electron-builder --config electron-builder.config.cjs",
-    "pack:offline": "cross-env BUILD_VARIANT=offline electron-builder --config electron-builder.config.cjs",
-    "dist:win": "npm run build && npm run prepackage && npm run electron:compile && electron-builder --win --x64 --config electron-builder.config.cjs",
-    "dist:win:offline": "npm run build && npm run prepackage && npm run electron:compile && cross-env BUILD_VARIANT=offline electron-builder --win --x64 --config electron-builder.config.cjs",
-    "dist:dir": "npm run build && npm run prepackage && npm run electron:compile && electron-builder --win --x64 --dir --config electron-builder.config.cjs"
+    "pack:online": "electron-builder --config electron-builder.online.yml",
+    "pack:offline": "electron-builder --config electron-builder.offline.yml",
+    "dist:win": "npm run build && npm run prepackage && npm run electron:compile && electron-builder --win --x64 --config electron-builder.online.yml",
+    "dist:win:offline": "npm run build && npm run prepackage && npm run electron:compile && electron-builder --win --x64 --config electron-builder.offline.yml",
+    "dist:dir": "npm run build && npm run prepackage && npm run electron:compile && electron-builder --win --x64 --dir --config electron-builder.online.yml"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

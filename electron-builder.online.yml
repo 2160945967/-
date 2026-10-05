@@ -1,0 +1,86 @@
+appId: com.shici.app
+productName: 拾词
+npmRebuild: false
+compression: maximum
+asar: true
+directories:
+  output: release-final4
+
+# 在线小包仅内置约 3MB 文本资源；大资源首次运行按需下载
+extraResources:
+  - from: resource/resemble.txt
+    to: resemble.txt
+  - from: resource/lemma.en.txt
+    to: lemma.en.txt
+  - from: resource/wordroot.txt
+    to: wordroot.txt
+
+asarUnpack:
+  - node_modules/better-sqlite3/**/*.node
+  - node_modules/sherpa-onnx-win-x64/**
+  - node_modules/sherpa-onnx-darwin-x64/**
+  - node_modules/sherpa-onnx-darwin-arm64/**
+  - node_modules/sherpa-onnx-linux-x64/**
+  - node_modules/sherpa-onnx-linux-arm64/**
+  - node_modules/7zip-bin/**/*
+
+files:
+  - electron-dist/**/*
+  - '!electron-dist/**/*.map'
+  - dist/**/*
+  - node_modules/**/*
+  - wordbooks.json
+  - logo.ico
+  - package.json
+  - '!node_modules/**/*.d.ts'
+  - '!node_modules/**/*.map'
+  - '!node_modules/**/test/**/*'
+  - '!node_modules/**/tests/**/*'
+  - '!node_modules/**/docs/**/*'
+  - '!node_modules/**/README*'
+  - '!node_modules/**/CHANGELOG*'
+  - '!node_modules/**/LICENSE*'
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: logo.ico
+  artifactName: 拾词-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 拾词
+  include: build/uninstaller.nsh
+  license: build/license.txt
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  icon: build/icon.png
+  category: public.app-category.education
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  artifactName: 拾词-${version}-${arch}.${ext}
+
+dmg:
+  artifactName: 拾词-${version}-${arch}.${ext}
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  icon: build/icons
+  category: Education
+  maintainer: yangs-project
+  synopsis: 拾词 - 离线背单词桌面应用
+  artifactName: 拾词-${version}-${arch}.${ext}
