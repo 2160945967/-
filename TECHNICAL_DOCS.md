@@ -142,6 +142,8 @@
 
 │   │   ├── quizCommon.ts         # 测验/复习公共逻辑：IME 处理、快捷键、防抖、释义选择
 
+│   │   ├── listeningStuck.ts     # 听力卡壳词统一逻辑：归一化去重、计数、弹幕、查词补全（exam/dictionary 共用）
+
 │   │   ├── quizHelper.ts         # 测验答案检查与释义选择
 
 │   │   ├── regex.ts              # 常用正则表达式模式
@@ -1601,6 +1603,10 @@ export async function startQuiz(): Promise\<void> {
 * 卡壳词数据持久化到 `localStorage`，通过 `appState.listeningStuckWords` 全局共享，后续可用于薄弱点分析看板。
 
 * 相关函数：`markAsListeningStuck()`（记录卡壳词）、`buildCurrentRoundStuckWordsHtml()`（生成结果列表）。
+
+* 听力卡壳词的通用读写已抽到 `src/utils/listeningStuck.ts`，供模拟题听力与词典详情复用：`keyOf()` 以小写原形归一（解决原文句首大写重复）、`addListeningStuckWord()` 返回是否新建并累加 `stuckCount`、`addListeningStuckWithToast()` 负责「已添加 / 已存在」弹幕、`enrichStuckWord()` 在原文右键时异步查 `/api/search` 补全音标与释义（仅补空缺、失败静默）。
+
+* 模拟题听力交卷后查看原文，原文单词左键查词、右键经 `contextmenu` 委托添加为听力卡壳词；词典详情页提供「添加为听力卡壳词」按钮（`#add-to-stuck`）。
 
 #### 艾宾浩斯遗忘曲线
 

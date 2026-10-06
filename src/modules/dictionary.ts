@@ -11,6 +11,7 @@ import { apiGet, apiPost, apiTranslate } from '../utils/api';
 import { parseMeanings, normalizeNewlines, formatDefinitionHtml, fallbackPart } from '../utils/translation';
 import { showToast, animateResultShow } from '../utils/gsap';
 import { safeParse } from '../utils/storage';
+import { isListeningStuck, addListeningStuckWithToast } from '../utils/listeningStuck';
 
 let _dictDocClickHandler: ((e: Event) => void) | null = null;
 
@@ -961,6 +962,7 @@ export function displayResult(data: WordData): void {
         );
     }
     const isInFavorites = appState.favorites.some(item => typeof item === 'object' && (item as any).word === data.word);
+    const isStuck = isListeningStuck(data.word);
 
     let wordbookOptions = '<option value="" disabled selected>选择单词本</option>';
     for (const name in appState.wordbooks) {
@@ -1032,6 +1034,9 @@ export function displayResult(data: WordData): void {
     buttonsHtml += '<button class="favorites-btn ' + (isInFavorites ? 'active' : '') + '" id="add-to-favorites">';
     buttonsHtml += isInFavorites ? '已收藏' : '加入收藏';
     buttonsHtml += '</button>';
+    buttonsHtml += '<button class="favorites-btn ' + (isStuck ? 'active' : '') + '" id="add-to-stuck">';
+    buttonsHtml += isStuck ? '已为听力卡壳词' : '添加为听力卡壳词';
+    buttonsHtml += '</button>';
     buttonsHtml += '</div>';
 
     // 构建例句HTML
@@ -1086,6 +1091,14 @@ export function displayResult(data: WordData): void {
     if (addToFavoritesBtn) {
         addToFavoritesBtn.addEventListener('click', function() {
             toggleFavorites(data);
+        });
+    }
+
+    const addToStuckBtn = document.getElementById('add-to-stuck');
+    if (addToStuckBtn) {
+        addToStuckBtn.addEventListener('click', function() {
+            addListeningStuckWithToast({ word: data.word, phonetic: data.phonetic, meanings: data.meanings });
+            updateAddToStuckButton();
         });
     }
 
@@ -1280,6 +1293,15 @@ export function updateAddToFavoritesButton(): void {
         const isInFavorites = appState.favorites.some(item => typeof item === 'object' && (item as any).word === appState.currentSearchWord.word);
         addToFavoritesBtn.classList.toggle('active', isInFavorites);
         addToFavoritesBtn.textContent = isInFavorites ? '已收藏' : '加入收藏';
+    }
+}
+
+export function updateAddToStuckButton(): void {
+    const addToStuckBtn = document.getElementById('add-to-stuck');
+    if (addToStuckBtn && appState.currentSearchWord) {
+        const stuck = isListeningStuck(appState.currentSearchWord.word);
+        addToStuckBtn.classList.toggle('active', stuck);
+        addToStuckBtn.textContent = stuck ? '已为听力卡壳词' : '添加为听力卡壳词';
     }
 }
 

@@ -6,6 +6,7 @@ import { escapeHtml, switchPage } from '../global';
 import { searchWord } from './dictionary';
 import { apiGet } from '../utils/api';
 import { gradeQuestions } from '../utils/examGrade';
+import { addListeningStuckWithToast, enrichStuckWord } from '../utils/listeningStuck';
 import { PageSection } from '../types/enums';
 
 const BASE_URL = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
@@ -734,7 +735,7 @@ function transcriptBlockHtml(): string {
         <h5>${esc(b.heading)}</h5>
         ${b.paras.map(p => `<p>${processTranscript(p)}</p>`).join('')}
       </div>`).join('');
-    return `<div class="ex-block ex-transcript"><h4>听力原文</h4><div class="ex-word-hint">💡 提示：<span class="ex-target-eg">高亮词</span>为本套四级核心词；点击任意单词可查看它的详细释义</div>${html}</div>`;
+    return `<div class="ex-block ex-transcript"><h4>听力原文</h4><div class="ex-word-hint">💡 提示：<span class="ex-target-eg">高亮词</span>为本套四级核心词；<strong>左键</strong>任意单词查看释义，<strong>右键</strong>可添加为听力卡壳词</div>${html}</div>`;
 }
 
 /**
@@ -970,8 +971,18 @@ export function initExam(): void {
     box.addEventListener('click', (e: MouseEvent) => {
         void onClick(e);
     });
-    // 题库列表右键：查看上次答题情况（左键为重新做）
+    // 右键：① 听力原文单词 → 添加为听力卡壳词；② 题库列表 → 查看上次答题情况
     box.addEventListener('contextmenu', (e: MouseEvent) => {
+        const wordNode = (e.target as HTMLElement).closest('.ex-transcript .ex-word') as HTMLElement | null;
+        if (wordNode && box.contains(wordNode)) {
+            e.preventDefault();
+            const w = wordNode.dataset.word || '';
+            if (w) {
+                addListeningStuckWithToast({ word: w });
+                void enrichStuckWord(w);
+            }
+            return;
+        }
         const item = (e.target as HTMLElement).closest('.ex-list-item') as HTMLElement | null;
         if (!item || !box.contains(item)) return;
         e.preventDefault();
@@ -994,7 +1005,10 @@ export function initExam(): void {
         const w = (e.target as HTMLElement).closest('.ex-word') as HTMLElement | null;
         if (w && box.contains(w)) {
             const tip = ensureWordTip();
-            tip.textContent = `点击查看「${w.dataset.word || ''}」的详细释义`;
+            const word = w.dataset.word || '';
+            tip.textContent = w.closest('.ex-transcript')
+                ? `左键查看「${word}」释义 · 右键添加为听力卡壳词`
+                : `点击查看「${word}」的详细释义`;
             moveWordTip(e.clientX, e.clientY);
         } else {
             hideWordTip();
